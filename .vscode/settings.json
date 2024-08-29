@@ -10,6 +10,7 @@
 		"ios": "c",
 		"format": "c",
 		"debug.h": "c",
-		"freeradius.internal.password.h": "c"
+		"freeradius.internal.password.h": "c",
+		"apps.h": "c"
 	}
 }

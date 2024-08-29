@@ -555,8 +555,8 @@ ATTRIBUTE	Cast-Base				2300	byte
 #
 #   Certificate Signing Stuff
 #
-ATTRIBUTE   PKCS7           2400    string
-ATTRIBUTE   PKCS10          2401    string
+ATTRIBUTE   PKCS7           2400    octets
+ATTRIBUTE   PKCS10          2401    octets
 
 #	Range:	3000-3999
 #		Site-local attributes (see raddb/dictionary.in)
