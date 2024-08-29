@@ -3,5 +3,13 @@
 	"files.insertFinalNewline": true,
 	"[diff]" : {
 		"files.trimTrailingWhitespace": false
+	},
+	"files.associations": {
+		"table.h": "c",
+		"__locale": "c",
+		"ios": "c",
+		"format": "c",
+		"debug.h": "c",
+		"freeradius.internal.password.h": "c"
 	}
 }

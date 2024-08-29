@@ -16,13 +16,17 @@
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c11",
             "cppStandard": "c++14",
-	    "mergeConfigurations": true,
+            "mergeConfigurations": true,
             "intelliSenseMode": "linux-clang-x64"
         },
         {
             "name": "Mac",
             "includePath": [
-                "${workspaceFolder}/src/**"
+                "${workspaceFolder}/src/**",
+                "/opt/homebrew/Cellar/openssl@3/3.3.1/include",
+                "${workspaceFolder}/src/protocols",
+                "/opt/homebrew/include",
+                "/Users/ethanthompson/devel/openssl/apps/include"
             ],
             "forcedInclude": [
                 "${workspaceFolder}/src/freeradius-devel/autoconf.h",
@@ -34,8 +38,9 @@
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c11",
             "cppStandard": "c++14",
-	    "mergeConfigurations": true,
-            "intelliSenseMode": "linux-clang-x64"
+            "mergeConfigurations": true,
+            "intelliSenseMode": "linux-clang-x64",
+            "configurationProvider": "ms-vscode.makefile-tools"
         }
     ],
     "version": 4
