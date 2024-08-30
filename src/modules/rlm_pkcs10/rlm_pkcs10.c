@@ -19,12 +19,14 @@
 #include "lib/unlang/interpret.h"
 #include "openssl/asn1.h"
 #include "openssl/evp.h"
+
 #include "talloc.h"
 #include <freeradius-devel/server/module_rlm.h>
 #include <freeradius-devel/tls/log.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <stdint.h>
+#include <time.h>
 
 typedef struct {
     char const *pkcs10_name;
@@ -80,7 +82,8 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     const uint8_t *pkcs10_buf;
 
     X509_REQ *req;
-    X509 *CAcert = NULL, *certificate = NULL;;
+    X509 *CAcert = NULL, *certificate = NULL;
+    STACK_OF(X509_EXTENSION) *req_exts, *exts;
     EVP_PKEY *pkey = NULL, *CAkey = NULL;
 
     const char *CAkeyfile = "/Users/ethanthompson/devel/tests/key.pem";
@@ -155,11 +158,14 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     X509_gmtime_adj(X509_get_notAfter(certificate), 31536000L);
 
     // Copy the extensions
-    STACK_OF(X509_EXTENSION) *exts = X509_REQ_get_extensions(req);
-    for (int i = 0; i < sk_X509_EXTENSION_num(exts); i++) {
-        X509_EXTENSION *ext = sk_X509_EXTENSION_value(exts, i);
-        X509_add_ext(certificate, ext, -1);
+    req_exts = X509_REQ_get_extensions(req);
+    for (int i = 0; i < sk_X509_EXTENSION_num(req_exts); i++) {
+        X509_EXTENSION *req_ext = sk_X509_EXTENSION_value(req_exts, i);
+        X509_add_ext(certificate, req_ext, -1);
     }
+
+    // Add more extensions
+
 
     // Sign the CSR
     RDEBUG("Signing certificate");
