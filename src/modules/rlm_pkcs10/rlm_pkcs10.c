@@ -14,6 +14,8 @@
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include "lib/server/log.h"
+#include "lib/server/rcode.h"
 #include "lib/unlang/interpret.h"
 #include "openssl/asn1.h"
 #include "openssl/evp.h"
@@ -74,71 +76,70 @@ static int mod_instantiate(module_inst_ctx_t const *mctx)
  */
 static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, module_ctx_t const *mctx, request_t *request)
 {
-    fr_pair_t *pkcs10;
+    fr_pair_t *pkcs10, *vp;
+    const uint8_t *pkcs10_buf;
+
+    X509_REQ *req;
+    X509 *CAcert = NULL, *certificate = NULL;;
+    EVP_PKEY *pkey = NULL, *CAkey = NULL;
+
+    const char *CAkeyfile = "/Users/ethanthompson/devel/tests/key.pem";
+    const char *CAcertfile = "/Users/ethanthompson/devel/tests/cert.pem";
+    unsigned char *der = NULL;
+    int len;
+
     pkcs10 = fr_pair_find_by_da(&request->request_pairs, NULL, attr_pkcs10);
 
     RDEBUG("Decoding PKCS10 request");
-    uint8_t *pkcs10_buf = talloc_memdup(unlang_interpret_frame_talloc_ctx(request), pkcs10->vp_octets, pkcs10->vp_length);
+    pkcs10_buf = talloc_memdup(unlang_interpret_frame_talloc_ctx(request), pkcs10->vp_octets, pkcs10->vp_length);
 
 
-    X509_REQ *req;
     req = d2i_X509_REQ(NULL, &pkcs10_buf, talloc_array_length(pkcs10_buf));
 
-    // TODO: Do this in a friendlier way to the debugger
+    // Check that the request was decoded correctly
     if (req == NULL) {
-        // Log error
-        fprintf(stderr, "Error decoding PKCS10 request\n");
-        exit(1);
+        RDEBUG("Error decoding PKCS10 request");
+        RDEBUG("The PKCS10 request is likely malformed");
+        RETURN_MODULE_INVALID;
     }
 
     // Verify the request
     RDEBUG("Verifying request");
-    EVP_PKEY *pkey = NULL;
     if ((pkey = X509_REQ_get_pubkey(req)) == NULL) {
-        // Log error
-        fprintf(stderr, "Error getting public key from request\n");
-        exit(1);
+        RDEBUG("Error getting public key from request");
+        RETURN_MODULE_INVALID;
     }
 
-
     if (X509_REQ_verify(req, pkey) <= 0) {
-        // Log error
-        fprintf(stderr, "Error verifying request\n");
-        exit(1);
+        RDEBUG("Error verifying request");
+        RETURN_MODULE_INVALID;
     }
 
     // Load the CA key
-    RDEBUG("Loading CA key");
-    char *CAkeyfile = "//Users/ethanthompson/devel/tests/key.pem";
-    EVP_PKEY *CAkey = NULL;
+    RDEBUG("Loading CA key and certificate");
 
+    // Load the CA key
     FILE *file = fopen(CAkeyfile, "r");
     CAkey = PEM_read_PrivateKey(file, NULL, NULL, NULL);
     fclose(file);
-
-    // Check the CA key and certificate
-    RDEBUG("Checking CA key and certificate");
-    X509 *CAcert = NULL;
-    char *CAcertfile = "/Users/ethanthompson/devel/tests/cert.pem";
 
     // Load the CA certificate
     FILE *fp = fopen(CAcertfile, "r");
     CAcert = PEM_read_X509(fp, NULL, NULL, NULL);
     fclose(fp);
 
+    // Check the CA key and certificate
+    RDEBUG("Checking CA key and certificate");
     if (!X509_check_private_key(CAcert, CAkey)) {
-        // Log error
-        fprintf(stderr, "CA certificate and CA private key do not match\n");
-        exit(1);
+        RDEBUG("CA certificate and CA private key do not match");
+        RETURN_MODULE_FAIL;
     }
 
     // Create the certificate
     RDEBUG("Creating certificate");
-    X509 *certificate = NULL;
     if ((certificate = X509_new()) == NULL) {
-        // Log error
-        fprintf(stderr, "Error creating certificate\n");
-        exit(1);
+        RDEBUG("Error creating a new certificate");
+        RETURN_MODULE_FAIL;
     }
 
     RDEBUG("Setting certificate fields");
@@ -163,28 +164,23 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     // Sign the CSR
     RDEBUG("Signing certificate");
     if (!X509_sign(certificate, CAkey, EVP_sha256())) {
-        // Log error
-        fprintf(stderr, "Error signing certificate\n");
-        exit(1);
+        RDEBUG("Error signing certificate");
+        RETURN_MODULE_FAIL;
     }
 
     RDEBUG("Creating DER response");
-    int len;
-    unsigned char *der = NULL;
+    // Convert the X509 certificate to DER format and return the length of the DER data
     len = i2d_X509(certificate, &der);
+    RDEBUG2("DER length: %d", len);
 
     // Set the response attribute
     RDEBUG("Setting PKCS7 response");
-    fr_pair_t *vp;
     MEM(vp = fr_pair_afrom_da(request->request_ctx, attr_pkcs7));
-
-    RDEBUG("DER length: %d", len);
 
     // Copy the DER data into the value buffer
     if (fr_pair_value_memdup(vp, der, len, true) < 0) {
-        // Log error
-        fprintf(stderr, "Error setting PKCS7 response\n");
-        exit(1);
+        RDEBUG("Error setting PKCS7 response");
+        RETURN_MODULE_FAIL;
     }
 
     fr_pair_append(&request->request_pairs, vp);
