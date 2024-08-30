@@ -11,6 +11,9 @@
 		"format": "c",
 		"debug.h": "c",
 		"freeradius.internal.password.h": "c",
-		"apps.h": "c"
+		"apps.h": "c",
+		"rlm_yubikey.h": "c",
+		"rlm_mschap.h": "c",
+		"mschap.h": "c"
 	}
 }

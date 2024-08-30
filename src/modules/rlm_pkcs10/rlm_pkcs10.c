@@ -14,13 +14,15 @@
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include "lib/unlang/interpret.h"
+#include "openssl/asn1.h"
+#include "openssl/evp.h"
+#include "talloc.h"
 #include <freeradius-devel/server/module_rlm.h>
 #include <freeradius-devel/tls/log.h>
-// #include <openssl/pkcs7.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
-
-// #include <apps.h>
+#include <stdint.h>
 
 typedef struct {
     char const *pkcs10_name;
@@ -76,8 +78,11 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     pkcs10 = fr_pair_find_by_da(&request->request_pairs, NULL, attr_pkcs10);
 
     RDEBUG("Decoding PKCS10 request");
+    uint8_t *pkcs10_buf = talloc_memdup(unlang_interpret_frame_talloc_ctx(request), pkcs10->vp_octets, pkcs10->vp_length);
+
+
     X509_REQ *req;
-    req = d2i_X509_REQ(NULL, &pkcs10->vp_ptr, pkcs10->vp_length);
+    req = d2i_X509_REQ(NULL, &pkcs10_buf, talloc_array_length(pkcs10_buf));
 
     // TODO: Do this in a friendlier way to the debugger
     if (req == NULL) {
@@ -95,8 +100,6 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
         exit(1);
     }
 
-    // STACK_OF(OPENSSL_STRING) *vfyopts = NULL;
-    // vfyopts = sk_OPENSSL_STRING_new_null();
 
     if (X509_REQ_verify(req, pkey) <= 0) {
         // Log error
@@ -107,7 +110,6 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     // Load the CA key
     RDEBUG("Loading CA key");
     char *CAkeyfile = "//Users/ethanthompson/devel/tests/key.pem";
-
     EVP_PKEY *CAkey = NULL;
 
     FILE *file = fopen(CAkeyfile, "r");
@@ -139,16 +141,27 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
         exit(1);
     }
 
-    // Copy extensions here if desired
-    // copy_extensions(x, request, ext_copy)
+    RDEBUG("Setting certificate fields");
+    X509_set_subject_name(certificate, X509_REQ_get_subject_name(req)); // Set the subject name
+    X509_set_issuer_name(certificate, X509_get_subject_name(CAcert)); // Set the issuer name
 
-    RDEBUG("Setting certificate subject and public key");
-    X509_set_subject_name(certificate, X509_REQ_get_subject_name(req));
-    X509_set_pubkey(certificate, pkey);
+    X509_set_pubkey(certificate, pkey); // Set the public key
+
+    ASN1_INTEGER_set(X509_get_serialNumber(certificate), 1); // Set the serial number
+
+    // Set the validity period
+    X509_gmtime_adj(X509_get_notBefore(certificate), 0);
+    X509_gmtime_adj(X509_get_notAfter(certificate), 31536000L);
+
+    // Copy the extensions
+    STACK_OF(X509_EXTENSION) *exts = X509_REQ_get_extensions(req);
+    for (int i = 0; i < sk_X509_EXTENSION_num(exts); i++) {
+        X509_EXTENSION *ext = sk_X509_EXTENSION_value(exts, i);
+        X509_add_ext(certificate, ext, -1);
+    }
 
     // Sign the CSR
     RDEBUG("Signing certificate");
-
     if (!X509_sign(certificate, CAkey, EVP_sha256())) {
         // Log error
         fprintf(stderr, "Error signing certificate\n");
@@ -160,26 +173,15 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     unsigned char *der = NULL;
     len = i2d_X509(certificate, &der);
 
-    // // Set the pem response
-    // fr_pair_t *vp;
-    // MEM(vp = fr_pair_afrom_da(request->request_ctx, attr_pkcs7));
-    // // fr_pair_value_memdup(vp, "0xabcdf", sizeof("0xabcdf"), true);
-    // fr_pair_value_strdup(vp, pemData, true);
-    // fr_pair_append(&request->request_pairs, vp);
-
-
-    // Set the pem response
+    // Set the response attribute
     RDEBUG("Setting PKCS7 response");
     fr_pair_t *vp;
     MEM(vp = fr_pair_afrom_da(request->request_ctx, attr_pkcs7));
-    // fr_pair_value_memdup(vp, "0xabcdf", sizeof("0xabcdf"), true);
-    // fr_pair_value_strdup(vp, "0xabcdef", true);
-
-    // fr_pair_value_strdup(vp, der, true);
 
     RDEBUG("DER length: %d", len);
 
-    if (fr_pair_value_memdup(vp, der, sizeof(der), true) < 0) {
+    // Copy the DER data into the value buffer
+    if (fr_pair_value_memdup(vp, der, len, true) < 0) {
         // Log error
         fprintf(stderr, "Error setting PKCS7 response\n");
         exit(1);
