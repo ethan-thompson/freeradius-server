@@ -14,30 +14,35 @@
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
-#include "include/build.h"
-#include "lib/server/cf_util.h"
-#include "lib/server/log.h"
-#include "lib/server/rcode.h"
-#include "lib/unlang/interpret.h"
-#include "lib/util/syserror.h"
-#include "openssl/asn1.h"
-#include "openssl/crypto.h"
-#include "openssl/evp.h"
-
-#include "openssl/obj_mac.h"
-#include "talloc.h"
 #include <errno.h>
+
+#include <freeradius-devel/server/cf_util.h>
+#include <freeradius-devel/server/log.h>
 #include <freeradius-devel/server/module_rlm.h>
+#include <freeradius-devel/server/rcode.h>
+#include <freeradius-devel/server/map.h>
 #include <freeradius-devel/tls/log.h>
 #include <freeradius-devel/tls/strerror.h>
+#include <freeradius-devel/tls/utils.h>
+#include <freeradius-devel/unlang/interpret.h>
+#include <freeradius-devel/util/syserror.h>
+
+#include <openssl/asn1.h>
+#include <openssl/crypto.h>
+#include <openssl/evp.h>
+#include <openssl/obj_mac.h>
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
+
 #include <stdint.h>
 #include <time.h>
 
+/** The module context for the PKCS10 module.
+ */
 typedef struct {
-    X509        *certificate;
-    EVP_PKEY    *private_key;
+    X509        *certificate;               //!< The CA certificate used to sign the certificate.
+    EVP_PKEY    *private_key;               //!< The private key used to sign the certificate.
+    char const  *private_key_password;      //!< Literal string used to decrypt the private key.
 } rlm_pkcs10_t;
 
 static int cf_parse_certificate_file(UNUSED TALLOC_CTX *ctx, void *out, UNUSED void *parent, CONF_ITEM *ci, UNUSED conf_parser_t const *rule)
@@ -75,9 +80,8 @@ static int cf_parse_private_key_file(UNUSED TALLOC_CTX *ctx, void *out, void *pa
         cf_log_err(ci,"Error opening CA key file: %s", fr_syserror(errno));
         return -1;
     }
-    ca_key = PEM_read_PrivateKey(fp, NULL, NULL, NULL);
+    ca_key = PEM_read_PrivateKey(fp, NULL, fr_utils_get_private_key_password, UNCONST(void *, inst->private_key_password));
     fclose(fp);
-
     if (ca_key == NULL) {
         fr_tls_strerror_drain();
         cf_log_perr(ci, "Error reading private key file");
@@ -98,8 +102,24 @@ static int cf_parse_private_key_file(UNUSED TALLOC_CTX *ctx, void *out, void *pa
 
 static const conf_parser_t module_config[] = {
     { FR_CONF_OFFSET_TYPE_FLAGS("certificate_file", FR_TYPE_VOID, CONF_FLAG_REQUIRED, rlm_pkcs10_t, certificate), .func = cf_parse_certificate_file },
+
+	{ FR_CONF_OFFSET_FLAGS("private_key_password", CONF_FLAG_SECRET, rlm_pkcs10_t, private_key_password) },	/* Must come before private_key */
     { FR_CONF_OFFSET_TYPE_FLAGS("private_key_file", FR_TYPE_VOID, CONF_FLAG_REQUIRED, rlm_pkcs10_t, private_key), .func = cf_parse_private_key_file },
     CONF_PARSER_TERMINATOR
+};
+
+typedef struct {
+	fr_value_box_t	pkcs10;
+	tmpl_t      	*pkcs7;
+} pkcs10_call_env_t;
+
+static const call_env_method_t csr_method_env = {
+	FR_CALL_ENV_METHOD_OUT(pkcs10_call_env_t),
+	.env = (call_env_parser_t[]) {
+	    { FR_CALL_ENV_OFFSET("pkcs10", FR_TYPE_OCTETS, CALL_ENV_FLAG_REQUIRED, pkcs10_call_env_t, pkcs10) },
+        { FR_CALL_ENV_PARSE_ONLY_OFFSET("pkcs7", FR_TYPE_OCTETS, CALL_ENV_FLAG_ATTRIBUTE | CALL_ENV_FLAG_REQUIRED, pkcs10_call_env_t, pkcs7)},
+	    CALL_ENV_TERMINATOR
+    }
 };
 
 static fr_dict_t const *dict_freeradius;
@@ -132,7 +152,9 @@ fr_dict_attr_autoload_t rlm_pkcs10_dict_attr[] = {
 static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, module_ctx_t const *mctx, request_t *request)
 {
     rlm_pkcs10_t *inst = talloc_get_type_abort(mctx->mi->data, rlm_pkcs10_t);
-    fr_pair_t *pkcs10, *vp;
+    pkcs10_call_env_t *env = talloc_get_type_abort(mctx->env_data, pkcs10_call_env_t);
+
+    fr_pair_t *vp;
     const uint8_t *pkcs10_buf;
 
     X509_REQ *req;
@@ -147,11 +169,9 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     unsigned int md_len;
     int len;
 
-    pkcs10 = fr_pair_find_by_da(&request->request_pairs, NULL, attr_pkcs10);
+    RHEXDUMP3(env->pkcs10.vb_octets, env->pkcs10.vb_length, "Signing Request");
 
-    RHEXDUMP3(pkcs10->vp_octets, pkcs10->vp_length, "Signing Request");
-
-    MEM(pkcs10_buf = talloc_memdup(unlang_interpret_frame_talloc_ctx(request), pkcs10->vp_octets, pkcs10->vp_length));
+    MEM(pkcs10_buf = talloc_memdup(unlang_interpret_frame_talloc_ctx(request), env->pkcs10.vb_octets, env->pkcs10.vb_length));
     req = d2i_X509_REQ(NULL, &pkcs10_buf, talloc_array_length(pkcs10_buf));
 
     // Check that the request was decoded correctly
@@ -192,8 +212,8 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     ASN1_INTEGER_set(X509_get_serialNumber(certificate), 1); // Set the serial number
 
     // Set the validity period
-    X509_gmtime_adj(X509_get_notBefore(certificate), 0);
-    X509_gmtime_adj(X509_get_notAfter(certificate), 31536000L);
+    X509_gmtime_adj(X509_get0_notBefore(certificate), 0);
+    X509_gmtime_adj(X509_get0_notAfter(certificate), 31536000L);
 
     // Copy the extensions
     req_exts = X509_REQ_get_extensions(req);
@@ -232,15 +252,23 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
 
     RHEXDUMP3(der, len, "Signing Response");
 
-    MEM(vp = fr_pair_afrom_da(request->request_ctx, attr_pkcs7));
+	{
+        tmpl_t	match_rhs;
+        map_t	match_map;
 
-    // Copy the DER data into the value buffer
-    if (fr_pair_value_memdup(vp, der, len, true) < 0) {
-        REDEBUG("Error setting PKCS7 response");
-        RETURN_MODULE_FAIL;
+        match_map = (map_t) {
+            .lhs = env->pkcs7,
+            .op = T_OP_SET,
+            .rhs = &match_rhs
+        };
+
+        tmpl_init_shallow(&match_rhs, TMPL_TYPE_DATA, T_BARE_WORD, "", 0, NULL);
+        fr_value_box_memdup_shallow(&match_map.rhs->data.literal, NULL, der, len, false);
+        if (map_to_request(request, &match_map, map_to_vp, NULL) < 0) {
+            RERROR("Failed creating %s", env->pkcs7->name);
+            RETURN_MODULE_FAIL;
+        }
     }
-
-    fr_pair_append(&request->request_pairs, vp);
 
     RETURN_MODULE_OK;
 }
@@ -279,7 +307,7 @@ module_rlm_t rlm_pkcs10 = {
 	},
 	.method_group = {
 		.bindings = (module_method_binding_t[]){
-			{ .section = SECTION_NAME("recv", CF_IDENT_ANY), .method = mod_request },
+			{ .section = SECTION_NAME("recv", CF_IDENT_ANY), .method = mod_request, .method_env = &csr_method_env },
 			MODULE_BINDING_TERMINATOR
 		}
 	}
