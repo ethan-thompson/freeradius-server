@@ -139,8 +139,12 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     X509 *certificate = NULL;
     STACK_OF(X509_EXTENSION) *req_exts, *exts;
     EVP_PKEY *pkey = NULL;
+    BASIC_CONSTRAINTS *bc = BASIC_CONSTRAINTS_new();
+    AUTHORITY_KEYID *akid = AUTHORITY_KEYID_new();
+    X509_EXTENSION *bc_ext = NULL, *akid_ext = NULL;;
 
-    unsigned char *der = NULL;
+    unsigned char *der = NULL, md[EVP_MAX_MD_SIZE];
+    unsigned int md_len;
     int len;
 
     pkcs10 = fr_pair_find_by_da(&request->request_pairs, NULL, attr_pkcs10);
@@ -199,8 +203,6 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     }
 
     // Set/modify the Basic Constraints extension
-    BASIC_CONSTRAINTS *bc = BASIC_CONSTRAINTS_new();
-    X509_EXTENSION *bc_ext = NULL;
     bc->ca = 0;
     bc_ext = X509V3_EXT_i2d(NID_basic_constraints, 1, bc);
     X509_EXTENSION_free(X509_delete_ext(certificate, X509_get_ext_by_NID(certificate, NID_basic_constraints, -1))); // Remove existing extension
@@ -210,15 +212,11 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
 
     // Add more extensions
     // Add the Authority Key Identifier extension
-    AUTHORITY_KEYID *akid = AUTHORITY_KEYID_new();
-    X509_EXTENSION *ext = NULL;
-    unsigned char md[EVP_MAX_MD_SIZE];
-    unsigned int md_len;
     X509_pubkey_digest(inst->certificate, EVP_sha256(), md, &md_len);
     akid->keyid = ASN1_OCTET_STRING_new();
     ASN1_OCTET_STRING_set(akid->keyid, md, md_len);
-    ext = X509V3_EXT_i2d(NID_authority_key_identifier, 0, akid);
-    X509_add_ext(certificate, ext, -1);
+    akid_ext = X509V3_EXT_i2d(NID_authority_key_identifier, 0, akid);
+    X509_add_ext(certificate, akid_ext, -1);
     AUTHORITY_KEYID_free(akid);
 
     // Sign the CSR
