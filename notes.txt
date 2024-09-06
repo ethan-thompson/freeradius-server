@@ -1,0 +1,20 @@
+Configs
+
+- Virtual server ref [static]
+
+Process PKCS10
+decode CSR attribs place in req list
+encode reply attribs as X509 cert
+        - Take validity period from reply
+
+Take out of the reply
+- signature alg
+- serial number
+
+[static]
+- CA cert
+- CA key
+
+[call env]
+- PKCS10 in
+- PKCS7 out <- attrib ref

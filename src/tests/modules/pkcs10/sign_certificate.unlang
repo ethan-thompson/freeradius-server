@@ -5,7 +5,7 @@ pkcs10
 if (&PKCS7) {
 	%base64.encode(%{PKCS7})
 	debug_request
-	success
+	test_pass
 } else {
 	test_fail
 }
