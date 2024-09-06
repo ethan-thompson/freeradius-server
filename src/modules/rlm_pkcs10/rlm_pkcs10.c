@@ -198,6 +198,16 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
         X509_add_ext(certificate, req_ext, -1);
     }
 
+    // Set/modify the Basic Constraints extension
+    BASIC_CONSTRAINTS *bc = BASIC_CONSTRAINTS_new();
+    X509_EXTENSION *bc_ext = NULL;
+    bc->ca = 0;
+    bc_ext = X509V3_EXT_i2d(NID_basic_constraints, 1, bc);
+    X509_EXTENSION_free(X509_delete_ext(certificate, X509_get_ext_by_NID(certificate, NID_basic_constraints, -1))); // Remove existing extension
+    X509_add_ext(certificate, bc_ext, -1);
+    BASIC_CONSTRAINTS_free(bc);
+
+
     // Add more extensions
     // Add the Authority Key Identifier extension
     AUTHORITY_KEYID *akid = AUTHORITY_KEYID_new();
