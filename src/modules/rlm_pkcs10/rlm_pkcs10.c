@@ -154,12 +154,11 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
     rlm_pkcs10_t *inst = talloc_get_type_abort(mctx->mi->data, rlm_pkcs10_t);
     pkcs10_call_env_t *env = talloc_get_type_abort(mctx->env_data, pkcs10_call_env_t);
 
-    fr_pair_t *vp;
     const uint8_t *pkcs10_buf;
 
     X509_REQ *req;
     X509 *certificate = NULL;
-    STACK_OF(X509_EXTENSION) *req_exts, *exts;
+    STACK_OF(X509_EXTENSION) *req_exts;
     EVP_PKEY *pkey = NULL;
     BASIC_CONSTRAINTS *bc = BASIC_CONSTRAINTS_new();
     AUTHORITY_KEYID *akid = AUTHORITY_KEYID_new();

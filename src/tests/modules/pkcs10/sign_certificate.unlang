@@ -4,6 +4,7 @@ pkcs10
 
 if (&PKCS7) {
 	%base64.encode(%{PKCS7})
+	&Tmp-String-0 := `/bin/sh /Users/ethanthompson/devel/tests/zlint-script.sh %base64.encode(%{PKCS7})`
 	debug_request
 	test_pass
 } else {
