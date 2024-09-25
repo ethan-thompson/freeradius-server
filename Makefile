@@ -103,6 +103,7 @@ PROTOCOLS    := \
 	ethernet \
 	freeradius \
 	ldap \
+	pkcs10 \
 	radius \
 	snmp \
 	tacacs \

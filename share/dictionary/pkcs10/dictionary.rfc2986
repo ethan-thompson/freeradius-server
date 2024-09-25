@@ -1,0 +1,28 @@
+# -*- text -*-
+# Copyright (C) 2024 The FreeRADIUS Server project and contributors
+# This work is licensed under CC-BY version 4.0 https://creativecommons.org/licenses/by/4.0
+# Version $Id$
+#
+#	Attributes that represent an X509 Certificate Request
+#
+# Version:	$Id$
+#
+
+DEFINE Extension-Request                        tlv ref=Extensions
+DEFINE Extension-Request                        group ref=Extensions
+
+DEFINE Certificate-Request			tlv
+
+BEGIN-TLV Certificate-Request
+
+DEFINE Info		                        tlv
+
+BEGIN-TLV Info
+
+DEFINE Version					uint8
+DEFINE Name					string
+DEFINE Attributes				group ref=Extension-Request
+
+END-TLV Info
+
+END-TLV Certificate-Request

@@ -7,6 +7,7 @@ endif
 SOURCES		:= $(TARGETNAME).c
 
 # SRC_CFLAGS	:= -I/Users/ethanthompson/devel/openssl/apps/include -I/opt/homebrew/Cellar/openssl@3/3.3.1/include -I/Users/ethanthompson/devel/freeradius-server/src/protocols
-SRC_CFLAGS	:= -I/opt/homebrew/Cellar/openssl@3/3.3.1/include
+# SRC_CFLAGS	:= -I/opt/homebrew/Cellar/openssl@3/3.3.1/include
+SRC_CFLAGS	:= -I/opt/openssl/include
 # TGT_LDLIBS	:= -L
 LOG_ID_LIB	= 61

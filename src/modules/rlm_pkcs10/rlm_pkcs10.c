@@ -14,6 +14,8 @@
  *   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA
  */
 
+#include "lib/util/dict.h"
+#include "talloc.h"
 #include <errno.h>
 
 #include <freeradius-devel/server/cf_util.h>
@@ -22,6 +24,9 @@
 #include <freeradius-devel/server/rcode.h>
 #include <freeradius-devel/server/map.h>
 #include <freeradius-devel/tls/log.h>
+#include <freeradius-devel/tls/pkcs10.h>
+// #include <freeradius-devel/tls/pkcs7.h>
+#include <freeradius-devel/tls/base.h>
 #include <freeradius-devel/tls/strerror.h>
 #include <freeradius-devel/tls/utils.h>
 #include <freeradius-devel/unlang/interpret.h>
@@ -116,22 +121,27 @@ typedef struct {
 static const call_env_method_t csr_method_env = {
 	FR_CALL_ENV_METHOD_OUT(pkcs10_call_env_t),
 	.env = (call_env_parser_t[]) {
-	    { FR_CALL_ENV_OFFSET("pkcs10", FR_TYPE_OCTETS, CALL_ENV_FLAG_REQUIRED, pkcs10_call_env_t, pkcs10) },
+	    { FR_CALL_ENV_OFFSET("pkcs10-csr", FR_TYPE_OCTETS, CALL_ENV_FLAG_REQUIRED, pkcs10_call_env_t, pkcs10) },
         { FR_CALL_ENV_PARSE_ONLY_OFFSET("pkcs7", FR_TYPE_OCTETS, CALL_ENV_FLAG_ATTRIBUTE | CALL_ENV_FLAG_REQUIRED, pkcs10_call_env_t, pkcs7)},
 	    CALL_ENV_TERMINATOR
     }
 };
 
 static fr_dict_t const *dict_freeradius;
+static fr_dict_t const *dict_pkcs10;
 
 extern fr_dict_autoload_t rlm_pkcs10_dict[];
 fr_dict_autoload_t rlm_pkcs10_dict[] = {
     { .out = &dict_freeradius, .proto = "freeradius" },
+    { .out = &dict_pkcs10, .proto = "pkcs10" },
     { NULL }
 };
 
 static fr_dict_attr_t const *attr_pkcs10;
 static fr_dict_attr_t const *attr_pkcs7;
+
+static fr_dict_attr_t const *attr_csr_version;
+static fr_dict_attr_t const *tls_pkcs10_attr_subject_pk_algorithm;
 
 /**
  * Specified the PKCS10 CSR attribute (from request),
@@ -139,8 +149,10 @@ static fr_dict_attr_t const *attr_pkcs7;
  */
 extern fr_dict_attr_autoload_t rlm_pkcs10_dict_attr[];
 fr_dict_attr_autoload_t rlm_pkcs10_dict_attr[] = {
-    { .out = &attr_pkcs10, .name = "PKCS10", .type = FR_TYPE_OCTETS, .dict = &dict_freeradius },
+    { .out = &attr_pkcs10, .name = "PKCS10-CSR", .type = FR_TYPE_OCTETS, .dict = &dict_freeradius },
     { .out = &attr_pkcs7, .name = "PKCS7", .type = FR_TYPE_OCTETS, .dict = &dict_freeradius },
+    { .out = &attr_csr_version, .name = "Certificate-Request.Info.Version", .type = FR_TYPE_UINT8, .dict = &dict_pkcs10 },
+	// { .out = &tls_pkcs10_attr_subject_pk_algorithm, .name = "Certificate-Request.Info.Subject-Pk-Info.Algorithm", .type = FR_TYPE_UINT8, .dict = &dict_pkcs10 },
     { NULL }
 };
 
@@ -194,6 +206,35 @@ static unlang_action_t CC_HINT(nonnull) mod_request(rlm_rcode_t *p_result, modul
         RDEBUG("Error verifying request");
         goto invalid;
     }
+
+    // Convert request fields to attributes
+    // fr_pair_list_t *out = NULL;
+    fr_pair_list_t *out = NULL;
+    fr_pair_t *vp = NULL;
+
+    // MEM(vp = fr_pair_afrom_da(request->request_ctx, attr_pkcs10));
+    MEM(out = fr_pair_list_alloc(request->request_ctx));
+
+    if (fr_tls_attrs_from_pkcs10(vp, out, req) < 0) {
+        RPEDEBUG("Error converting request fields to attributes");
+        goto invalid;
+    }
+
+    // Get the version of the CSR
+    vp = fr_pair_find_by_da(out, NULL, attr_csr_version);
+    if (vp == NULL) {
+        RPEDEBUG("Error getting CSR version");
+        goto invalid;
+    }
+    RDEBUG("CSR version: %d", vp->vp_uint8);
+
+    // Get the public key algorithm
+    vp = fr_pair_find_by_da(out, NULL, tls_pkcs10_attr_subject_pk_algorithm);
+    if (vp == NULL) {
+        RPEDEBUG("Error getting public key algorithm");
+        goto invalid;
+    }
+    RDEBUG("Public key algorithm: %d", vp->vp_uint8);
 
     // Create the certificate
     RDEBUG("Creating certificate");

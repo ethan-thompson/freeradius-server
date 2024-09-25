@@ -1,0 +1,29 @@
+DEFINE Extensions                       tlv
+
+BEGIN-TLV Extensions
+
+DEFINE Basic-Constraints                tlv clone=Extension
+
+BEGIN-TLV Basic-Constraints
+
+DEFINE Value                            tlv
+
+BEGIN-TLV Value
+
+DEFINE Ca                               bool
+DEFINE Path-Len-Constraint              uint8
+
+END-TLV Value
+
+END-TLV Basic-Constraints
+
+END-TLV Extensions
+
+DEFINE Extension                        tlv
+
+BEGIN-TLV Extension
+
+DEFINE Extension-ID                     string
+DEFINE Critical                         bool
+
+END-TLV Extension

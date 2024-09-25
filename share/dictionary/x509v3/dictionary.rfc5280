@@ -1,0 +1,108 @@
+# -*- text -*-
+# Copyright (C) 2024 The FreeRADIUS Server project and contributors
+# This work is licensed under CC-BY version 4.0 https://creativecommons.org/licenses/by/4.0
+# Version $Id$
+#
+#	Attributes that represent an X509 Certificate
+#
+# Version:	$Id$
+#
+
+#
+# Certificate  ::=  SEQUENCE  {
+#        tbsCertificate       TBSCertificate,
+#        signatureAlgorithm   AlgorithmIdentifier,
+#        signatureValue       BIT STRING
+# }
+#
+DEFINE Certificate                      tlv
+
+BEGIN-TLV Certificate
+# TBSCertificate  ::=  SEQUENCE  {
+#        version         [0]  EXPLICIT Version DEFAULT v1,
+#        serialNumber         CertificateSerialNumber,
+#        signature            AlgorithmIdentifier,
+#        issuer               Name,
+#        validity             Validity,
+#        subject              Name,
+#        subjectPublicKeyInfo SubjectPublicKeyInfo,
+#        issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL,
+#                             -- If present, version MUST be v2 or v3
+#        subjectUniqueID [2]  IMPLICIT UniqueIdentifier OPTIONAL,
+#                             -- If present, version MUST be v2 or v3
+#        extensions      [3]  EXPLICIT Extensions OPTIONAL
+#                             -- If present, version MUST be v3
+#        }
+#
+DEFINE TBS-Certificate                  tlv
+BEGIN-TLV TBS-Certificate
+DEFINE Version                          uint8
+DEFINE Certificate-Serial-Number        uint8
+
+#
+#   AlgorithmIdentifier  ::=  SEQUENCE  {
+#        algorithm               OBJECT IDENTIFIER,
+#        parameters              ANY DEFINED BY algorithm OPTIONAL
+#  }
+#
+DEFINE Algorithm-Identifier             tlv
+
+BEGIN-TLV Algorithm-Identifier
+DEFINE Algorithm                        string
+DEFINE Parameters                       string
+# DEFINE Parameters                       tlv
+#
+# BEGIN-TLV Parameters
+# TODO: define/ reference from another dictionary
+# END-TLV Parameters
+
+END-TLV Algorithm-Identifier
+
+DEFINE Issuer                           string
+DEFINE Validity                         tlv
+
+BEGIN-TLV Validity
+#
+#   Validity ::= SEQUENCE {
+#        notBefore      Time,
+#        notAfter       Time
+# }
+#
+DEFINE Time                             tlv
+
+BEGIN-TLV Time
+#
+#    Time ::= CHOICE {
+#        utcTime        UTCTime,
+#        generalTime    GeneralizedTime
+# }
+DEFINE UTC-Time                         string
+DEFINE Generalized-Time                 string
+END-TLV Time
+
+END-TLV Validity
+
+DEFINE Subject-Public-Key-Info          tlv
+
+BEGIN-TLV Subject-Public-Key-Info
+#
+# SubjectPublicKeyInfo  ::=  SEQUENCE  {
+#     algorithm            AlgorithmIdentifier,
+#     subjectPublicKey     BIT STRING
+#  }
+DEFINE Subject-Public-Key               octets
+END-TLV Subject-Public-Key-Info
+
+DEFINE Issuer-Unique-Identifier         octets
+DEFINE Subject-Unique-Identifier        octets
+
+
+# DEFINE Extensions                       group ref=.Extensions
+DEFINE Extensions                       tlv clone=.Extensions
+
+END-TLV TBS-Certificate
+
+DEFINE Signature-Algorithm              tlv clone=Certificate.TBS-Certificate.Algorithm-Identifier
+DEFINE Signature-Value                  octets
+
+END-TLV Certificate

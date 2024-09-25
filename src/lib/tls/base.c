@@ -24,6 +24,7 @@
  * @copyright 2003 Alan DeKok (aland@freeradius.org)
  * @copyright 2006-2016 The FreeRADIUS server project
  */
+#include "lib/util/dict.h"
 RCSID("$Id$")
 USES_APPLE_DEPRECATED_API	/* OpenSSL API has been deprecated by Apple */
 
@@ -37,6 +38,8 @@ USES_APPLE_DEPRECATED_API	/* OpenSSL API has been deprecated by Apple */
 #include <openssl/provider.h>
 
 #include <freeradius-devel/server/base.h>
+#include <freeradius-devel/tls/pkcs10.h>
+// #include <freeradius-devel/tls/x5090v3.h>
 #include <freeradius-devel/tls/attrs.h>
 #include <freeradius-devel/tls/base.h>
 #include <freeradius-devel/tls/engine.h>
@@ -504,6 +507,26 @@ int fr_tls_dict_init(void)
 		goto fail;
 	}
 
+	if (fr_dict_autoload(tls_pkcs10_dict_autoload) < 0) {
+		PERROR("Failed initialising PKCS10 library");
+		goto fail;
+	}
+
+	if (fr_dict_attr_autoload(tls_pkcs10_attr_autoload) < 0) {
+		PERROR("Failed resolving PKCS10 attributes");
+		goto fail;
+	}
+
+	// if (fr_dict_autoload(tls_x509v3_dict_autoload) < 0) {
+	// 	PERROR("Failed initialising X509v3 library");
+	// 	goto fail;
+	// }
+
+	// if (fr_dict_attr_autoload(tls_x509v3_attr_autoload) < 0) {
+	// 	PERROR("Failed resolving X509v3 attributes");
+	// 	goto fail;
+	// }
+
 	return 0;
 }
 
@@ -512,5 +535,7 @@ void fr_tls_dict_free(void)
 	if (--tls_instance_count > 0) return;
 
 	fr_dict_autofree(tls_dict);
+	fr_dict_autofree(tls_pkcs10_dict_autoload);
+	// fr_dict_autofree(tls_x509v3_dict_autoload);
 }
 #endif /* WITH_TLS */

@@ -1,0 +1,15 @@
+# -*- text -*-
+# Copyright (C) 2022 The FreeRADIUS Server project and contributors
+# This work is licensed under CC-BY version 4.0 https://creativecommons.org/licenses/by/4.0
+# Version $Id$
+#
+#	The FreeRADIUS Vendor-Specific dictionary for TLS operations.
+#
+# Version:	$Id$
+#
+
+PROTOCOL	PKCS7		11354907
+BEGIN-PROTOCOL PKCS7
+#$INCLUDE dictionary.rfc5280
+END-PROTOCOL PKCS7
+#group ref=..X509v3.Extensions

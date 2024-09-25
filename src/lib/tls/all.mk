@@ -14,6 +14,7 @@ SOURCES	:= \
 	engine.c \
 	log.c \
 	pairs.c \
+	pkcs10.c \
 	session.c \
 	strerror.c \
 	utils.c \
