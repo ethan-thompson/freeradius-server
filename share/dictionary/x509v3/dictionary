@@ -1,0 +1,15 @@
+# -*- text -*-
+# Copyright (C) 2022 The FreeRADIUS Server project and contributors
+# This work is licensed under CC-BY version 4.0 https://creativecommons.org/licenses/by/4.0
+# Version $Id$
+#
+#	The FreeRADIUS Vendor-Specific dictionary for TLS operations.
+#
+# Version:	$Id$
+#
+
+PROTOCOL	X509v3		11354908
+BEGIN-PROTOCOL X509v3
+# $INCLUDE dictionary.rfc5280
+# $INCLUDE dictionary.extensions
+END-PROTOCOL X509v3
