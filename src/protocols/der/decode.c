@@ -62,7 +62,7 @@ typedef enum {
 
 #define DER_TAG_CONTINUATION 0x1f 		//!< Mask to check if the tag is a continuation.
 
-#define IS_DER_TAG_CONTINUATION(_tag)	((_tag) & DER_TAG_CONTINUATION)
+#define IS_DER_TAG_CONTINUATION(_tag)	(((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
 #define IS_DER_TAG_CONSTRUCTED(_tag)	((_tag) & 0x20)
 
 typedef enum {
