@@ -1,0 +1,8 @@
+DEFINE Sequence                 tlv
+
+BEGIN-TLV Sequence
+
+DEFINE Test-Boolean             bool
+DEFINE Test-Integer             integer
+
+END-TLV Sequence
