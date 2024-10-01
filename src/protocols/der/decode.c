@@ -169,6 +169,11 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 
 	size_t len = fr_dbuff_remaining(in);
 
+	if (!fr_type_is_integer_except_bool(parent->type)) {
+		fr_strerror_const("Integer found in non-integer attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
 	if (unlikely(fr_dbuff_out(&sign, in) < 0)) {
 		fr_strerror_const("Insufficient data for integer");
 		return -1;
