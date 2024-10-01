@@ -3,7 +3,7 @@
 #
 # Version:      $Id$
 #
-TARGET		:= libfreeradius-den$(L)
+TARGET		:= libfreeradius-der$(L)
 
 SOURCES		:= base.c \
 		   decode.c \
