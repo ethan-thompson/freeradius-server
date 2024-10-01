@@ -52,7 +52,7 @@ typedef enum {
 	FR_DER_TAG_NULL = 0x05,			//!< An empty value.
 	FR_DER_TAG_OID = 0x06,			//!< Reference to an OID based attribute.
 	FR_DER_TAG_UTF8_STRING = 0x0c,		//!< String of UTF8 chars.
-	FR_DER_TAG_SEQUENCE = 0x11,		//!< A sequence of DER encoded data (a structure).
+	FR_DER_TAG_SEQUENCE = 0x10,		//!< A sequence of DER encoded data (a structure).
 	FR_DER_TAG_SET = 0x11,			//!< A set of DER encoded data (a structure).
 	FR_DER_TAG_PRINTABLE_STRING = 0x13,	//!< String of printable chars.
 	FR_DER_TAG_IA5_STRING = 0x16,		//!< String of IA5 (7bit) chars.
