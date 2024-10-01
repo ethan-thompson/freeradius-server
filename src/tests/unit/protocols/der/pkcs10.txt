@@ -2,4 +2,9 @@ proto der
 proto-dictionary pkcs10
 fuzzer-out der
 
+proto-dictionary-root Sequence
+
 # Test the fuzzer with a dictionary of DER-encoded PKCS#10 requests
+
+decode-pair 3003020109
+match Sequence.Test-Integer = 9
