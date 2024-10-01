@@ -1,3 +1,3 @@
 DEFINE Sequence                 struct
 
-MEMBER Test-Integer             integer
+MEMBER Test-Integer             int64
