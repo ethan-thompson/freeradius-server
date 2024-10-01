@@ -185,8 +185,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		return -1;
 	}
 
-	// for (size_t i = 0; i < len; i++) {
-	while (--len) {
+	for (size_t i = 1; i < len; i++) {
 		uint8_t byte;
 
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
