@@ -12,5 +12,11 @@ match Sequence = { Test-Integer = 9 }
 decode-pair 30 04 02 02 09 09
 match Sequence = { Test-Integer = 2313 }
 
-decode-pair 30 04 02 08 ff ff ff ff ff ff ff fa
+decode-pair 30 04 02 02 F6 F7
+match Sequence = { Test-Integer = -2313 }
+
+decode-pair 30 0A 02 08 ff ff ff ff ff ff ff fa
+match Sequence = { Test-Integer = -6 }
+
+decode-pair 30 0A 02 02 ff fa
 match Sequence = { Test-Integer = -6 }
