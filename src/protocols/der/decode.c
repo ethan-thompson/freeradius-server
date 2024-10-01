@@ -26,6 +26,9 @@
  * @copyright 2024 Arran Cudbard-Bell (a.cudbardb@freeradius.org)
  * @copyright 2024 Inkbridge Networks SAS.
  */
+#include "include/build.h"
+#include "lib/util/proto.h"
+#include "talloc.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -94,22 +97,22 @@ typedef enum {
  *	- < 0 on error.  May be the offset (as a negative value) where the error occurred.
  */
 typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				   size_t len, fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				   fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				   fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 			   		fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     size_t len, fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     size_t len, fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				      size_t len, fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				      fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 
@@ -133,17 +136,12 @@ static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
 	return 0;
 }
 
-static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     size_t len, fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_der_tag_t tag,
+				     fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
 	uint8_t		val;
-
-	if (len != 1) {
-		fr_strerror_printf("Invalid length for boolean (%zu)", len);
-		return -1;
-	}
 
 	if (unlikely(fr_dbuff_out(&val, in) < 0)) {
 		fr_strerror_const("Insufficient data for boolean");
@@ -159,8 +157,8 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	return 1;
 }
 
-static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     size_t len, fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_der_tag_t tag,
+				     fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -169,10 +167,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	static int64_t const		min[] = { INT8_MIN, INT16_MIN, INT32_MIN, INT32_MIN, INT64_MIN, INT64_MIN, INT64_MIN };
 	static int64_t const		max[] = { INT8_MAX, INT16_MAX, INT32_MAX, INT32_MAX, INT64_MAX, INT64_MAX, INT64_MAX };
 
-	if (len == 0) {
-		fr_strerror_const("Invalid length for integer");
-		return -1;
-	}
+	size_t len = fr_dbuff_remaining(in);
 
 	if (unlikely(fr_dbuff_out(&sign, in) < 0)) {
 		fr_strerror_const("Insufficient data for integer");
@@ -183,11 +178,14 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		val = -1;
 	}
 
+	val = sign & 0x7f;
+
 	if (len > sizeof(val)) {
 		fr_strerror_printf("Integer too large (%zu)", len);
 		return -1;
 	}
 
+	// for (size_t i = 0; i < len; i++) {
 	while (--len) {
 		uint8_t byte;
 
@@ -213,23 +211,40 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	return 1;
 }
 
-static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				      size_t len, fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_der_tag_t tag,
+				 fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
+	fr_pair_t		*vp;
 	fr_dict_attr_t const *child = NULL;
+	fr_dbuff_t		our_in = FR_DBUFF(in);
 
 	if (!fr_type_is_struct(parent->type)) {
 		fr_strerror_const("Sequence found in non-struct attribute");
 		return DECODE_FAIL_INVALID_ATTRIBUTE;
 	}
 
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	if (unlikely(vp == NULL)) {
+		return DECODE_FAIL_UNKNOWN;
+	};
+
 	while ((child = fr_dict_attr_iterate_children(parent, &child))) {
 		ssize_t ret;
 
-		ret = fr_der_decode_pair_dbuff(ctx, out, child, in, decode_ctx);
-		if (unlikely(ret < 0)) return ret;
+		FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
+
+		ret = fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx);
+		if (unlikely(ret < 0)) {
+			talloc_free(vp);
+			return ret;
+		}
 	}
+
+	fr_pair_append(out, vp);
+
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
@@ -318,7 +333,9 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		len = len_byte;
 	}
 
-	slen = func(ctx, out, parent, len, tag, constructed, tag_flags, &our_in, decode_ctx);
+	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
+
+	slen = func(ctx, out, parent, tag, constructed, tag_flags, &our_in, decode_ctx);
 
 	if (unlikely(slen < 0)) return slen;
 
@@ -338,6 +355,8 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 static ssize_t decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 			   uint8_t const *data, size_t data_len, void *decode_ctx)
 {
+	// fr_assert(parent == fr_dict_root(dict_der));
+
 	return fr_der_decode_pair_dbuff(ctx, out, parent, &FR_DBUFF_TMP(data, data_len), decode_ctx);
 }
 
