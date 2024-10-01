@@ -164,8 +164,8 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	fr_pair_t	*vp;
 	int64_t		val = 0;
 	uint8_t		sign = 0;
-	static int64_t const		min[] = { INT8_MIN, INT16_MIN, INT32_MIN, INT32_MIN, INT64_MIN, INT64_MIN, INT64_MIN };
-	static int64_t const		max[] = { INT8_MAX, INT16_MAX, INT32_MAX, INT32_MAX, INT64_MAX, INT64_MAX, INT64_MAX };
+	static int64_t const		min[] = { INT8_MIN, INT16_MIN, INT32_MIN, INT32_MIN, INT64_MIN, INT64_MIN, INT64_MIN, INT64_MIN };
+	static int64_t const		max[] = { INT8_MAX, INT16_MAX, INT32_MAX, INT32_MAX, INT64_MAX, INT64_MAX, INT64_MAX, INT64_MAX };
 
 	size_t len = fr_dbuff_remaining(in);
 
@@ -175,10 +175,13 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	}
 
 	if (sign & 0x80) {
+		// If the sign bit is set, this is a negative number.
+		// This will fill the upper bits with 1s.
+		// This is important for the case where the length of the integer is less than the length of the integer type.
 		val = -1;
 	}
 
-	val = sign & 0x7f;
+	val = (val << 8) | sign;
 
 	if (len > sizeof(val)) {
 		fr_strerror_printf("Integer too large (%zu)", len);
@@ -196,7 +199,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		val = (val << 8) | byte;
 	}
 
-	if ( (val < min[len]) || (val > max[len]) ) {
+	if ( (val < min[len - 1 ]) || (val > max[len - 1]) ) {
 		fr_strerror_printf("Integer out of range (%" PRId64 ")", val);
 		return -1;
 	}
