@@ -148,6 +148,14 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		return -1;
 	}
 
+	// Ensure the value conforms to DER standards where:
+	// 1. False is represented by 0x00
+	// 2. True is represented by 0xFF
+	if (val != 0x00 && val != 0xFF) {
+		fr_strerror_const("Boolean is not correctly DER encoded");
+		return -1;
+	}
+
 	vp = fr_pair_afrom_da(ctx, parent);
 
 	vp->vp_bool = val > 0;
