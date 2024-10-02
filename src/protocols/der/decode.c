@@ -29,6 +29,7 @@
 #include "include/build.h"
 #include "lib/util/proto.h"
 #include "talloc.h"
+#include "lib/util/debug.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -111,6 +112,10 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				      fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -119,6 +124,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN] = fr_der_decode_boolean,
 	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
+	[FR_DER_TAG_BIT_STRING] = fr_der_decode_bitstring,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence
 };
 
@@ -239,6 +245,78 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	vp = fr_pair_afrom_da(ctx, parent);
 
 	vp->vp_int64 = val;
+
+	fr_pair_append(out, vp);
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t	*vp;
+	uint8_t		unused_bits = 0;
+	uint8_t		*data;
+
+	size_t len = fr_dbuff_remaining(in);
+
+	if (fr_type_is_struct(parent->type)) {
+		fr_strerror_const("Bitstring found in struct attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	} else if (!fr_type_is_octets(parent->type)) {
+		fr_strerror_const("Bitstring found in non-octets attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	// Now we know that the parent is an octets attribute, we can decode the bitstring
+
+	if (unlikely(fr_dbuff_out(&unused_bits, in) < 0)) {
+		fr_strerror_const("Insufficient data for bitstring");
+		return -1;
+	}
+
+	if (unlikely(unused_bits > 7)) {
+		fr_strerror_const("Invalid number of unused bits");
+		return -1;
+	}
+
+	if (len == 1 && unused_bits) {
+		fr_strerror_const("Insufficient data for bitstring");
+		return -1;
+	}
+
+	data = talloc_array(ctx, uint8_t, len);
+	if (unlikely(data == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
+	data[0] = unused_bits;
+
+	for (size_t i = 1; i < len; i++) {
+		uint8_t byte;
+
+		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+			talloc_free(data);
+			fr_strerror_const("Insufficient data for bitstring");
+			return -1;
+		}
+
+		data[i] = byte;
+	}
+
+	// Remove the unused bits from the last byte
+	if (unused_bits) {
+		uint8_t mask = 0xff << unused_bits;
+
+		data[len - 1] &= mask;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	// add the bitstring to the pair value as octets
+	fr_pair_value_memdup(vp, data, len, false);
 
 	fr_pair_append(out, vp);
 
