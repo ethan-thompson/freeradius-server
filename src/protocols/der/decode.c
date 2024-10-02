@@ -174,6 +174,11 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		return DECODE_FAIL_INVALID_ATTRIBUTE;
 	}
 
+	if (len > sizeof(val)) {
+		fr_strerror_printf("Integer too large (%zu)", len);
+		return -1;
+	}
+
 	if (unlikely(fr_dbuff_out(&sign, in) < 0)) {
 		fr_strerror_const("Insufficient data for integer");
 		return -1;
@@ -187,11 +192,6 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	}
 
 	val = (val << 8) | sign;
-
-	if (len > sizeof(val)) {
-		fr_strerror_printf("Integer too large (%zu)", len);
-		return -1;
-	}
 
 	for (size_t i = 1; i < len; i++) {
 		uint8_t byte;
