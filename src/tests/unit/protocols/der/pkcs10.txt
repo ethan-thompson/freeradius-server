@@ -126,8 +126,11 @@ proto-dictionary-root Bar
 decode-pair 30 03 01 01 00
 match Bar = { Test-Boolean = no }
 
-decode-pair 30 03 01 01 01
+decode-pair 30 30 01 01 FF
 match Bar = { Test-Boolean = yes }
+
+decode-pair 30 03 01 01 01
+match Boolean is not correctly DER encoded
 
 
 proto-dictionary-root Foo-Bar
@@ -135,5 +138,8 @@ proto-dictionary-root Foo-Bar
 decode-pair 30 06 02 01 09 01 01 00
 match Foo-Bar = { Test-Integer = 9, Test-Boolean = no }
 
-decode-pair 30 06 02 01 09 01 01 01
+decode-pair 30 06 02 01 09 01 01 FF
 match Foo-Bar = { Test-Integer = 9, Test-Boolean = yes }
+
+decode-pair 30 06 02 01 09 01 01 01
+match Boolean is not correctly DER encoded
