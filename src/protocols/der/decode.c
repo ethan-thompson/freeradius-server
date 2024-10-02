@@ -193,7 +193,26 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 
 	val = (val << 8) | sign;
 
-	for (size_t i = 1; i < len; i++) {
+	if (len > 1) {
+		// If the length of the integer is greater than 1, we need to check that the first 9 bits:
+		// 1. are not all 1s; and
+		// 2. are not all 0s
+		// These two conditions are necessary to ensure that the integer conforms to DER.
+		uint8_t byte;
+		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+			fr_strerror_const("Insufficient data for integer");
+			return -1;
+		}
+
+		if ( (((val & 0xFF) == 0xFF) && (byte & 0x80)) || (((~val & 0xFF) == 0xFF) && !(byte & 0x80)) ) {
+			fr_strerror_const("Integer is not correctly DER encoded");
+			return -1;
+		}
+
+		val = (val << 8) | byte;
+	}
+
+	for (size_t i = 2; i < len; i++) {
 		uint8_t byte;
 
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
