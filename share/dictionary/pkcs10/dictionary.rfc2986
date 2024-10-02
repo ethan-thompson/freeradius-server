@@ -1,3 +1,13 @@
-DEFINE Sequence                 struct
+DEFINE Foo                      struct
 
 MEMBER Test-Integer             int64
+
+
+DEFINE Bar                      struct
+
+MEMBER Test-Boolean             bool
+
+DEFINE Foo-Bar                  struct
+
+MEMBER Test-Integer             int64
+MEMBER Test-Boolean             bool
