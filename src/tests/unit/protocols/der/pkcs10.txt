@@ -143,3 +143,36 @@ match Foo-Bar = { Test-Integer = 9, Test-Boolean = yes }
 
 decode-pair 30 06 02 01 09 01 01 01
 match Boolean is not correctly DER encoded
+
+
+proto-dictionary-root SEQ-BITSTRING-OCTETS
+
+decode-pair 30 04 03 02 00 01
+match Seq-Bitstring-Octets = { Test-Bitstring = 0x0001 }
+
+decode-pair 30 03 03 01 00
+match Seq-Bitstring-Octets = { Test-Bitstring = 0x00 }
+
+decode-pair 30 04 03 02 01 02
+match Seq-Bitstring-Octets = { Test-Bitstring = 0x0102 }
+
+decode-pair 30 04 03 02 01 03
+match Seq-Bitstring-Octets = { Test-Bitstring = 0x0102 }
+
+decode-pair 30 05 03 03 01 03 03
+match Seq-Bitstring-Octets = { Test-Bitstring = 0x010302 }
+
+decode-pair 30 09 03 07 04 0A 3B 5F 29 1C D0
+match Seq-Bitstring-Octets = { Test-Bitstring = 0x040a3b5f291cd0 }
+
+decode-pair 30 09 03 07 04 0A 3B 5F 29 1C DF
+match Seq-Bitstring-Octets = { Test-Bitstring = 0x040a3b5f291cd0 }
+
+decode-pair 30 04 03 01
+match Insufficient data for bitstring
+
+decode-pair 30 04 03 01 08
+match Invalid number of unused bits
+
+decode-pair 30 04 03 01 01
+match Insufficient data for bitstring
