@@ -125,6 +125,10 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				      fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -136,6 +140,7 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BIT_STRING] = fr_der_decode_bitstring,
 	[FR_DER_TAG_OCTET_STRING] = fr_der_decode_octetstring,
 	[FR_DER_TAG_NULL] = fr_der_decode_null,
+	[FR_DER_TAG_OID] = fr_der_decode_oid,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence
 };
 
@@ -416,6 +421,113 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+
+	fr_pair_append(out, vp);
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t	*vp;
+	uint64_t	subidentifier = 0;
+	char	*oid = NULL;
+
+	size_t index = 1, magnitude = 1;
+	size_t len = fr_dbuff_remaining(in);
+
+	if (!fr_type_is_string(parent->type)) {
+		fr_strerror_const("OID found in non-string attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	// The first subidentifier is the encoding of the first two object identifier components, encoded as:
+	// (X * 40) + Y
+	// where X is the first number and Y is the second number.
+	// The first number is 0, 1, or 2.
+	for (; index < len; index++) {
+		uint8_t byte;
+
+		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+			fr_strerror_const("Insufficient data for OID");
+			return -1;
+		}
+
+		subidentifier = (subidentifier << 7) | (byte & 0x7f);
+
+		if (!(byte & 0x80)) {
+			// If the high bit is not set, this is the last byte of the subidentifier
+
+			if (subidentifier < 40) {
+				oid = talloc_asprintf(ctx, "%u", 0);
+				oid = talloc_asprintf_append(oid, ".%llu", subidentifier);
+			} else if (subidentifier < 80) {
+				oid = talloc_asprintf(ctx, "%u", 1);
+				oid = talloc_asprintf_append(oid, ".%llu", subidentifier - 40);
+			} else {
+				oid = talloc_asprintf(ctx, "%u", 2);
+				oid = talloc_asprintf_append(oid, ".%llu", subidentifier - 80);
+			}
+
+			if (unlikely(oid == NULL)) {
+				fr_strerror_const("Out of memory");
+				return -1;
+			}
+
+			subidentifier = 0;
+			magnitude = 1;
+			break;
+		}
+
+		magnitude++;
+
+		// We need to check that the subidentifier is not too large
+		// Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger than 9 chunks
+		if (unlikely(magnitude > 9)) {
+			fr_strerror_const("OID subidentifier too large");
+			return -1;
+		}
+	}
+
+	// The remaining subidentifiers are encoded individually
+	for (; index < len; index++) {
+		uint8_t byte;
+
+		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+			fr_strerror_const("Insufficient data for OID");
+			return -1;
+		}
+
+		subidentifier = (subidentifier << 7) | (byte & 0x7f);
+
+		if (!(byte & 0x80)) {
+			oid = talloc_asprintf_append(oid, ".%llu", subidentifier);
+
+			if (unlikely(oid == NULL)) {
+				fr_strerror_const("Out of memory");
+				return -1;
+			}
+
+			subidentifier = 0;
+			magnitude = 1;
+			continue;
+		}
+
+		magnitude++;
+
+		// We need to check that the subidentifier is not too large
+		// Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger than 9 chunks
+		if (unlikely(magnitude > 9)) {
+			fr_strerror_const("OID subidentifier too large");
+			return -1;
+		}
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	fr_pair_value_strdup(vp, oid, false);
 
 	fr_pair_append(out, vp);
 
