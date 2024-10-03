@@ -221,3 +221,19 @@ match Seq-Octetstring = { Octetstring = 0xff }
 
 decode-pair 30 0A 04 08 ff ff ff ff ff ff ff ff
 match Seq-Octetstring = { Octetstring = 0xffffffffffffffff }
+
+
+proto-dictionary-root Test-Null
+
+decode-pair 05 00
+match
+
+proto-dictionary-root Seq-Null
+
+decode-pair 30 02 05 00
+match Seq-Null = { }
+
+proto-dictionary-root Seq-Integer-Null
+
+decode-pair 30 05 02 01 01 05 00
+match Seq-Integer-Null = { Test-Integer = 1 }
