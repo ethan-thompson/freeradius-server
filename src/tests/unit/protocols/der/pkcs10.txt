@@ -143,6 +143,8 @@ match Foo-Bar = { Test-Integer = 9, Test-Boolean = yes }
 decode-pair 30 06 02 01 09 01 01 01
 match Boolean is not correctly DER encoded
 
+decode-pair 30 06 02 02 09 01 01 FF
+match Length field too large (127)
 
 proto-dictionary-root SEQ-BITSTRING-OCTETS
 
