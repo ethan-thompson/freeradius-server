@@ -120,7 +120,6 @@ match Foo = { Test-Integer = 9223372036854775807 }
 decode-pair 30 0B 02 09 00 80 00 00 00 00 00 00 00
 match Integer too large (9)
 
-
 proto-dictionary-root Bar
 
 decode-pair 30 03 01 01 00
@@ -176,3 +175,24 @@ match Invalid number of unused bits
 
 decode-pair 30 04 03 01 01
 match Insufficient data for bitstring
+
+
+proto-dictionary-root Bitstring-Struct
+
+decode-pair 03 02 00 01
+match Bitstring-Struct = { foo = 1 }
+
+decode-pair 03 02 01 00
+match Bitstring-Struct = { foo = 0 }
+
+decode-pair 03 03 00 FB FB
+match Bitstring-Struct = { foo = 251, bar = 15, foo-bar = 11 }
+
+decode-pair 03 04 00 FF FF FF
+match Bitstring-Struct = { foo = 255, bar = 15, foo-bar = 15 }
+
+
+proto-dictionary-root Bitstring-Struct-7
+
+decode-pair 03 02 01 FB
+match Bitstring-Struct-7 = { foo = 3, bar = yes, foo-bar = 13 }
