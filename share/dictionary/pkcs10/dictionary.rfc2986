@@ -26,3 +26,9 @@ DEFINE Bitstring-Struct-7       struct
 MEMBER foo                      bit[2]
 MEMBER bar                      bit[1]
 MEMBER foo-bar                  bit[4]
+
+DEFINE Octetstring              octets
+
+DEFINE Seq-Octetstring          struct
+
+MEMBER Octetstring              octets
