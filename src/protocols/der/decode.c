@@ -516,6 +516,12 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		len = len_byte;
 	}
 
+	// Check if the length is valid for our buffer
+	if (unlikely(len > fr_dbuff_remaining(&our_in))) {
+		fr_strerror_printf("Insufficient data for length field (%zu)", len);
+		return -1;
+	}
+
 	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 
 	slen = func(ctx, out, parent, tag, constructed, tag_flags, &our_in, decode_ctx);
