@@ -233,6 +233,10 @@ proto-dictionary-root Seq-Null
 decode-pair 30 02 05 00
 match Seq-Null = { }
 
+decode-pair 30 02 05 01
+match Insufficient data for length field (1)
+
+
 proto-dictionary-root Seq-Integer-Null
 
 decode-pair 30 05 02 01 01 05 00
