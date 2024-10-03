@@ -28,6 +28,7 @@
  */
 #include "include/build.h"
 #include "lib/util/proto.h"
+#include "lib/util/struct.h"
 #include "talloc.h"
 #include "lib/util/debug.h"
 #include <stdint.h>
@@ -259,12 +260,10 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	uint8_t		unused_bits = 0;
 	uint8_t		*data;
 
+	ssize_t		data_len = 0, index = 0;
 	size_t len = fr_dbuff_remaining(in);
 
-	if (fr_type_is_struct(parent->type)) {
-		fr_strerror_const("Bitstring found in struct attribute");
-		return DECODE_FAIL_INVALID_ATTRIBUTE;
-	} else if (!fr_type_is_octets(parent->type)) {
+	if (!fr_type_is_octets(parent->type) && !fr_type_is_struct(parent->type)) {
 		fr_strerror_const("Bitstring found in non-octets attribute");
 		return DECODE_FAIL_INVALID_ATTRIBUTE;
 	}
@@ -286,15 +285,26 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		return -1;
 	}
 
-	data = talloc_array(ctx, uint8_t, len);
+	if (fr_type_is_struct(parent->type)) {
+		// If the parent is a struct attribute, we will not be adding the unused bits count to the first byte
+		data_len = len - 1;
+	} else {
+		data_len = len;
+	}
+
+	data = talloc_array(ctx, uint8_t, data_len);
 	if (unlikely(data == NULL)) {
 		fr_strerror_const("Out of memory");
 		return -1;
 	}
 
-	data[0] = unused_bits;
+	if (fr_type_is_octets(parent->type)) {
+		// If the parent is an octets attribute, we need to add the unused bits count to the first byte
+		index = 1;
+		data[0] = unused_bits;
+	}
 
-	for (size_t i = 1; i < len; i++) {
+	for (; index < data_len; index++) {
 		uint8_t byte;
 
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
@@ -303,14 +313,28 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 			return -1;
 		}
 
-		data[i] = byte;
+		data[index] = byte;
 	}
 
 	// Remove the unused bits from the last byte
 	if (unused_bits) {
 		uint8_t mask = 0xff << unused_bits;
 
-		data[len - 1] &= mask;
+		data[data_len - 1] &= mask;
+	}
+
+	if (fr_type_is_struct(parent->type)) {
+		ssize_t slen;
+
+		slen = fr_struct_from_network(ctx, out, parent, data, data_len, true, decode_ctx, NULL, NULL);
+
+		// If the structure decoder didn't consume all the data, we need to free the data and bail out
+		if (unlikely(slen < (data_len - (int8_t)unused_bits) )) {
+			talloc_free(data);
+			return slen;
+		}
+
+		return 1;
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
