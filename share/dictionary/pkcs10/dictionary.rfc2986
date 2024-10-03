@@ -43,3 +43,9 @@ DEFINE Seq-Integer-Null         struct
 
 MEMBER Test-Integer             int64
 MEMBER Test-Null                integer
+
+DEFINE Test-Oid                 string
+
+DEFINE Seq-Oid                  struct
+
+MEMBER Test-Oid                 string
