@@ -198,3 +198,26 @@ proto-dictionary-root Bitstring-Struct-7
 
 decode-pair 03 02 01 FB
 match Bitstring-Struct-7 = { foo = 3, bar = yes, foo-bar = 13 }
+
+
+proto-dictionary-root Octetstring
+
+decode-pair 04 01 00
+match Octetstring = 0x00
+
+decode-pair 04 01 FF
+match Octetstring = 0xff
+
+decode-pair 04 08 ff ff ff ff ff ff ff ff
+match Octetstring = 0xffffffffffffffff
+
+proto-dictionary-root Seq-Octetstring
+
+decode-pair 30 03 04 01 00
+match Seq-Octetstring = { Octetstring = 0x00 }
+
+decode-pair 30 03 04 01 FF
+match Seq-Octetstring = { Octetstring = 0xff }
+
+decode-pair 30 0A 04 08 ff ff ff ff ff ff ff ff
+match Seq-Octetstring = { Octetstring = 0xffffffffffffffff }
