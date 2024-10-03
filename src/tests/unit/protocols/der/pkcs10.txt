@@ -24,7 +24,7 @@ match Integer is not correctly DER encoded
 decode-pair 30 04 02 02 80 00
 match Foo = { Test-Integer = -32768 }
 
-decode-pair 30 05 02 02 7F FF
+decode-pair 30 04 02 02 7F FF
 match Foo = { Test-Integer = 32767 }
 
 decode-pair 30 05 02 03 00 80 00
@@ -125,7 +125,7 @@ proto-dictionary-root Bar
 decode-pair 30 03 01 01 00
 match Bar = { Test-Boolean = no }
 
-decode-pair 30 30 01 01 FF
+decode-pair 30 03 01 01 FF
 match Bar = { Test-Boolean = yes }
 
 decode-pair 30 03 01 01 01
@@ -170,13 +170,13 @@ decode-pair 30 09 03 07 04 0A 3B 5F 29 1C DF
 match Seq-Bitstring-Octets = { Test-Bitstring = 0x040a3b5f291cd0 }
 
 decode-pair 30 04 03 01
-match Insufficient data for bitstring
+match Insufficient data for length field (4)
 
 decode-pair 30 04 03 01 08
-match Invalid number of unused bits
+match Insufficient data for length field (4)
 
 decode-pair 30 04 03 01 01
-match Insufficient data for bitstring
+match Insufficient data for length field (4)
 
 
 proto-dictionary-root Bitstring-Struct
