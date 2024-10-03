@@ -32,3 +32,14 @@ DEFINE Octetstring              octets
 DEFINE Seq-Octetstring          struct
 
 MEMBER Octetstring              octets
+
+DEFINE Test-NULL                integer
+
+DEFINE Seq-Null                 struct
+
+MEMBER Test-Null                integer
+
+DEFINE Seq-Integer-Null         struct
+
+MEMBER Test-Integer             int64
+MEMBER Test-Null                integer
