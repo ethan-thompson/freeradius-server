@@ -117,6 +117,10 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				      fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -126,6 +130,7 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN] = fr_der_decode_boolean,
 	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
 	[FR_DER_TAG_BIT_STRING] = fr_der_decode_bitstring,
+	[FR_DER_TAG_OCTET_STRING] = fr_der_decode_octetstring,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence
 };
 
@@ -340,6 +345,48 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	vp = fr_pair_afrom_da(ctx, parent);
 
 	// add the bitstring to the pair value as octets
+	fr_pair_value_memdup(vp, data, len, false);
+
+	fr_pair_append(out, vp);
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t	*vp;
+	uint8_t		*data;
+
+	size_t len = fr_dbuff_remaining(in);
+
+	if (!fr_type_is_octets(parent->type)) {
+		fr_strerror_const("Octetstring found in non-octets attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	data = talloc_array(ctx, uint8_t, len);
+	if (unlikely(data == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
+	for (size_t i = 0; i < len; i++) {
+		uint8_t byte;
+
+		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+			talloc_free(data);
+			fr_strerror_const("Insufficient data for octetstring");
+			return -1;
+		}
+
+		data[i] = byte;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	// add the octetstring to the pair value as octets
 	fr_pair_value_memdup(vp, data, len, false);
 
 	fr_pair_append(out, vp);
