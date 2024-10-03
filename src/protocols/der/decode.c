@@ -121,6 +121,10 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				      fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -131,6 +135,7 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
 	[FR_DER_TAG_BIT_STRING] = fr_der_decode_bitstring,
 	[FR_DER_TAG_OCTET_STRING] = fr_der_decode_octetstring,
+	[FR_DER_TAG_NULL] = fr_der_decode_null,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence
 };
 
@@ -388,6 +393,29 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 
 	// add the octetstring to the pair value as octets
 	fr_pair_value_memdup(vp, data, len, false);
+
+	fr_pair_append(out, vp);
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t	*vp;
+
+	if (!fr_type_is_null(parent->type)) {
+		fr_strerror_const("Null found in non-null attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	if (fr_dbuff_remaining(in) != 0) {
+		fr_strerror_const("Null has non-zero length");
+		return -1;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
 
 	fr_pair_append(out, vp);
 
