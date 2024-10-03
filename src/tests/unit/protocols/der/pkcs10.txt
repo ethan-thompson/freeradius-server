@@ -241,3 +241,87 @@ proto-dictionary-root Seq-Integer-Null
 
 decode-pair 30 05 02 01 01 05 00
 match Seq-Integer-Null = { Test-Integer = 1 }
+
+
+proto-dictionary-root Test-Oid
+
+decode-pair 06 03 88 37 03
+match Test-Oid = "2.999.3"
+
+decode-pair 06 09 2a 86 48 86 f7 0d 01 01 0B
+match Test-Oid = "1.2.840.113549.1.1.11"
+
+decode-pair 06 0A 2a 86 48 ff 86 f7 0d 01 01 0b
+match Test-Oid = "1.2.840.266451853.1.1.11"
+
+decode-pair 06 0B 2a 86 48 ff ff 86 f7 0d 01 01 0b
+match Test-Oid = "1.2.840.34357754765.1.1.11"
+
+decode-pair 06 0C 2a 86 48 ff ff ff 86 f7 0d 01 01 0b
+match Test-Oid = "1.2.840.4398044527501.1.1.11"
+
+decode-pair 06 0C 2a 86 48 ff ff ff ff 7f 0d 01 01 0b
+match Test-Oid = "1.2.840.34359738367.13.1.1.11"
+
+decode-pair 06 0D 2a 86 48 ff ff ff ff ff 7f 0d 01 01 0b
+match Test-Oid = "1.2.840.4398046511103.13.1.1.11"
+
+decode-pair 06 0e 2a 86 48 ff ff ff ff ff ff 7f 0d 01 01 0b
+match Test-Oid = "1.2.840.562949953421311.13.1.1.11"
+
+decode-pair 06 0f 2a 86 48 ff ff ff ff ff ff ff 7f 0d 01 01 0b
+match Test-Oid = "1.2.840.72057594037927935.13.1.1.11"
+
+decode-pair 06 10 2a 86 48 ff ff ff ff ff ff ff ff 7f 0d 01 01 0b
+match Test-Oid = "1.2.840.9223372036854775807.13.1.1.11"
+
+decode-pair 06 11 2a 86 48 ff ff ff ff ff ff ff ff ff 7f 0d 01 01 0b
+match OID subidentifier too large
+
+decode-pair 06 12 2a 86 48 ff ff ff ff ff ff ff ff ff 86 f7 0d 01 01 0b
+match OID subidentifier too large
+
+decode-pair 06 19 2a 86 48 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 86 f7 0d 01 01 0b
+match OID subidentifier too large
+
+
+proto-dictionary-root Seq-Oid
+
+decode-pair 30 05 06 03 88 37 03
+match Seq-Oid = { Test-Oid = "2.999.3" }
+
+decode-pair 30 0b 06 09 2a 86 48 86 f7 0d 01 01 0B
+match Seq-Oid = { Test-Oid = "1.2.840.113549.1.1.11" }
+
+decode-pair 30 0C 06 0A 2a 86 48 ff 86 f7 0d 01 01 0b
+match Seq-Oid = { Test-Oid = "1.2.840.266451853.1.1.11" }
+
+decode-pair 30 0d 06 0B 2a 86 48 ff ff 86 f7 0d 01 01 0b
+match Seq-Oid = { Test-Oid = "1.2.840.34357754765.1.1.11" }
+
+decode-pair 30 0e 06 0C 2a 86 48 ff ff ff 86 f7 0d 01 01 0b
+match Seq-Oid = { Test-Oid = "1.2.840.4398044527501.1.1.11" }
+
+decode-pair 30 0e 06 0C 2a 86 48 ff ff ff ff 7f 0d 01 01 0b
+match Seq-Oid = { Test-Oid = "1.2.840.34359738367.13.1.1.11" }
+
+decode-pair 30 0f 06 0D 2a 86 48 ff ff ff ff ff 7f 0d 01 01 0b
+match Seq-Oid = { Test-Oid = "1.2.840.4398046511103.13.1.1.11" }
+
+decode-pair 30 10 06 0e 2a 86 48 ff ff ff ff ff ff 7f 0d 01 01 0b
+match Seq-Oid = { Test-Oid = "1.2.840.562949953421311.13.1.1.11" }
+
+decode-pair 30 11 06 0f 2a 86 48 ff ff ff ff ff ff ff 7f 0d 01 01 0b
+match Seq-Oid = { Test-Oid = "1.2.840.72057594037927935.13.1.1.11" }
+
+decode-pair 30 12 06 10 2a 86 48 ff ff ff ff ff ff ff ff 7f 0d 01 01 0b
+match Seq-Oid = { Test-Oid = "1.2.840.9223372036854775807.13.1.1.11" }
+
+decode-pair 30 13 06 11 2a 86 48 ff ff ff ff ff ff ff ff ff 7f 0d 01 01 0b
+match OID subidentifier too large
+
+decode-pair 30 14 06 12 2a 86 48 ff ff ff ff ff ff ff ff ff 86 f7 0d 01 01 0b
+match OID subidentifier too large
+
+decode-pair 30 1b 06 19 2a 86 48 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 86 f7 0d 01 01 0b
+match OID subidentifier too large
