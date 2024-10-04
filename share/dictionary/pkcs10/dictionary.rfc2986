@@ -55,3 +55,9 @@ DEFINE Test-String              string
 DEFINE Seq-String               struct
 
 MEMBER Test-String              string
+
+DEFINE Test-Date                date
+
+DEFINE Seq-Date                 struct
+
+MEMBER Test-Date                date

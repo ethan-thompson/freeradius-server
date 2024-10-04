@@ -417,3 +417,15 @@ match Seq-String = { Test-String = "In a hole in the ground there lived a hobbit
 
 decode-pair 30 03 13 01 21
 match Invalid character in printable string (33)
+
+
+proto-dictionary-root Test-Date
+
+decode-pair 17 0D 31 39 31 32 31 36 30 33 30 32 31 30 5A
+match Test-Date = "2019-12-16T03:02:10Z"
+
+
+proto-dictionary-root Seq-Date
+
+decode-pair 30 0F 17 0D 31 39 31 32 31 36 30 33 30 32 31 30 5A
+match Seq-Date = { Test-Date = "2019-12-16T03:02:10Z" }
