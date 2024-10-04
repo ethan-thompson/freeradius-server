@@ -137,6 +137,10 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -150,6 +154,7 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_OID] = fr_der_decode_oid,
 	[FR_DER_TAG_UTF8_STRING] = fr_der_decode_utf8string,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence,
+	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_decode_printable_string,
 	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string
 };
 
@@ -620,6 +625,71 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	fr_pair_append(out, vp);
 
 	return fr_dbuff_set(in, &our_in);
+}
+
+static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t	*vp;
+	char		*str = NULL;
+
+	size_t len = fr_dbuff_remaining(in);
+
+	if (!fr_type_is_string(parent->type)) {
+		fr_strerror_const("Printable string found in non-string attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	str = talloc_array(ctx, char, len + 1);
+	if (unlikely(str == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
+	for (size_t i = 0; i < len; i++) {
+		uint8_t byte;
+
+		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+			talloc_free(str);
+			fr_strerror_const("Insufficient data for printable string");
+			return -1;
+		}
+
+		// Check that the byte is a printable ASCII character allowed in a printable string
+		// The allowable characters for a printable string type are:
+		// 1. SPACE (0x20)
+		// 2. APPOSTROPHE (0x27)
+		// 3. LEFT PARENTHESIS (0x28)
+		// 4. RIGHT PARENTHESIS (0x29)
+		// 5. PLUS SIGN (0x2B)
+		// 6. COMMA (0x2C)
+		// 7. HYPHEN-MINUS (0x2D)
+		// 8. FULL STOP (0x2E)
+		// 9. SLASH (0x2F)
+		// 10. DIGITS 0-9 (0x30 - 0x39)
+		// 11. COLON (0x3A)
+		// 12. EQUALS SIGN (0x3D)
+		// 13. QUESTION MARK (0x3F)
+		// 14. UPPERCASE LETTERS A-Z (0x41 - 0x5A)
+		// 15. LOWERCASE LETTERS a-z (0x61 - 0x7A)
+		if (byte < 0x20 || byte > 0x7A || (byte > 0x20 && byte < 0x27) || byte == 0x2A || (byte > 0x3A && byte < 0x3D) || byte == 0x3E || byte == 0x40 || (byte > 0x5A && byte < 0x61)) {
+			fr_strerror_printf("Invalid character in printable string (%d)", byte);
+			return -1;
+		}
+
+		str[i] = byte;
+	}
+
+	str[len] = '\0';
+
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	fr_pair_value_strdup(vp, str, false);
+
+	fr_pair_append(out, vp);
+
+	return 1;
 }
 
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
