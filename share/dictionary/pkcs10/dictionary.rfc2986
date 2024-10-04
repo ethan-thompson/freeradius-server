@@ -49,3 +49,9 @@ DEFINE Test-Oid                 string
 DEFINE Seq-Oid                  struct
 
 MEMBER Test-Oid                 string
+
+DEFINE Test-String              string
+
+DEFINE Seq-String               struct
+
+MEMBER Test-String              string
