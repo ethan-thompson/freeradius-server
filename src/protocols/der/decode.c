@@ -129,6 +129,10 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_utf8string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				      fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -144,6 +148,7 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_OCTET_STRING] = fr_der_decode_octetstring,
 	[FR_DER_TAG_NULL] = fr_der_decode_null,
 	[FR_DER_TAG_OID] = fr_der_decode_oid,
+	[FR_DER_TAG_UTF8_STRING] = fr_der_decode_utf8string,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence,
 	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string
 };
@@ -532,6 +537,49 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	vp = fr_pair_afrom_da(ctx, parent);
 
 	fr_pair_value_strdup(vp, oid, false);
+
+	fr_pair_append(out, vp);
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_utf8string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t	*vp;
+	char		*str = NULL;
+
+	size_t len = fr_dbuff_remaining(in);
+
+	if (!fr_type_is_string(parent->type)) {
+		fr_strerror_const("UTF8 string found in non-string attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	str = talloc_array(ctx, char, len + 1);
+	if (unlikely(str == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
+	for (size_t i = 0; i < len; i++) {
+		uint8_t byte;
+
+		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+			talloc_free(str);
+			fr_strerror_const("Insufficient data for UTF8 string");
+			return -1;
+		}
+
+		str[i] = byte;
+	}
+
+	str[len] = '\0';
+
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	fr_pair_value_strdup(vp, str, false);
 
 	fr_pair_append(out, vp);
 
