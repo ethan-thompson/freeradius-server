@@ -639,7 +639,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 				return -1;
 			}
 
-			while (--len_len) {
+			while (len_len--) {
 				if (unlikely(fr_dbuff_out(&len_byte, &our_in) < 0)) {
 					fr_strerror_const("Insufficient data to satisfy multi-byte length field");
 					return -1;
@@ -648,7 +648,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 			}
 		}
 
-		if (!constructed) {
+		else if (!constructed) {
 			fr_strerror_const("Primative data with indefinite form length field is invalid");
 			return DECODE_FAIL_INVALID_ATTRIBUTE;
 		}
