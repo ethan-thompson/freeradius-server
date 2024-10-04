@@ -134,8 +134,8 @@ static ssize_t fr_der_decode_utf8string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				      fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
-				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
