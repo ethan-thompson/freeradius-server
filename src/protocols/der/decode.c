@@ -29,8 +29,10 @@
 #include "include/build.h"
 #include "lib/util/proto.h"
 #include "lib/util/struct.h"
+#include "lib/util/time.h"
 #include "talloc.h"
 #include "lib/util/debug.h"
+#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -61,7 +63,7 @@ typedef enum {
 	FR_DER_TAG_SET = 0x11,			//!< A set of DER encoded data (a structure).
 	FR_DER_TAG_PRINTABLE_STRING = 0x13,	//!< String of printable chars.
 	FR_DER_TAG_IA5_STRING = 0x16,		//!< String of IA5 (7bit) chars.
-	FR_DER_TAG_UTC_TIME = 0x17,		//!< A time in UTC "YYMMDDhhmm[ss]Z" format.  "ss" is optional.
+	FR_DER_TAG_UTC_TIME = 0x17,		//!< A time in UTC "YYMMDDhhmmssZ" format.
 	FR_DER_TAG_GENERALIZED_TIME = 0x18	//!< A time in "YYYYMMDDHH[MM[SS[.fff]]]" format.
 } fr_der_tag_t;
 
@@ -69,6 +71,8 @@ typedef enum {
 
 #define IS_DER_TAG_CONTINUATION(_tag)	(((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
 #define IS_DER_TAG_CONSTRUCTED(_tag)	((_tag) & 0x20)
+
+#define DER_MAX_STR 16384
 
 typedef enum {
 	FR_DER_TAG_PRIMATIVE = 0x00,		//!< This is a leaf value, it contains no children.
@@ -145,6 +149,10 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN] = fr_der_decode_boolean,
 	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
@@ -155,7 +163,8 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_UTF8_STRING] = fr_der_decode_utf8string,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence,
 	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_decode_printable_string,
-	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string
+	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string,
+	[FR_DER_TAG_UTC_TIME] = fr_der_decode_utc_time
 };
 
 static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
@@ -634,6 +643,19 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	fr_pair_t	*vp;
 	char		*str = NULL;
 
+	static bool const allowed_chars[] = {
+		[' '] = true, ['\''] = true, ['('] = true, [')'] = true, ['+'] = true, [','] = true, ['-'] = true, ['.'] = true,
+		['/'] = true, ['0'] = true, ['1'] = true, ['2'] = true, ['3'] = true, ['4'] = true, ['5'] = true, ['6'] = true,
+		['7'] = true, ['8'] = true, ['9'] = true, [':'] = true, ['='] = true, ['?'] = true, ['A'] = true, ['B'] = true,
+		['C'] = true, ['D'] = true, ['E'] = true, ['F'] = true, ['G'] = true, ['H'] = true, ['I'] = true, ['J'] = true,
+		['K'] = true, ['L'] = true, ['M'] = true, ['N'] = true, ['O'] = true, ['P'] = true, ['Q'] = true, ['R'] = true,
+		['S'] = true, ['T'] = true, ['U'] = true, ['V'] = true, ['W'] = true, ['X'] = true, ['Y'] = true, ['Z'] = true,
+		['a'] = true, ['b'] = true, ['c'] = true, ['d'] = true, ['e'] = true, ['f'] = true, ['g'] = true, ['h'] = true,
+		['i'] = true, ['j'] = true, ['k'] = true, ['l'] = true, ['m'] = true, ['n'] = true, ['o'] = true, ['p'] = true,
+		['q'] = true, ['r'] = true, ['s'] = true, ['t'] = true, ['u'] = true, ['v'] = true, ['w'] = true, ['x'] = true,
+		['y'] = true, ['z'] = true, [UINT8_MAX] = false
+	};
+
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
@@ -641,51 +663,24 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 		return DECODE_FAIL_INVALID_ATTRIBUTE;
 	}
 
-	str = talloc_array(ctx, char, len + 1);
-	if (unlikely(str == NULL)) {
+	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
 	}
 
+	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+
 	for (size_t i = 0; i < len; i++) {
-		uint8_t byte;
-
-		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
-			talloc_free(str);
-			fr_strerror_const("Insufficient data for printable string");
-			return -1;
-		}
-
 		// Check that the byte is a printable ASCII character allowed in a printable string
-		// The allowable characters for a printable string type are:
-		// 1. SPACE (0x20)
-		// 2. APPOSTROPHE (0x27)
-		// 3. LEFT PARENTHESIS (0x28)
-		// 4. RIGHT PARENTHESIS (0x29)
-		// 5. PLUS SIGN (0x2B)
-		// 6. COMMA (0x2C)
-		// 7. HYPHEN-MINUS (0x2D)
-		// 8. FULL STOP (0x2E)
-		// 9. SLASH (0x2F)
-		// 10. DIGITS 0-9 (0x30 - 0x39)
-		// 11. COLON (0x3A)
-		// 12. EQUALS SIGN (0x3D)
-		// 13. QUESTION MARK (0x3F)
-		// 14. UPPERCASE LETTERS A-Z (0x41 - 0x5A)
-		// 15. LOWERCASE LETTERS a-z (0x61 - 0x7A)
-		if (byte < 0x20 || byte > 0x7A || (byte > 0x20 && byte < 0x27) || byte == 0x2A || (byte > 0x3A && byte < 0x3D) || byte == 0x3E || byte == 0x40 || (byte > 0x5A && byte < 0x61)) {
-			fr_strerror_printf("Invalid character in printable string (%d)", byte);
+		if (allowed_chars[(uint8_t)str[i]] == false) {
+			fr_strerror_printf("Invalid character in printable string (%d)", str[i]);
 			return -1;
 		}
 
-		str[i] = byte;
 	}
 
 	str[len] = '\0';
-
-	vp = fr_pair_afrom_da(ctx, parent);
-
-	fr_pair_value_strdup(vp, str, false);
 
 	fr_pair_append(out, vp);
 
@@ -729,6 +724,66 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	vp = fr_pair_afrom_da(ctx, parent);
 
 	fr_pair_value_strdup(vp, str, false);
+
+	fr_pair_append(out, vp);
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+#define DER_UTC_TIME_LEN 13
+	fr_pair_t	*vp;
+	char		timestr[DER_UTC_TIME_LEN + 1];
+	char *p;
+	struct tm	tm = { };
+
+	size_t len = fr_dbuff_remaining(in);
+
+	if (!fr_type_is_date(parent->type)) {
+		fr_strerror_const("UTC time found in non-date attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	if (len != DER_UTC_TIME_LEN) {
+		fr_strerror_const("Insufficient data for UTC time");
+		return -1;
+	}
+
+	// The format of a UTC time is "YYMMDDhhmmssZ"
+	// Where:
+	// 1. YY is the year
+	// 2. MM is the month
+	// 3. DD is the day
+	// 4. hh is the hour
+	// 5. mm is the minute
+	// 6. ss is the second (not optional in DER)
+	// 7. Z is the timezone (UTC)
+
+	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, len) < 0){
+		fr_strerror_const("Insufficient data for UTC time");
+		return -1;
+	}
+
+	if (memchr(timestr, '\0', len) != NULL) {
+		fr_strerror_const("UTC time contains null byte");
+		return -1;
+	}
+
+	timestr[len] = '\0';
+
+	p = strptime(timestr, "%y%m%d%H%M%SZ", &tm);
+
+	if (unlikely(p == NULL) || *p != '\0') {
+		fr_strerror_const("Invalid UTC time format");
+		return -1;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	vp->vp_date = fr_unix_time_from_tm(&tm);
 
 	fr_pair_append(out, vp);
 
@@ -825,6 +880,19 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	if (unlikely(len > fr_dbuff_remaining(&our_in))) {
 		fr_strerror_printf("Insufficient data for length field (%zu)", len);
 		return -1;
+	}
+
+	// Make sure the data length is less than the maximum allowed
+	switch (tag) {
+	case FR_DER_TAG_SEQUENCE:
+	case FR_DER_TAG_SET:
+		break;
+	default:
+		if (unlikely(len > DER_MAX_STR)) {
+			fr_strerror_printf("Data length too large (%zu)", len);
+			return -1;
+		}
+		break;
 	}
 
 	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
