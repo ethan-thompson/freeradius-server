@@ -166,6 +166,10 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN] = fr_der_decode_boolean,
 	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
@@ -179,7 +183,8 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_T61_STRING] = fr_der_decode_t61_string,
 	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string,
 	[FR_DER_TAG_UTC_TIME] = fr_der_decode_utc_time,
-	[FR_DER_TAG_GENERALIZED_TIME] = fr_der_decode_generalized_time
+	[FR_DER_TAG_GENERALIZED_TIME] = fr_der_decode_generalized_time,
+	[FR_DER_TAG_VISIBLE_STRING] = fr_der_decode_visible_string
 };
 
 static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
@@ -975,6 +980,59 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	// Move to the end of the buffer
 	// This is necessary because the fractional seconds are being ignored
 	fr_dbuff_advance(in, fr_dbuff_remaining(in));
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t	*vp;
+	char		*str = NULL;
+
+	static bool const allowed_chars[] = {
+		[' '] = true, ['!'] = true, ['"'] = true, ['#'] = true, ['$'] = true, ['%'] = true, ['&'] = true, ['\''] = true, ['('] = true,
+		[')'] = true, ['*'] = true, ['+'] = true, [','] = true, ['-'] = true, ['.'] = true, ['/'] = true, ['0'] = true,
+		['1'] = true, ['2'] = true, ['3'] = true, ['4'] = true, ['5'] = true, ['6'] = true, ['7'] = true, ['8'] = true,
+		['9'] = true, [':'] = true, [';'] = true, ['<'] = true, ['='] = true, ['>'] = true, ['?'] = true, ['@'] = true,
+		['A'] = true, ['B'] = true, ['C'] = true, ['D'] = true, ['E'] = true, ['F'] = true, ['G'] = true, ['H'] = true,
+		['I'] = true, ['J'] = true, ['K'] = true, ['L'] = true, ['M'] = true, ['N'] = true, ['O'] = true, ['P'] = true,
+		['Q'] = true, ['R'] = true, ['S'] = true, ['T'] = true, ['U'] = true, ['V'] = true, ['W'] = true, ['X'] = true,
+		['Y'] = true, ['Z'] = true, ['['] = true, ['\\'] = true, [']'] = true, ['^'] = true, ['_'] = true, ['`'] = true,
+		['a'] = true, ['b'] = true, ['c'] = true, ['d'] = true, ['e'] = true, ['f'] = true, ['g'] = true, ['h'] = true,
+		['i'] = true, ['j'] = true, ['k'] = true, ['l'] = true, ['m'] = true, ['n'] = true, ['o'] = true, ['p'] = true,
+		['q'] = true, ['r'] = true, ['s'] = true, ['t'] = true, ['u'] = true, ['v'] = true, ['w'] = true, ['x'] = true,
+		['y'] = true, ['z'] = true, ['{'] = true, ['|'] = true, ['}'] = true, [UINT8_MAX] = false
+	};
+
+	size_t len = fr_dbuff_remaining(in);
+
+	if (!fr_type_is_string(parent->type)) {
+		fr_strerror_const("Visible string found in non-string attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
+	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+
+	for (size_t i = 0; i < len; i++) {
+		// Check that the byte is a printable ASCII character allowed in a printable string
+		if (allowed_chars[(uint8_t)str[i]] == false) {
+			fr_strerror_printf("Invalid character in visible string (%d)", str[i]);
+			return -1;
+		}
+
+	}
+
+	str[len] = '\0';
+
+	fr_pair_append(out, vp);
 
 	return 1;
 }
