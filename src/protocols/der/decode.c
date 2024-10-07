@@ -150,6 +150,10 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -172,6 +176,7 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_UTF8_STRING] = fr_der_decode_utf8string,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence,
 	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_decode_printable_string,
+	[FR_DER_TAG_T61_STRING] = fr_der_decode_t61_string,
 	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string,
 	[FR_DER_TAG_UTC_TIME] = fr_der_decode_utc_time,
 	[FR_DER_TAG_GENERALIZED_TIME] = fr_der_decode_generalized_time
@@ -697,6 +702,70 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	return 1;
 }
 
+
+
+static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t	*vp;
+	char		*str = NULL;
+
+	static bool const allowed_chars[] = {
+		[0x08] = true, [0x0A] = true, [0x0C] = true, [0x0D] = true, [0x0E] = true, [0x0F] = true, [0x19] = true, [0x1A] = true,
+		[0x1B] = true, [0x1D] = true, [' '] = true, ['!'] = true, ['"'] = true, ['%'] = true, ['&'] = true, ['\''] = true,
+		['('] = true, [')'] = true, ['*'] = true, ['+'] = true, [','] = true, ['-'] = true, ['.'] = true, ['/'] = true,
+		['0'] = true, ['1'] = true, ['2'] = true, ['3'] = true, ['4'] = true, ['5'] = true, ['6'] = true, ['7'] = true,
+		['8'] = true, ['9'] = true, [':'] = true, [';'] = true, ['<'] = true, ['='] = true, ['>'] = true, ['?'] = true,
+		['@'] = true, ['A'] = true, ['B'] = true, ['C'] = true, ['D'] = true, ['E'] = true, ['F'] = true, ['G'] = true,
+		['H'] = true, ['I'] = true, ['J'] = true, ['K'] = true, ['L'] = true, ['M'] = true, ['N'] = true, ['O'] = true,
+		['P'] = true, ['Q'] = true, ['R'] = true, ['S'] = true, ['T'] = true, ['U'] = true, ['V'] = true, ['W'] = true,
+		['X'] = true, ['Y'] = true, ['Z'] = true, ['['] = true, [']'] = true, ['_'] = true, ['a'] = true, ['b'] = true,
+		['c'] = true, ['d'] = true, ['e'] = true, ['f'] = true, ['g'] = true, ['h'] = true, ['i'] = true, ['j'] = true,
+		['k'] = true, ['l'] = true, ['m'] = true, ['n'] = true, ['o'] = true, ['p'] = true, ['q'] = true, ['r'] = true,
+		['s'] = true, ['t'] = true, ['u'] = true, ['v'] = true, ['w'] = true, ['x'] = true, ['y'] = true, ['z'] = true,
+		['|'] = true, [0x7F] = true, [0x8B] = true, [0x8C] = true, [0x9B] = true, [0xA0] = true, [0xA1] = true, [0xA2] = true,
+		[0xA3] = true, [0xA4] = true, [0xA5] = true, [0xA6] = true, [0xA7] = true, [0xA8] = true, [0xAB] = true, [0xB0] = true,
+		[0xB1] = true, [0xB2] = true, [0xB3] = true, [0xB4] = true, [0xB5] = true, [0xB6] = true, [0xB7] = true, [0xB8] = true,
+		[0xBB] = true, [0xBC] = true, [0xBD] = true, [0xBE] = true, [0xBF] = true, [0xC1] = true, [0xC2] = true, [0xC3] = true,
+		[0xC4] = true, [0xC5] = true, [0xC6] = true, [0xC7] = true, [0xC8] = true, [0xC9] = true, [0xCA] = true, [0xCB] = true,
+		[0xCC] = true, [0xCD] = true, [0xCE] = true, [0xCF] = true, [0xE0] = true, [0xE1] = true, [0xE2] = true, [0xE3] = true,
+		[0xE4] = true, [0xE5] = true, [0xE7] = true, [0xE8] = true, [0xE9] = true, [0xEA] = true, [0xEB] = true, [0xEC] = true,
+		[0xED] = true, [0xEE] = true, [0xEF] = true, [0xF0] = true, [0xF1] = true, [0xF2] = true, [0xF3] = true, [0xF4] = true,
+		[0xF5] = true, [0xF6] = true, [0xF7] = true, [0xF8] = true, [0xF9] = true, [0xFA] = true, [0xFB] = true, [0xFC] = true,
+		[0xFD] = true, [0xFE] = true, [UINT8_MAX] = false
+	};
+
+	size_t len = fr_dbuff_remaining(in);
+
+	if (!fr_type_is_string(parent->type)) {
+		fr_strerror_const("T61 string found in non-string attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
+	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+
+	for (size_t i = 0; i < len; i++) {
+		// Check that the byte is a printable ASCII character allowed in a T61 string
+		if (allowed_chars[(uint8_t)str[i]] == false) {
+			fr_strerror_printf("Invalid character in T61 string (%d)", str[i]);
+			return -1;
+		}
+	}
+
+	str[len] = '\0';
+
+	fr_pair_append(out, vp);
+
+	return 1;
+
+}
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
