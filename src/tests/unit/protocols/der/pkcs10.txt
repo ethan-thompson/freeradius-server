@@ -424,8 +424,48 @@ proto-dictionary-root Test-Date
 decode-pair 17 0D 31 39 31 32 31 36 30 33 30 32 31 30 5A
 match Test-Date = "2019-12-16T03:02:10Z"
 
+# Test GeneralizedTime
+decode-pair 180f32303139313231363033303231305a
+match Test-Date = "2019-12-16T03:02:10Z"
+
+decode-pair 18 13 32 30 31 35313233313233353935392e3132335a
+match Test-Date = "2015-12-31T23:59:59Z"
+
+decode-pair 181132303139313231363033303231302e305a
+match Test-Date = "2019-12-16T03:02:10Z"
+
+decode-pair 181132303139313231363033303231302e315a
+match Test-Date = "2019-12-16T03:02:10Z"
+
+decode-pair 181232303139313231363033303231302e30315a
+match Test-Date = "2019-12-16T03:02:10Z"
+
+decode-pair 181432303139313231363033303231302e303030315a
+match Test-Date = "2019-12-16T03:02:10Z"
+
+decode-pair 181632303139313231363033303231302e3030303030315a
+match Test-Date = "2019-12-16T03:02:10Z"
+
+decode-pair 18 13 32 303139313231363033303231302e30303031
+match Test-Date = "2019-12-16T03:02:10Z"
+
+decode-pair 18 0D 31 39 31 32 31 36 30 33 30 32 31 30 5A
+match Insufficient data for generalized time
+
+decode-pair 18 14 32 30 31 39 31 32 31 36 30 33 00 32 31 30 2e 30 30 30 31 5a
+match Generalized time contains null byte
+
+decode-pair 18 14 32 30 31 39 31 32 31 36 30 33 30 32 31 30 2e 30 30 00 31 5a
+match Generalized time contains null byte
+
+decode-pair 18 10 32 30 31 39 31 32 31 36 30 33 30 32 31 30 2e 5a
+match Insufficient data for subseconds
 
 proto-dictionary-root Seq-Date
 
 decode-pair 30 0F 17 0D 31 39 31 32 31 36 30 33 30 32 31 30 5A
+match Seq-Date = { Test-Date = "2019-12-16T03:02:10Z" }
+
+# Test GeneralizedTime
+decode-pair 30 11 180f32303139313231363033303231305a
 match Seq-Date = { Test-Date = "2019-12-16T03:02:10Z" }
