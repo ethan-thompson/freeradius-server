@@ -62,9 +62,14 @@ typedef enum {
 	FR_DER_TAG_SEQUENCE = 0x10,		//!< A sequence of DER encoded data (a structure).
 	FR_DER_TAG_SET = 0x11,			//!< A set of DER encoded data (a structure).
 	FR_DER_TAG_PRINTABLE_STRING = 0x13,	//!< String of printable chars.
+	FR_DER_TAG_T61_STRING = 0x14,		//!< String of T61 (8bit) chars.
 	FR_DER_TAG_IA5_STRING = 0x16,		//!< String of IA5 (7bit) chars.
 	FR_DER_TAG_UTC_TIME = 0x17,		//!< A time in UTC "YYMMDDhhmmssZ" format.
-	FR_DER_TAG_GENERALIZED_TIME = 0x18	//!< A time in "YYYYMMDDHHMMSS[.fff]Z" format.
+	FR_DER_TAG_GENERALIZED_TIME = 0x18,	//!< A time in "YYYYMMDDHHMMSS[.fff]Z" format.
+	FR_DER_TAG_VISIBLE_STRING = 0x1a,	//!< String of visible chars.
+	FR_DER_TAG_GENERAL_STRING = 0x1b,	//!< String of general chars.
+	FR_DER_TAG_UNIVERSAL_STRING = 0x1c,	//!< String of universal chars.
+	FR_DER_TAG_BMP_STRING = 0x1e		//!< String of BMP chars.
 } fr_der_tag_t;
 
 #define DER_TAG_CONTINUATION 0x1f 		//!< Mask to check if the tag is a continuation.
