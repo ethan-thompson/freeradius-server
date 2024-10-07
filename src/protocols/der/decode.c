@@ -64,7 +64,7 @@ typedef enum {
 	FR_DER_TAG_PRINTABLE_STRING = 0x13,	//!< String of printable chars.
 	FR_DER_TAG_IA5_STRING = 0x16,		//!< String of IA5 (7bit) chars.
 	FR_DER_TAG_UTC_TIME = 0x17,		//!< A time in UTC "YYMMDDhhmmssZ" format.
-	FR_DER_TAG_GENERALIZED_TIME = 0x18	//!< A time in "YYYYMMDDHH[MM[SS[.fff]]]" format.
+	FR_DER_TAG_GENERALIZED_TIME = 0x18	//!< A time in "YYYYMMDDHHMMSS[.fff]Z" format.
 } fr_der_tag_t;
 
 #define DER_TAG_CONTINUATION 0x1f 		//!< Mask to check if the tag is a continuation.
@@ -153,6 +153,10 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN] = fr_der_decode_boolean,
 	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
@@ -164,7 +168,8 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence,
 	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_decode_printable_string,
 	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string,
-	[FR_DER_TAG_UTC_TIME] = fr_der_decode_utc_time
+	[FR_DER_TAG_UTC_TIME] = fr_der_decode_utc_time,
+	[FR_DER_TAG_GENERALIZED_TIME] = fr_der_decode_generalized_time
 };
 
 static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
@@ -786,6 +791,80 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	vp->vp_date = fr_unix_time_from_tm(&tm);
 
 	fr_pair_append(out, vp);
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+#define DER_GENERALIZED_TIME_LEN_MIN 15
+	fr_pair_t	*vp;
+	char		timestr[DER_GENERALIZED_TIME_LEN_MIN + 1];
+	char *p;
+	struct tm	tm = { };
+
+	size_t len = fr_dbuff_remaining(in);
+
+	if (!fr_type_is_date(parent->type)) {
+		fr_strerror_const("Generalized time found in non-date attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	if (len < DER_GENERALIZED_TIME_LEN_MIN) {
+		fr_strerror_const("Insufficient data for generalized time");
+		return -1;
+	}
+
+	// The format of a generalized time is "YYYYMMDDHHMMSS[.fff]Z"
+	// Where:
+	// 1. YYYY is the year
+	// 2. MM is the month
+	// 3. DD is the day
+	// 4. HH is the hour
+	// 5. MM is the minute
+	// 6. SS is the second
+	// 7. fff is the fraction of a second (optional) <- RFC 5280 forbids this
+	// 8. Z is the timezone (UTC)
+
+	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, DER_GENERALIZED_TIME_LEN_MIN) < 0){
+		fr_strerror_const("Insufficient data for generalized time");
+		return -1;
+	}
+
+	if (memchr(timestr, '\0', DER_GENERALIZED_TIME_LEN_MIN) != NULL) {
+		fr_strerror_const("Generalized time contains null byte");
+		return -1;
+	}
+
+	if (timestr[DER_GENERALIZED_TIME_LEN_MIN - 1] != 'Z' && timestr[DER_GENERALIZED_TIME_LEN_MIN - 1] != '.') {
+		fr_strerror_const("Incorrect format for generalized time");
+		return -1;
+	}
+
+	// Make sure the timezone is UTC (Z)
+	timestr[DER_GENERALIZED_TIME_LEN_MIN - 1] = 'Z';
+
+	timestr[DER_GENERALIZED_TIME_LEN_MIN] = '\0';
+
+	p = strptime(timestr, "%Y%m%d%H%M%SZ", &tm);
+
+	if (unlikely(p == NULL)) {
+		fr_strerror_const("Invalid generalized time format");
+		return -1;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	vp->vp_date = fr_unix_time_from_tm(&tm);
+	// vp->vp_date = fr_unix_time_add(fr_unix_time_from_tm(&tm), fr_time_delta_wrap(subseconds));
+
+	fr_pair_append(out, vp);
+
+	// Move to the end of the buffer
+	// This is necessary because the fractional seconds are being ignored
+	fr_dbuff_advance(in, len - DER_GENERALIZED_TIME_LEN_MIN);
 
 	return 1;
 }
