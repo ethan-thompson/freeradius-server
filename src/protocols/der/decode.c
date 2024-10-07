@@ -170,6 +170,10 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN] = fr_der_decode_boolean,
 	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
@@ -184,7 +188,8 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string,
 	[FR_DER_TAG_UTC_TIME] = fr_der_decode_utc_time,
 	[FR_DER_TAG_GENERALIZED_TIME] = fr_der_decode_generalized_time,
-	[FR_DER_TAG_VISIBLE_STRING] = fr_der_decode_visible_string
+	[FR_DER_TAG_VISIBLE_STRING] = fr_der_decode_visible_string,
+	[FR_DER_TAG_GENERAL_STRING] = fr_der_decode_general_string,
 };
 
 static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
@@ -1029,6 +1034,35 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 		}
 
 	}
+
+	str[len] = '\0';
+
+	fr_pair_append(out, vp);
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t 	*vp;
+	char		*str = NULL;
+
+	size_t len = fr_dbuff_remaining(in);
+
+	if (!fr_type_is_string(parent->type)) {
+		fr_strerror_const("General string found in non-string attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
+	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
 
 	str[len] = '\0';
 
