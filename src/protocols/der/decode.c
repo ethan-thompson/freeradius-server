@@ -800,9 +800,11 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 #define DER_GENERALIZED_TIME_LEN_MIN 15
+#define DER_GENERALIZED_TIME_PRECISION_MAX 4
 	fr_pair_t	*vp;
 	char		timestr[DER_GENERALIZED_TIME_LEN_MIN + 1];
 	char *p;
+	unsigned long subseconds = 0;
 	struct tm	tm = { };
 
 	size_t len = fr_dbuff_remaining(in);
@@ -843,6 +845,41 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 		return -1;
 	}
 
+	// Check if the fractional seconds are present
+	if (timestr[DER_GENERALIZED_TIME_LEN_MIN - 1] == '.') {
+		// We only support subseconds up to 4 decimal places
+		char subsecstring [DER_GENERALIZED_TIME_PRECISION_MAX + 1];
+
+		uint8_t precision = DER_GENERALIZED_TIME_PRECISION_MAX;
+
+		if (unlikely(fr_dbuff_remaining(in) - 1 < DER_GENERALIZED_TIME_PRECISION_MAX)) {
+			precision = fr_dbuff_remaining(in) - 1;
+		}
+
+		if (unlikely(precision == 0)) {
+			fr_strerror_const("Insufficient data for subseconds");
+			return -1;
+		}
+
+		if (fr_dbuff_out_memcpy((uint8_t *)subsecstring, in, precision) < 0) {
+			fr_strerror_const("Insufficient data for subseconds");
+			return -1;
+		}
+
+		if (memchr(subsecstring, '\0', precision) != NULL) {
+			fr_strerror_const("Generalized time contains null byte");
+			return -1;
+		}
+
+		subsecstring[DER_GENERALIZED_TIME_PRECISION_MAX] = '\0';
+
+		// Convert the subseconds to an unsigned long
+		subseconds = strtoul(subsecstring, NULL, 10);
+
+		// Scale to nanoseconds
+		subseconds *= 1000000;
+	}
+
 	// Make sure the timezone is UTC (Z)
 	timestr[DER_GENERALIZED_TIME_LEN_MIN - 1] = 'Z';
 
@@ -857,14 +894,13 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 
 	vp = fr_pair_afrom_da(ctx, parent);
 
-	vp->vp_date = fr_unix_time_from_tm(&tm);
-	// vp->vp_date = fr_unix_time_add(fr_unix_time_from_tm(&tm), fr_time_delta_wrap(subseconds));
+	vp->vp_date = fr_unix_time_add(fr_unix_time_from_tm(&tm), fr_time_delta_wrap(subseconds));
 
 	fr_pair_append(out, vp);
 
 	// Move to the end of the buffer
 	// This is necessary because the fractional seconds are being ignored
-	fr_dbuff_advance(in, len - DER_GENERALIZED_TIME_LEN_MIN);
+	fr_dbuff_advance(in, fr_dbuff_remaining(in));
 
 	return 1;
 }
