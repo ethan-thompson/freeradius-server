@@ -259,7 +259,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 
 	if (!fr_type_is_integer_except_bool(parent->type)) {
 		fr_strerror_const("Integer found in non-integer attribute");
-		return DECODE_FAIL_INVALID_ATTRIBUTE;
+		return -1;
 	}
 
 	if (len > sizeof(val)) {
