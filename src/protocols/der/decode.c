@@ -638,7 +638,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	fr_dict_attr_t const *child = NULL;
 	fr_dbuff_t		our_in = FR_DBUFF(in);
 
-	if (!fr_type_is_struct(parent->type)) {
+	if (!fr_type_is_struct(parent->type) && !fr_type_is_tlv(parent->type) && !fr_type_is_group(parent->type)) {
 		fr_strerror_const("Sequence found in non-struct attribute");
 		return DECODE_FAIL_INVALID_ATTRIBUTE;
 	}
