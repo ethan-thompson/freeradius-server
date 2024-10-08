@@ -226,12 +226,12 @@ match Seq-Octetstring = { Octetstring = 0xffffffffffffffff }
 proto-dictionary-root Test-Null
 
 decode-pair 05 00
-match
+match Test-NULL = 0
 
 proto-dictionary-root Seq-Null
 
 decode-pair 30 02 05 00
-match Seq-Null = { }
+match Seq-Null = { Test-Null = 0 }
 
 decode-pair 30 02 05 01
 match Insufficient data for length field (1)
@@ -240,7 +240,7 @@ match Insufficient data for length field (1)
 proto-dictionary-root Seq-Integer-Null
 
 decode-pair 30 05 02 01 01 05 00
-match Seq-Integer-Null = { Test-Integer = 1 }
+match Seq-Integer-Null = { Test-Integer = 1, Test-Null = 0 }
 
 
 proto-dictionary-root Test-Oid
@@ -574,3 +574,13 @@ match Seq-Date = { Test-Date = "2019-12-16T03:02:10Z" }
 # Test GeneralizedTime
 decode-pair 30 11 180f32303139313231363033303231305a
 match Seq-Date = { Test-Date = "2019-12-16T03:02:10Z" }
+
+
+# Test Set
+proto-dictionary-root Set-Bool-Integer
+
+decode-pair 3106010100020109
+match Set-Bool-Integer = { Test-Bool = no, Test-Integer = 9 }
+
+decode-pair 3106020109010100
+match Integer found in non-integer attribute
