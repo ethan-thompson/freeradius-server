@@ -146,6 +146,10 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -187,6 +191,7 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_OID] = fr_der_decode_oid,
 	[FR_DER_TAG_UTF8_STRING] = fr_der_decode_utf8string,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence,
+	[FR_DER_TAG_SET] = fr_der_decode_set,
 	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_decode_printable_string,
 	[FR_DER_TAG_T61_STRING] = fr_der_decode_t61_string,
 	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string,
@@ -653,6 +658,63 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		ssize_t ret;
 
 		FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
+
+		ret = fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx);
+		if (unlikely(ret < 0)) {
+			talloc_free(vp);
+			return ret;
+		}
+	}
+
+	fr_pair_append(out, vp);
+
+	return fr_dbuff_set(in, &our_in);
+}
+
+static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t		*vp;
+	fr_dict_attr_t const *child = NULL;
+	fr_dbuff_t		our_in = FR_DBUFF(in);
+	uint8_t			previous_tag = 0x00;
+
+	if (!fr_type_is_struct(parent->type) && !fr_type_is_tlv(parent->type) && !fr_type_is_group(parent->type)) {
+		fr_strerror_const("Set found in non-struct attribute");
+		return DECODE_FAIL_INVALID_ATTRIBUTE;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	if (unlikely(vp == NULL)) {
+		return DECODE_FAIL_UNKNOWN;
+	};
+
+	while ((child = fr_dict_attr_iterate_children(parent, &child))) {
+		ssize_t ret;
+		uint8_t current_tag;
+		uint8_t *current_marker = fr_dbuff_current(&our_in);
+
+		FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
+
+		// Check that the tag is in ascending order
+		if (unlikely(fr_dbuff_out(&current_tag, &our_in) < 0)) {
+			fr_strerror_const("Insufficient data for set");
+			talloc_free(vp);
+			return -1;
+		}
+
+		if (unlikely(current_tag < previous_tag)) {
+			fr_strerror_const("Set tags are not in ascending order");
+			talloc_free(vp);
+			return -1;
+		}
+
+		previous_tag = current_tag;
+
+		// Reset the buffer to the start of the tag
+		fr_dbuff_set(&our_in, current_marker);
 
 		ret = fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx);
 		if (unlikely(ret < 0)) {
