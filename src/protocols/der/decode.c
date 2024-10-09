@@ -45,49 +45,49 @@
 #include <freeradius-devel/util/time.h>
 
 typedef struct {
-	uint8_t		*tmp_ctx;
+	uint8_t *tmp_ctx;
 } fr_der_decode_ctx_t;
 
 /** Enumeration describing the data types in a DER encoded structure
  */
 typedef enum {
-	FR_DER_TAG_BOOLEAN = 0x01,		//!< Boolean true/false
-	FR_DER_TAG_INTEGER = 0x02,		//!< Arbitrary width signed integer.
-	FR_DER_TAG_BITSTRING = 0x03,		//!< String of bits (length field specifies bits).
-	FR_DER_TAG_OCTETSTRING = 0x04,		//!< String of octets (length field specifies bytes).
-	FR_DER_TAG_NULL = 0x05,			//!< An empty value.
-	FR_DER_TAG_OID = 0x06,			//!< Reference to an OID based attribute.
-	FR_DER_TAG_UTF8_STRING = 0x0c,		//!< String of UTF8 chars.
-	FR_DER_TAG_SEQUENCE = 0x10,		//!< A sequence of DER encoded data (a structure).
-	FR_DER_TAG_SET = 0x11,			//!< A set of DER encoded data (a structure).
-	FR_DER_TAG_PRINTABLE_STRING = 0x13,	//!< String of printable chars.
-	FR_DER_TAG_T61_STRING = 0x14,		//!< String of T61 (8bit) chars.
-	FR_DER_TAG_IA5_STRING = 0x16,		//!< String of IA5 (7bit) chars.
-	FR_DER_TAG_UTC_TIME = 0x17,		//!< A time in UTC "YYMMDDhhmmssZ" format.
-	FR_DER_TAG_GENERALIZED_TIME = 0x18,	//!< A time in "YYYYMMDDHHMMSS[.fff]Z" format.
-	FR_DER_TAG_VISIBLE_STRING = 0x1a,	//!< String of visible chars.
-	FR_DER_TAG_GENERAL_STRING = 0x1b,	//!< String of general chars.
-	FR_DER_TAG_UNIVERSAL_STRING = 0x1c,	//!< String of universal chars.
-	FR_DER_TAG_BMP_STRING = 0x1e		//!< String of BMP chars.
+	FR_DER_TAG_BOOLEAN	    = 0x01,	   //!< Boolean true/false
+	FR_DER_TAG_INTEGER	    = 0x02,	   //!< Arbitrary width signed integer.
+	FR_DER_TAG_BITSTRING	    = 0x03,	   //!< String of bits (length field specifies bits).
+	FR_DER_TAG_OCTETSTRING	    = 0x04,	   //!< String of octets (length field specifies bytes).
+	FR_DER_TAG_NULL		    = 0x05,	   //!< An empty value.
+	FR_DER_TAG_OID		    = 0x06,	   //!< Reference to an OID based attribute.
+	FR_DER_TAG_UTF8_STRING	    = 0x0c,	   //!< String of UTF8 chars.
+	FR_DER_TAG_SEQUENCE	    = 0x10,	   //!< A sequence of DER encoded data (a structure).
+	FR_DER_TAG_SET		    = 0x11,	   //!< A set of DER encoded data (a structure).
+	FR_DER_TAG_PRINTABLE_STRING = 0x13,	   //!< String of printable chars.
+	FR_DER_TAG_T61_STRING	    = 0x14,	   //!< String of T61 (8bit) chars.
+	FR_DER_TAG_IA5_STRING	    = 0x16,	   //!< String of IA5 (7bit) chars.
+	FR_DER_TAG_UTC_TIME	    = 0x17,	   //!< A time in UTC "YYMMDDhhmmssZ" format.
+	FR_DER_TAG_GENERALIZED_TIME = 0x18,	   //!< A time in "YYYYMMDDHHMMSS[.fff]Z" format.
+	FR_DER_TAG_VISIBLE_STRING   = 0x1a,	   //!< String of visible chars.
+	FR_DER_TAG_GENERAL_STRING   = 0x1b,	   //!< String of general chars.
+	FR_DER_TAG_UNIVERSAL_STRING = 0x1c,	   //!< String of universal chars.
+	FR_DER_TAG_BMP_STRING	    = 0x1e	  //!< String of BMP chars.
 } fr_der_tag_t;
 
-#define DER_TAG_CONTINUATION 0x1f 		//!< Mask to check if the tag is a continuation.
+#define DER_TAG_CONTINUATION 0x1f	 //!< Mask to check if the tag is a continuation.
 
-#define IS_DER_TAG_CONTINUATION(_tag)	(((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
-#define IS_DER_TAG_CONSTRUCTED(_tag)	( ((_tag) & 0x20) == 0x20)
+#define IS_DER_TAG_CONTINUATION(_tag) (((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
+#define IS_DER_TAG_CONSTRUCTED(_tag) (((_tag) & 0x20) == 0x20)
 
 #define DER_MAX_STR 16384
 
 typedef enum {
-	FR_DER_TAG_PRIMATIVE = 0x00,		//!< This is a leaf value, it contains no children.
-	FR_DER_TAG_CONSTRUCTED = 0x01		//!< This is a sequence or set, it contains children.
+	FR_DER_TAG_PRIMATIVE   = 0x00,	      //!< This is a leaf value, it contains no children.
+	FR_DER_TAG_CONSTRUCTED = 0x01	     //!< This is a sequence or set, it contains children.
 } fr_der_tag_constructed_t;
 
 typedef enum {
-	FR_DER_TAG_FLAG_UNIVERSAL = 0x00,	//!<
+	FR_DER_TAG_FLAG_UNIVERSAL   = 0x00,	   //!<
 	FR_DER_TAG_FLAG_APPLICATION = 0x01,
-	FR_DER_TAG_FLAG_CONTEXT = 0x02,
-	FR_DER_TAG_FLAG_PRIVATE = 0x03
+	FR_DER_TAG_FLAG_CONTEXT	    = 0x02,
+	FR_DER_TAG_FLAG_PRIVATE	    = 0x03
 } fr_der_tag_flag_t;
 
 /** Function signature for DER decode functions
@@ -103,91 +103,94 @@ typedef enum {
  *	- 0 no bytes decoded.
  *	- < 0 on error.  May be the offset (as a negative value) where the error occurred.
  */
-typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				   fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				   fr_der_decode_ctx_t *decode_ctx);
 
 typedef struct {
-	fr_der_tag_constructed_t	constructed;
-	fr_der_decode_t			decode;
+	fr_der_tag_constructed_t constructed;
+	fr_der_decode_t		 decode;
 } fr_der_tag_decode_t;
 
 static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-			   		fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
-static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				     fr_der_decode_ctx_t *decode_ctx);
 
-static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				     fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+				       fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
-static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				  fr_der_decode_ctx_t *decode_ctx);
 
-static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				 fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
-static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				 fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static fr_der_tag_decode_t tag_funcs[] = {
-	[FR_DER_TAG_BOOLEAN] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_boolean },
-	[FR_DER_TAG_INTEGER] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_integer },
-	[FR_DER_TAG_BITSTRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_bitstring },
-	[FR_DER_TAG_OCTETSTRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_octetstring },
-	[FR_DER_TAG_NULL] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_null },
-	[FR_DER_TAG_OID] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_oid },
-	[FR_DER_TAG_UTF8_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utf8_string },
-	[FR_DER_TAG_SEQUENCE] = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_sequence },
-	[FR_DER_TAG_SET] = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_set },
-	[FR_DER_TAG_PRINTABLE_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_printable_string },
-	[FR_DER_TAG_T61_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_t61_string },
-	[FR_DER_TAG_IA5_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_ia5_string },
-	[FR_DER_TAG_UTC_TIME] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utc_time },
-	[FR_DER_TAG_GENERALIZED_TIME] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_generalized_time },
-	[FR_DER_TAG_VISIBLE_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_visible_string },
-	[FR_DER_TAG_GENERAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_general_string },
-	[FR_DER_TAG_UNIVERSAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_universal_string },
+	[FR_DER_TAG_BOOLEAN]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_boolean },
+	[FR_DER_TAG_INTEGER]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_integer },
+	[FR_DER_TAG_BITSTRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_bitstring },
+	[FR_DER_TAG_OCTETSTRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_octetstring },
+	[FR_DER_TAG_NULL]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_null },
+	[FR_DER_TAG_OID]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_oid },
+	[FR_DER_TAG_UTF8_STRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utf8_string },
+	[FR_DER_TAG_SEQUENCE]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_sequence },
+	[FR_DER_TAG_SET]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_set },
+	[FR_DER_TAG_PRINTABLE_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE,
+					  .decode      = fr_der_decode_printable_string },
+	[FR_DER_TAG_T61_STRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_t61_string },
+	[FR_DER_TAG_IA5_STRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_ia5_string },
+	[FR_DER_TAG_UTC_TIME]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utc_time },
+	[FR_DER_TAG_GENERALIZED_TIME] = { .constructed = FR_DER_TAG_PRIMATIVE,
+					  .decode      = fr_der_decode_generalized_time },
+	[FR_DER_TAG_VISIBLE_STRING]   = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_visible_string },
+	[FR_DER_TAG_GENERAL_STRING]   = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_general_string },
+	[FR_DER_TAG_UNIVERSAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE,
+					  .decode      = fr_der_decode_universal_string },
 };
 
 static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
 {
-	fr_der_decode_ctx_t	*test_ctx;
+	fr_der_decode_ctx_t *test_ctx;
 
 	test_ctx = talloc_zero(ctx, fr_der_decode_ctx_t);
 	if (!test_ctx) return -1;
@@ -199,11 +202,11 @@ static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
 	return 0;
 }
 
-static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				     fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	uint8_t		val;
+	fr_pair_t *vp;
+	uint8_t	   val;
 
 	if (unlikely(fr_dbuff_out(&val, in) < 0)) {
 		fr_strerror_const("Insufficient data for boolean");
@@ -246,18 +249,19 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	return 1;
 }
 
-static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				     fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	int64_t		val = 0;
-	uint8_t		sign = 0;
-	size_t 		i;
+	fr_pair_t *vp;
+	int64_t	   val	= 0;
+	uint8_t	   sign = 0;
+	size_t	   i;
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_integer_except_bool(parent->type)) {
-		fr_strerror_printf("Integer found in non-integer attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("Integer found in non-integer attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -275,10 +279,11 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	 *	      then the bits of the first octet and bit 8 of the second octet:
 	 *	      a) shall not all be ones; and
 	 *	      b) shall not all be zero.
-	 *	      NOTE – These rules ensure that an integer value is always encoded in the smallest possible number of octets.
-	 *	8.3.3 The contents octets shall be a two's complement binary number equal to the integer value,
-	 *	      and consisting of bits 8 to 1 of the first octet, followed by bits 8 to 1 of the second octet,
-	 *	      followed by bits 8 to 1 of each octet in turn up to and including the last octet of the contents octets.
+	 *	      NOTE – These rules ensure that an integer value is always encoded in the smallest possible number
+	 *	      of octets. 8.3.3 The contents octets shall be a two's complement binary number equal to the
+	 *	      integer value, and consisting of bits 8 to 1 of the first octet, followed by bits 8 to 1 of the
+	 *	      second octet, followed by bits 8 to 1 of each octet in turn up to and including the last octet of
+	 *	      the contents octets.
 	 */
 	if (unlikely(fr_dbuff_out(&sign, in) < 0)) {
 		fr_strerror_const("Insufficient data for integer");
@@ -289,7 +294,8 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		/*
 		 *	If the sign bit is set, this is a negative number.
 		 *	This will fill the upper bits with 1s.
-		 *	This is important for the case where the length of the integer is less than the length of the integer type.
+		 *	This is important for the case where the length of the integer is less than the length of the
+		 *integer type.
 		 */
 		val = -1;
 	}
@@ -309,7 +315,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 			return -1;
 		}
 
-		if ( (((val & 0xFF) == 0xFF) && (byte & 0x80)) || (((~val & 0xFF) == 0xFF) && !(byte & 0x80)) ) {
+		if ((((val & 0xFF) == 0xFF) && (byte & 0x80)) || (((~val & 0xFF) == 0xFF) && !(byte & 0x80))) {
 			fr_strerror_const("Integer is not correctly DER encoded");
 			return -1;
 		}
@@ -342,17 +348,18 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 }
 
 static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+				       fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	uint8_t		unused_bits = 0;
-	uint8_t		*data;
+	fr_pair_t *vp;
+	uint8_t	   unused_bits = 0;
+	uint8_t	  *data;
 
-	ssize_t		data_len = 0, index = 0;
-	size_t len = fr_dbuff_remaining(in);
+	ssize_t data_len = 0, index = 0;
+	size_t	len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_octets(parent->type) && !fr_type_is_struct(parent->type)) {
-		fr_strerror_printf("Bitstring found in non-octets attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("Bitstring found in non-octets attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -377,7 +384,8 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 
 	if (fr_type_is_struct(parent->type)) {
 		/*
-		 *	If the parent is a struct attribute, we will not be adding the unused bits count to the first byte
+		 *	If the parent is a struct attribute, we will not be adding the unused bits count to the first
+		 *	byte
 		 */
 		data_len = len - 1;
 	} else {
@@ -394,7 +402,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		/*
 		 *	If the parent is an octets attribute, we need to add the unused bits count to the first byte
 		 */
-		index = 1;
+		index	= 1;
 		data[0] = unused_bits;
 	}
 
@@ -428,7 +436,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		/*
 		 *	If the structure decoder didn't consume all the data, we need to free the data and bail out
 		 */
-		if (unlikely(slen < data_len )) {
+		if (unlikely(slen < data_len)) {
 			talloc_free(data);
 			return slen;
 		}
@@ -453,15 +461,16 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 }
 
 static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	uint8_t		*data = NULL;
+	fr_pair_t *vp;
+	uint8_t	  *data = NULL;
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_octets(parent->type)) {
-		fr_strerror_printf("Octetstring found in non-octets attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("Octetstring found in non-octets attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -471,7 +480,7 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 		return -1;
 	}
 
-	if (unlikely(fr_pair_value_mem_alloc(vp, &data, len, false) < 0)){
+	if (unlikely(fr_pair_value_mem_alloc(vp, &data, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
 	}
@@ -483,10 +492,10 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 	return 1;
 }
 
-static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				  fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
+	fr_pair_t *vp;
 
 	if (fr_dbuff_remaining(in) != 0) {
 		fr_strerror_const("Null has non-zero length");
@@ -504,18 +513,19 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 	return 1;
 }
 
-static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				 fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	uint64_t	subidentifier = 0;
-	char	*oid = NULL;
+	fr_pair_t *vp;
+	uint64_t   subidentifier = 0;
+	char	  *oid		 = NULL;
 
 	size_t index = 1, magnitude = 1;
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_printf("OID found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("OID found in non-string attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -556,7 +566,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 			}
 
 			subidentifier = 0;
-			magnitude = 1;
+			magnitude     = 1;
 			break;
 		}
 
@@ -564,7 +574,8 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 		/*
 		 *	We need to check that the subidentifier is not too large
-		 *	Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger than 9 chunks
+		 *	Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger
+		 *	than 9 chunks
 		 */
 		if (unlikely(magnitude > 9)) {
 			fr_strerror_const("OID subidentifier too large");
@@ -594,7 +605,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 			}
 
 			subidentifier = 0;
-			magnitude = 1;
+			magnitude     = 1;
 			continue;
 		}
 
@@ -602,7 +613,8 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 		/*
 		 *	We need to check that the subidentifier is not too large
-		 *	Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger than 9 chunks
+		 *	Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger
+		 *	than 9 chunks
 		 */
 		if (unlikely(magnitude > 9)) {
 			fr_strerror_const("OID subidentifier too large");
@@ -624,15 +636,16 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 }
 
 static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	char		*str = NULL;
+	fr_pair_t *vp;
+	char	  *str = NULL;
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_printf("UTF8 string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("UTF8 string found in non-string attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -657,14 +670,15 @@ static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 }
 
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t		*vp;
-	fr_dict_attr_t const *child = NULL;
-	fr_dbuff_t		our_in = FR_DBUFF(in);
+	fr_pair_t	     *vp;
+	fr_dict_attr_t const *child  = NULL;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 
 	if (!fr_type_is_struct(parent->type) && !fr_type_is_tlv(parent->type) && !fr_type_is_group(parent->type)) {
-		fr_strerror_printf("Sequence found in incompatible attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("Sequence found in incompatible attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -691,16 +705,17 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	return fr_dbuff_set(in, &our_in);
 }
 
-static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				 fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t		*vp;
-	fr_dict_attr_t const *child = NULL;
-	fr_dbuff_t		our_in = FR_DBUFF(in);
-	uint8_t			previous_tag = 0x00;
+	fr_pair_t	     *vp;
+	fr_dict_attr_t const *child	   = NULL;
+	fr_dbuff_t	      our_in	   = FR_DBUFF(in);
+	uint8_t		      previous_tag = 0x00;
 
 	if (!fr_type_is_struct(parent->type) && !fr_type_is_tlv(parent->type) && !fr_type_is_group(parent->type)) {
-		fr_strerror_printf("Set found in incompatible attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("Set found in incompatible attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -711,8 +726,8 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	}
 
 	while ((child = fr_dict_attr_iterate_children(parent, &child))) {
-		ssize_t ret;
-		uint8_t current_tag;
+		ssize_t	 ret;
+		uint8_t	 current_tag;
 		uint8_t *current_marker = fr_dbuff_current(&our_in);
 
 		FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
@@ -752,28 +767,30 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 }
 
 static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	char		*str = NULL;
+	fr_pair_t *vp;
+	char	  *str = NULL;
 
 	static bool const allowed_chars[] = {
-		[' '] = true, ['\''] = true, ['('] = true, [')'] = true, ['+'] = true, [','] = true, ['-'] = true, ['.'] = true,
-		['/'] = true, ['0'] = true, ['1'] = true, ['2'] = true, ['3'] = true, ['4'] = true, ['5'] = true, ['6'] = true,
-		['7'] = true, ['8'] = true, ['9'] = true, [':'] = true, ['='] = true, ['?'] = true, ['A'] = true, ['B'] = true,
-		['C'] = true, ['D'] = true, ['E'] = true, ['F'] = true, ['G'] = true, ['H'] = true, ['I'] = true, ['J'] = true,
-		['K'] = true, ['L'] = true, ['M'] = true, ['N'] = true, ['O'] = true, ['P'] = true, ['Q'] = true, ['R'] = true,
-		['S'] = true, ['T'] = true, ['U'] = true, ['V'] = true, ['W'] = true, ['X'] = true, ['Y'] = true, ['Z'] = true,
-		['a'] = true, ['b'] = true, ['c'] = true, ['d'] = true, ['e'] = true, ['f'] = true, ['g'] = true, ['h'] = true,
-		['i'] = true, ['j'] = true, ['k'] = true, ['l'] = true, ['m'] = true, ['n'] = true, ['o'] = true, ['p'] = true,
-		['q'] = true, ['r'] = true, ['s'] = true, ['t'] = true, ['u'] = true, ['v'] = true, ['w'] = true, ['x'] = true,
-		['y'] = true, ['z'] = true, [UINT8_MAX] = false
+		[' '] = true, ['\''] = true, ['('] = true, [')'] = true, ['+'] = true,	     [','] = true, ['-'] = true,
+		['.'] = true, ['/'] = true,  ['0'] = true, ['1'] = true, ['2'] = true,	     ['3'] = true, ['4'] = true,
+		['5'] = true, ['6'] = true,  ['7'] = true, ['8'] = true, ['9'] = true,	     [':'] = true, ['='] = true,
+		['?'] = true, ['A'] = true,  ['B'] = true, ['C'] = true, ['D'] = true,	     ['E'] = true, ['F'] = true,
+		['G'] = true, ['H'] = true,  ['I'] = true, ['J'] = true, ['K'] = true,	     ['L'] = true, ['M'] = true,
+		['N'] = true, ['O'] = true,  ['P'] = true, ['Q'] = true, ['R'] = true,	     ['S'] = true, ['T'] = true,
+		['U'] = true, ['V'] = true,  ['W'] = true, ['X'] = true, ['Y'] = true,	     ['Z'] = true, ['a'] = true,
+		['b'] = true, ['c'] = true,  ['d'] = true, ['e'] = true, ['f'] = true,	     ['g'] = true, ['h'] = true,
+		['i'] = true, ['j'] = true,  ['k'] = true, ['l'] = true, ['m'] = true,	     ['n'] = true, ['o'] = true,
+		['p'] = true, ['q'] = true,  ['r'] = true, ['s'] = true, ['t'] = true,	     ['u'] = true, ['v'] = true,
+		['w'] = true, ['x'] = true,  ['y'] = true, ['z'] = true, [UINT8_MAX] = false
 	};
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_printf("Printable string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("Printable string found in non-string attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -798,7 +815,6 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 			fr_strerror_printf("Invalid character in printable string (%d)", str[i]);
 			return -1;
 		}
-
 	}
 
 	str[len] = '\0';
@@ -808,43 +824,49 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	return 1;
 }
 
-
-
 static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	char		*str = NULL;
+	fr_pair_t *vp;
+	char	  *str = NULL;
 
 	static bool const allowed_chars[] = {
-		[0x08] = true, [0x0A] = true, [0x0C] = true, [0x0D] = true, [0x0E] = true, [0x0F] = true, [0x19] = true, [0x1A] = true,
-		[0x1B] = true, [0x1D] = true, [' '] = true, ['!'] = true, ['"'] = true, ['%'] = true, ['&'] = true, ['\''] = true,
-		['('] = true, [')'] = true, ['*'] = true, ['+'] = true, [','] = true, ['-'] = true, ['.'] = true, ['/'] = true,
-		['0'] = true, ['1'] = true, ['2'] = true, ['3'] = true, ['4'] = true, ['5'] = true, ['6'] = true, ['7'] = true,
-		['8'] = true, ['9'] = true, [':'] = true, [';'] = true, ['<'] = true, ['='] = true, ['>'] = true, ['?'] = true,
-		['@'] = true, ['A'] = true, ['B'] = true, ['C'] = true, ['D'] = true, ['E'] = true, ['F'] = true, ['G'] = true,
-		['H'] = true, ['I'] = true, ['J'] = true, ['K'] = true, ['L'] = true, ['M'] = true, ['N'] = true, ['O'] = true,
-		['P'] = true, ['Q'] = true, ['R'] = true, ['S'] = true, ['T'] = true, ['U'] = true, ['V'] = true, ['W'] = true,
-		['X'] = true, ['Y'] = true, ['Z'] = true, ['['] = true, [']'] = true, ['_'] = true, ['a'] = true, ['b'] = true,
-		['c'] = true, ['d'] = true, ['e'] = true, ['f'] = true, ['g'] = true, ['h'] = true, ['i'] = true, ['j'] = true,
-		['k'] = true, ['l'] = true, ['m'] = true, ['n'] = true, ['o'] = true, ['p'] = true, ['q'] = true, ['r'] = true,
-		['s'] = true, ['t'] = true, ['u'] = true, ['v'] = true, ['w'] = true, ['x'] = true, ['y'] = true, ['z'] = true,
-		['|'] = true, [0x7F] = true, [0x8B] = true, [0x8C] = true, [0x9B] = true, [0xA0] = true, [0xA1] = true, [0xA2] = true,
-		[0xA3] = true, [0xA4] = true, [0xA5] = true, [0xA6] = true, [0xA7] = true, [0xA8] = true, [0xAB] = true, [0xB0] = true,
-		[0xB1] = true, [0xB2] = true, [0xB3] = true, [0xB4] = true, [0xB5] = true, [0xB6] = true, [0xB7] = true, [0xB8] = true,
-		[0xBB] = true, [0xBC] = true, [0xBD] = true, [0xBE] = true, [0xBF] = true, [0xC1] = true, [0xC2] = true, [0xC3] = true,
-		[0xC4] = true, [0xC5] = true, [0xC6] = true, [0xC7] = true, [0xC8] = true, [0xC9] = true, [0xCA] = true, [0xCB] = true,
-		[0xCC] = true, [0xCD] = true, [0xCE] = true, [0xCF] = true, [0xE0] = true, [0xE1] = true, [0xE2] = true, [0xE3] = true,
-		[0xE4] = true, [0xE5] = true, [0xE7] = true, [0xE8] = true, [0xE9] = true, [0xEA] = true, [0xEB] = true, [0xEC] = true,
-		[0xED] = true, [0xEE] = true, [0xEF] = true, [0xF0] = true, [0xF1] = true, [0xF2] = true, [0xF3] = true, [0xF4] = true,
-		[0xF5] = true, [0xF6] = true, [0xF7] = true, [0xF8] = true, [0xF9] = true, [0xFA] = true, [0xFB] = true, [0xFC] = true,
+		[0x08] = true, [0x0A] = true, [0x0C] = true,	  [0x0D] = true, [0x0E] = true, [0x0F] = true,
+		[0x19] = true, [0x1A] = true, [0x1B] = true,	  [0x1D] = true, [' '] = true,	['!'] = true,
+		['"'] = true,  ['%'] = true,  ['&'] = true,	  ['\''] = true, ['('] = true,	[')'] = true,
+		['*'] = true,  ['+'] = true,  [','] = true,	  ['-'] = true,	 ['.'] = true,	['/'] = true,
+		['0'] = true,  ['1'] = true,  ['2'] = true,	  ['3'] = true,	 ['4'] = true,	['5'] = true,
+		['6'] = true,  ['7'] = true,  ['8'] = true,	  ['9'] = true,	 [':'] = true,	[';'] = true,
+		['<'] = true,  ['='] = true,  ['>'] = true,	  ['?'] = true,	 ['@'] = true,	['A'] = true,
+		['B'] = true,  ['C'] = true,  ['D'] = true,	  ['E'] = true,	 ['F'] = true,	['G'] = true,
+		['H'] = true,  ['I'] = true,  ['J'] = true,	  ['K'] = true,	 ['L'] = true,	['M'] = true,
+		['N'] = true,  ['O'] = true,  ['P'] = true,	  ['Q'] = true,	 ['R'] = true,	['S'] = true,
+		['T'] = true,  ['U'] = true,  ['V'] = true,	  ['W'] = true,	 ['X'] = true,	['Y'] = true,
+		['Z'] = true,  ['['] = true,  [']'] = true,	  ['_'] = true,	 ['a'] = true,	['b'] = true,
+		['c'] = true,  ['d'] = true,  ['e'] = true,	  ['f'] = true,	 ['g'] = true,	['h'] = true,
+		['i'] = true,  ['j'] = true,  ['k'] = true,	  ['l'] = true,	 ['m'] = true,	['n'] = true,
+		['o'] = true,  ['p'] = true,  ['q'] = true,	  ['r'] = true,	 ['s'] = true,	['t'] = true,
+		['u'] = true,  ['v'] = true,  ['w'] = true,	  ['x'] = true,	 ['y'] = true,	['z'] = true,
+		['|'] = true,  [0x7F] = true, [0x8B] = true,	  [0x8C] = true, [0x9B] = true, [0xA0] = true,
+		[0xA1] = true, [0xA2] = true, [0xA3] = true,	  [0xA4] = true, [0xA5] = true, [0xA6] = true,
+		[0xA7] = true, [0xA8] = true, [0xAB] = true,	  [0xB0] = true, [0xB1] = true, [0xB2] = true,
+		[0xB3] = true, [0xB4] = true, [0xB5] = true,	  [0xB6] = true, [0xB7] = true, [0xB8] = true,
+		[0xBB] = true, [0xBC] = true, [0xBD] = true,	  [0xBE] = true, [0xBF] = true, [0xC1] = true,
+		[0xC2] = true, [0xC3] = true, [0xC4] = true,	  [0xC5] = true, [0xC6] = true, [0xC7] = true,
+		[0xC8] = true, [0xC9] = true, [0xCA] = true,	  [0xCB] = true, [0xCC] = true, [0xCD] = true,
+		[0xCE] = true, [0xCF] = true, [0xE0] = true,	  [0xE1] = true, [0xE2] = true, [0xE3] = true,
+		[0xE4] = true, [0xE5] = true, [0xE7] = true,	  [0xE8] = true, [0xE9] = true, [0xEA] = true,
+		[0xEB] = true, [0xEC] = true, [0xED] = true,	  [0xEE] = true, [0xEF] = true, [0xF0] = true,
+		[0xF1] = true, [0xF2] = true, [0xF3] = true,	  [0xF4] = true, [0xF5] = true, [0xF6] = true,
+		[0xF7] = true, [0xF8] = true, [0xF9] = true,	  [0xFA] = true, [0xFB] = true, [0xFC] = true,
 		[0xFD] = true, [0xFE] = true, [UINT8_MAX] = false
 	};
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_printf("T61 string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("T61 string found in non-string attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -876,18 +898,18 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	fr_pair_append(out, vp);
 
 	return 1;
-
 }
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	char		*str = NULL;
+	fr_pair_t *vp;
+	char	  *str = NULL;
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_printf("IA5 string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("IA5 string found in non-string attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -912,18 +934,19 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 }
 
 static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 #define DER_UTC_TIME_LEN 13
-	fr_pair_t	*vp;
-	char		timestr[DER_UTC_TIME_LEN + 1];
-	char *p;
-	struct tm	tm = { };
+	fr_pair_t *vp;
+	char	   timestr[DER_UTC_TIME_LEN + 1];
+	char	  *p;
+	struct tm  tm = {};
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_date(parent->type)) {
-		fr_strerror_printf("UTC time found in non-date attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("UTC time found in non-date attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -944,7 +967,7 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	 *	7. Z is the timezone (UTC)
 	 */
 
-	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, len) < 0){
+	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, len) < 0) {
 		fr_strerror_const("Insufficient data for UTC time");
 		return -1;
 	}
@@ -977,20 +1000,21 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 }
 
 static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 #define DER_GENERALIZED_TIME_LEN_MIN 15
 #define DER_GENERALIZED_TIME_PRECISION_MAX 4
-	fr_pair_t	*vp;
-	char		timestr[DER_GENERALIZED_TIME_LEN_MIN + 1];
-	char *p;
+	fr_pair_t    *vp;
+	char	      timestr[DER_GENERALIZED_TIME_LEN_MIN + 1];
+	char	     *p;
 	unsigned long subseconds = 0;
-	struct tm	tm = { };
+	struct tm     tm	 = {};
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_date(parent->type)) {
-		fr_strerror_printf("Generalized time found in non-date attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("Generalized time found in non-date attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -1012,7 +1036,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	 *	8. Z is the timezone (UTC)
 	 */
 
-	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, DER_GENERALIZED_TIME_LEN_MIN) < 0){
+	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, DER_GENERALIZED_TIME_LEN_MIN) < 0) {
 		fr_strerror_const("Insufficient data for generalized time");
 		return -1;
 	}
@@ -1034,7 +1058,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 		/*
 		 *	We only support subseconds up to 4 decimal places
 		 */
-		char subsecstring [DER_GENERALIZED_TIME_PRECISION_MAX + 1];
+		char subsecstring[DER_GENERALIZED_TIME_PRECISION_MAX + 1];
 
 		uint8_t precision = DER_GENERALIZED_TIME_PRECISION_MAX;
 
@@ -1104,32 +1128,35 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 }
 
 static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t	*vp;
-	char		*str = NULL;
+	fr_pair_t *vp;
+	char	  *str = NULL;
 
 	static bool const allowed_chars[] = {
-		[' '] = true,  ['!'] = true,  ['"'] = true,  ['#'] = true,  ['$'] = true,  ['%'] = true,  ['&'] = true,
-		['\''] = true, ['('] = true,  [')'] = true,  ['*'] = true,  ['+'] = true,  [','] = true,  ['-'] = true,
-		['.'] = true,  ['/'] = true,  ['0'] = true,  ['1'] = true,  ['2'] = true,  ['3'] = true,  ['4'] = true,
-		['5'] = true,  ['6'] = true,  ['7'] = true,  ['8'] = true,  ['9'] = true,  [':'] = true,  [';'] = true,
-		['<'] = true,  ['='] = true,  ['>'] = true,  ['?'] = true,  ['@'] = true,  ['A'] = true,  ['B'] = true,
-		['C'] = true,  ['D'] = true,  ['E'] = true,  ['F'] = true,  ['G'] = true,  ['H'] = true,  ['I'] = true,
-		['J'] = true,  ['K'] = true,  ['L'] = true,  ['M'] = true,  ['N'] = true,  ['O'] = true,  ['P'] = true,
-		['Q'] = true,  ['R'] = true,  ['S'] = true,  ['T'] = true,  ['U'] = true,  ['V'] = true,  ['W'] = true,
-		['X'] = true,  ['Y'] = true,  ['Z'] = true,  ['['] = true,  ['\\'] = true, [']'] = true,  ['^'] = true,
-		['_'] = true,  ['`'] = true,  ['a'] = true,  ['b'] = true,  ['c'] = true,  ['d'] = true,  ['e'] = true,
-		['f'] = true,  ['g'] = true,  ['h'] = true,  ['i'] = true,  ['j'] = true,  ['k'] = true,  ['l'] = true,
-		['m'] = true,  ['n'] = true,  ['o'] = true,  ['p'] = true,  ['q'] = true,  ['r'] = true,  ['s'] = true,
-		['t'] = true,  ['u'] = true,  ['v'] = true,  ['w'] = true,  ['x'] = true,  ['y'] = true,  ['z'] = true,
-		['{'] = true,  ['|'] = true,  ['}'] = true,  [UINT8_MAX] = false
+		[' '] = true,  ['!'] = true,  ['"'] = true, ['#'] = true, ['$'] = true,	      ['%'] = true,
+		['&'] = true,  ['\''] = true, ['('] = true, [')'] = true, ['*'] = true,	      ['+'] = true,
+		[','] = true,  ['-'] = true,  ['.'] = true, ['/'] = true, ['0'] = true,	      ['1'] = true,
+		['2'] = true,  ['3'] = true,  ['4'] = true, ['5'] = true, ['6'] = true,	      ['7'] = true,
+		['8'] = true,  ['9'] = true,  [':'] = true, [';'] = true, ['<'] = true,	      ['='] = true,
+		['>'] = true,  ['?'] = true,  ['@'] = true, ['A'] = true, ['B'] = true,	      ['C'] = true,
+		['D'] = true,  ['E'] = true,  ['F'] = true, ['G'] = true, ['H'] = true,	      ['I'] = true,
+		['J'] = true,  ['K'] = true,  ['L'] = true, ['M'] = true, ['N'] = true,	      ['O'] = true,
+		['P'] = true,  ['Q'] = true,  ['R'] = true, ['S'] = true, ['T'] = true,	      ['U'] = true,
+		['V'] = true,  ['W'] = true,  ['X'] = true, ['Y'] = true, ['Z'] = true,	      ['['] = true,
+		['\\'] = true, [']'] = true,  ['^'] = true, ['_'] = true, ['`'] = true,	      ['a'] = true,
+		['b'] = true,  ['c'] = true,  ['d'] = true, ['e'] = true, ['f'] = true,	      ['g'] = true,
+		['h'] = true,  ['i'] = true,  ['j'] = true, ['k'] = true, ['l'] = true,	      ['m'] = true,
+		['n'] = true,  ['o'] = true,  ['p'] = true, ['q'] = true, ['r'] = true,	      ['s'] = true,
+		['t'] = true,  ['u'] = true,  ['v'] = true, ['w'] = true, ['x'] = true,	      ['y'] = true,
+		['z'] = true,  ['{'] = true,  ['|'] = true, ['}'] = true, [UINT8_MAX] = false
 	};
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_printf("Visible string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("Visible string found in non-string attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -1154,7 +1181,6 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 			fr_strerror_printf("Invalid character in visible string (%d)", str[i]);
 			return -1;
 		}
-
 	}
 
 	str[len] = '\0';
@@ -1165,15 +1191,16 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 }
 
 static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t 	*vp;
-	char		*str = NULL;
+	fr_pair_t *vp;
+	char	  *str = NULL;
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_printf("General string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("General string found in non-string attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -1198,15 +1225,16 @@ static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 }
 
 static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_pair_t 	*vp;
-	char		*str = NULL;
+	fr_pair_t *vp;
+	char	  *str = NULL;
 
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_printf("Universal string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
+		fr_strerror_printf("Universal string found in non-string attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -1231,25 +1259,25 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 }
 
 static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-			   		fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_dbuff_t			our_in = FR_DBUFF(in);
-	ssize_t				slen;
-	uint8_t 			tag_byte;
-	uint64_t 			tag;
-	fr_der_tag_flag_t		tag_flags;
-	fr_der_tag_constructed_t	constructed;
+	fr_dbuff_t		 our_in = FR_DBUFF(in);
+	ssize_t			 slen;
+	uint8_t			 tag_byte;
+	uint64_t		 tag;
+	fr_der_tag_flag_t	 tag_flags;
+	fr_der_tag_constructed_t constructed;
 
-	uint8_t				len_byte;
-	size_t				len = 0;
-	fr_der_tag_decode_t		*func;
+	uint8_t		     len_byte;
+	size_t		     len = 0;
+	fr_der_tag_decode_t *func;
 
 	if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) return 0;
 
 	/*
 	 *	Decode the tag flags
 	 */
-	tag_flags = (tag_byte >> 6) & 0x03;
+	tag_flags   = (tag_byte >> 6) & 0x03;
 	constructed = IS_DER_TAG_CONSTRUCTED(tag_byte);
 
 	/*
@@ -1285,7 +1313,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	}
 
 	if ((tag > NUM_ELEMENTS(tag_funcs)) || (tag == 0)) {
-		fr_strerror_printf("Unknown tag %" PRIu64 , tag);
+		fr_strerror_printf("Unknown tag %" PRIu64, tag);
 	}
 
 	func = &tag_funcs[tag];
@@ -1376,8 +1404,8 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
  *				dictionary tree.
  *
  */
-static ssize_t decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-			   uint8_t const *data, size_t data_len, void *decode_ctx)
+static ssize_t decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, uint8_t const *data,
+			   size_t data_len, void *decode_ctx)
 {
 	// fr_assert(parent == fr_dict_root(dict_der));
 
@@ -1388,7 +1416,7 @@ static ssize_t decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t 
  *	Test points
  */
 extern fr_test_point_pair_decode_t der_tp_decode_pair;
-fr_test_point_pair_decode_t der_tp_decode_pair = {
-	.test_ctx	= decode_test_ctx,
-	.func		= decode_pair,
+fr_test_point_pair_decode_t	   der_tp_decode_pair = {
+	       .test_ctx = decode_test_ctx,
+	       .func	 = decode_pair,
 };
