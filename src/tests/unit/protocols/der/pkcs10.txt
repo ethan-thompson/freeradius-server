@@ -583,4 +583,4 @@ decode-pair 3106010100020109
 match Set-Bool-Integer = { Test-Bool = no, Test-Integer = 9 }
 
 decode-pair 3106020109010100
-match Integer found in non-integer attribute
+match Integer found in non-integer attribute Test-Bool of type bool
