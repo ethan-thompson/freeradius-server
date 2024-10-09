@@ -181,8 +181,6 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
-// TODO: RENAME BITSTRING AND OCTET STRING CONSTS
-
 static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN] = fr_der_decode_boolean,
 	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
@@ -229,9 +227,11 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		return -1;
 	}
 
-	// Ensure the value conforms to DER standards where:
-	// 1. False is represented by 0x00
-	// 2. True is represented by 0xFF
+	/*
+	 * 	Ensure the value conforms to DER standards where:
+	 * 	1. False is represented by 0x00
+	 * 	2. True is represented by 0xFF
+	 */
 	if (val != 0x00 && val != 0xFF) {
 		fr_strerror_const("Boolean is not correctly DER encoded");
 		return -1;
@@ -277,19 +277,23 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	}
 
 	if (sign & 0x80) {
-		// If the sign bit is set, this is a negative number.
-		// This will fill the upper bits with 1s.
-		// This is important for the case where the length of the integer is less than the length of the integer type.
+		/*
+		 *	If the sign bit is set, this is a negative number.
+		 *	This will fill the upper bits with 1s.
+		 *	This is important for the case where the length of the integer is less than the length of the integer type.
+		 */
 		val = -1;
 	}
 
 	val = (val << 8) | sign;
 
 	if (len > 1) {
-		// If the length of the integer is greater than 1, we need to check that the first 9 bits:
-		// 1. are not all 1s; and
-		// 2. are not all 0s
-		// These two conditions are necessary to ensure that the integer conforms to DER.
+		/*
+		 *	If the length of the integer is greater than 1, we need to check that the first 9 bits:
+		 *	1. are not all 0s; and
+		 *	2. are not all 1s
+		 *	These two conditions are necessary to ensure that the integer conforms to DER.
+		 */
 		uint8_t byte;
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
 			fr_strerror_const("Insufficient data for integer");
@@ -344,7 +348,9 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		return -1;
 	}
 
-	// Now we know that the parent is an octets attribute, we can decode the bitstring
+	/*
+	 *	Now we know that the parent is an octets attribute, we can decode the bitstring
+	 */
 
 	if (unlikely(fr_dbuff_out(&unused_bits, in) < 0)) {
 		fr_strerror_const("Insufficient data for bitstring");
@@ -362,7 +368,9 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	}
 
 	if (fr_type_is_struct(parent->type)) {
-		// If the parent is a struct attribute, we will not be adding the unused bits count to the first byte
+		/*
+		 *	If the parent is a struct attribute, we will not be adding the unused bits count to the first byte
+		 */
 		data_len = len - 1;
 	} else {
 		data_len = len;
@@ -375,7 +383,9 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	}
 
 	if (fr_type_is_octets(parent->type)) {
-		// If the parent is an octets attribute, we need to add the unused bits count to the first byte
+		/*
+		 *	If the parent is an octets attribute, we need to add the unused bits count to the first byte
+		 */
 		index = 1;
 		data[0] = unused_bits;
 	}
@@ -393,7 +403,9 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		data[index] = byte;
 	}
 
-	// Remove the unused bits from the last byte
+	/*
+	 *	Remove the unused bits from the last byte
+	 */
 	if (unused_bits) {
 		uint8_t mask = 0xff << unused_bits;
 
@@ -405,7 +417,9 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 
 		slen = fr_struct_from_network(ctx, out, parent, data, data_len, true, decode_ctx, NULL, NULL);
 
-		// If the structure decoder didn't consume all the data, we need to free the data and bail out
+		/*
+		 *	If the structure decoder didn't consume all the data, we need to free the data and bail out
+		 */
 		if (unlikely(slen < (data_len - (int8_t)unused_bits) )) {
 			talloc_free(data);
 			return slen;
@@ -420,7 +434,9 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		goto error;
 	}
 
-	// add the bitstring to the pair value as octets
+	/*
+	 *	Add the bitstring to the pair value as octets
+	 */
 	fr_pair_value_memdup(vp, data, len, false);
 
 	fr_pair_append(out, vp);
@@ -498,10 +514,12 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		return -1;
 	}
 
-	// The first subidentifier is the encoding of the first two object identifier components, encoded as:
-	// (X * 40) + Y
-	// where X is the first number and Y is the second number.
-	// The first number is 0, 1, or 2.
+	/*
+	 *	The first subidentifier is the encoding of the first two object identifier components, encoded as:
+	 *	(X * 40) + Y
+	 *	where X is the first number and Y is the second number.
+	 *	The first number is 0, 1, or 2.
+	 */
 	for (; index < len; index++) {
 		uint8_t byte;
 
@@ -513,8 +531,9 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		subidentifier = (subidentifier << 7) | (byte & 0x7f);
 
 		if (!(byte & 0x80)) {
-			// If the high bit is not set, this is the last byte of the subidentifier
-
+			/*
+			 *	If the high bit is not set, this is the last byte of the subidentifier
+			 */
 			if (subidentifier < 40) {
 				oid = talloc_asprintf(ctx, "%u", 0);
 				oid = talloc_asprintf_append(oid, ".%llu", subidentifier);
@@ -538,15 +557,19 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 		magnitude++;
 
-		// We need to check that the subidentifier is not too large
-		// Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger than 9 chunks
+		/*
+		 *	We need to check that the subidentifier is not too large
+		 *	Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger than 9 chunks
+		 */
 		if (unlikely(magnitude > 9)) {
 			fr_strerror_const("OID subidentifier too large");
 			return -1;
 		}
 	}
 
-	// The remaining subidentifiers are encoded individually
+	/*
+	 *	The remaining subidentifiers are encoded individually
+	 */
 	for (; index < len; index++) {
 		uint8_t byte;
 
@@ -572,8 +595,10 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 		magnitude++;
 
-		// We need to check that the subidentifier is not too large
-		// Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger than 9 chunks
+		/*
+		 *	We need to check that the subidentifier is not too large
+		 *	Since the subidentifier is encoded using 7-bit "chunks", we can't have a subidentifier larger than 9 chunks
+		 */
 		if (unlikely(magnitude > 9)) {
 			fr_strerror_const("OID subidentifier too large");
 			return -1;
@@ -690,7 +715,9 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 		FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
 
-		// Check that the tag is in ascending order
+		/*
+		 *	Check that the tag is in ascending order
+		 */
 		if (unlikely(fr_dbuff_out(&current_tag, &our_in) < 0)) {
 			fr_strerror_const("Insufficient data for set");
 			talloc_free(vp);
@@ -705,7 +732,9 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 		previous_tag = current_tag;
 
-		// Reset the buffer to the start of the tag
+		/*
+		 *	Reset the buffer to the start of the tag
+		 */
 		fr_dbuff_set(&our_in, current_marker);
 
 		ret = fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx);
@@ -761,7 +790,9 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
 
 	for (size_t i = 0; i < len; i++) {
-		// Check that the byte is a printable ASCII character allowed in a printable string
+		/*
+		 *	Check that the byte is a printable ASCII character allowed in a printable string
+		 */
 		if (allowed_chars[(uint8_t)str[i]] == false) {
 			fr_strerror_printf("Invalid character in printable string (%d)", str[i]);
 			return -1;
@@ -831,7 +862,9 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
 
 	for (size_t i = 0; i < len; i++) {
-		// Check that the byte is a printable ASCII character allowed in a T61 string
+		/*
+		 *	Check that the byte is a printable ASCII character allowed in a T61 string
+		 */
 		if (allowed_chars[(uint8_t)str[i]] == false) {
 			fr_strerror_printf("Invalid character in T61 string (%d)", str[i]);
 			return -1;
@@ -901,15 +934,17 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		return -1;
 	}
 
-	// The format of a UTC time is "YYMMDDhhmmssZ"
-	// Where:
-	// 1. YY is the year
-	// 2. MM is the month
-	// 3. DD is the day
-	// 4. hh is the hour
-	// 5. mm is the minute
-	// 6. ss is the second (not optional in DER)
-	// 7. Z is the timezone (UTC)
+	/*
+	 *	The format of a UTC time is "YYMMDDhhmmssZ"
+	 *	Where:
+	 *	1. YY is the year
+	 *	2. MM is the month
+	 *	3. DD is the day
+	 *	4. hh is the hour
+	 *	5. mm is the minute
+	 *	6. ss is the second (not optional in DER)
+	 *	7. Z is the timezone (UTC)
+	 */
 
 	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, len) < 0){
 		fr_strerror_const("Insufficient data for UTC time");
@@ -967,16 +1002,18 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 		return -1;
 	}
 
-	// The format of a generalized time is "YYYYMMDDHHMMSS[.fff]Z"
-	// Where:
-	// 1. YYYY is the year
-	// 2. MM is the month
-	// 3. DD is the day
-	// 4. HH is the hour
-	// 5. MM is the minute
-	// 6. SS is the second
-	// 7. fff is the fraction of a second (optional) <- RFC 5280 forbids this
-	// 8. Z is the timezone (UTC)
+	/*
+	 *	The format of a generalized time is "YYYYMMDDHHMMSS[.fff]Z"
+	 *	Where:
+	 *	1. YYYY is the year
+	 *	2. MM is the month
+	 *	3. DD is the day
+	 *	4. HH is the hour
+	 *	5. MM is the minute
+	 *	6. SS is the second
+	 *	7. fff is the fraction of a second (optional)
+	 *	8. Z is the timezone (UTC)
+	 */
 
 	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, DER_GENERALIZED_TIME_LEN_MIN) < 0){
 		fr_strerror_const("Insufficient data for generalized time");
@@ -993,9 +1030,13 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 		return -1;
 	}
 
-	// Check if the fractional seconds are present
+	/*
+	 *	Check if the fractional seconds are present
+	 */
 	if (timestr[DER_GENERALIZED_TIME_LEN_MIN - 1] == '.') {
-		// We only support subseconds up to 4 decimal places
+		/*
+		 *	We only support subseconds up to 4 decimal places
+		 */
 		char subsecstring [DER_GENERALIZED_TIME_PRECISION_MAX + 1];
 
 		uint8_t precision = DER_GENERALIZED_TIME_PRECISION_MAX;
@@ -1021,14 +1062,20 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 
 		subsecstring[DER_GENERALIZED_TIME_PRECISION_MAX] = '\0';
 
-		// Convert the subseconds to an unsigned long
+		/*
+		 *	Convert the subseconds to an unsigned long
+		 */
 		subseconds = strtoul(subsecstring, NULL, 10);
 
-		// Scale to nanoseconds
+		/*
+		 *	Scale to nanoseconds
+		 */
 		subseconds *= 1000000;
 	}
 
-	// Make sure the timezone is UTC (Z)
+	/*
+	 *	Make sure the timezone is UTC (Z)
+	 */
 	timestr[DER_GENERALIZED_TIME_LEN_MIN - 1] = 'Z';
 
 	timestr[DER_GENERALIZED_TIME_LEN_MIN] = '\0';
@@ -1050,8 +1097,10 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 
 	fr_pair_append(out, vp);
 
-	// Move to the end of the buffer
-	// This is necessary because the fractional seconds are being ignored
+	/*
+	 *	Move to the end of the buffer
+	 *	This is necessary because the fractional seconds are being ignored
+	 */
 	fr_dbuff_advance(in, fr_dbuff_remaining(in));
 
 	return 1;
@@ -1102,7 +1151,9 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
 
 	for (size_t i = 0; i < len; i++) {
-		// Check that the byte is a printable ASCII character allowed in a printable string
+		/*
+		 *	Check that the byte is a printable ASCII character allowed in a printable string
+		 */
 		if (allowed_chars[(uint8_t)str[i]] == false) {
 			fr_strerror_printf("Invalid character in visible string (%d)", str[i]);
 			return -1;
@@ -1230,7 +1281,9 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	 *	Check if the tag is not universal
 	 */
 	if (tag_flags != FR_DER_TAG_FLAG_UNIVERSAL) {
-		// The data type will need to be resolved using the dictionary and the tag value
+		/*
+		 *	The data type will need to be resolved using the dictionary and the tag value
+		 */
 
 		tag = FR_DER_TAG_SEQUENCE;
 		// fr_strerror_printf("Non-universal tag %" PRIu64, tag);
@@ -1282,13 +1335,17 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		len = len_byte;
 	}
 
-	// Check if the length is valid for our buffer
+	/*
+	 *	Check if the length is valid for our buffer
+	 */
 	if (unlikely(len > fr_dbuff_remaining(&our_in))) {
 		fr_strerror_printf("Insufficient data for length field (%zu)", len);
 		return -1;
 	}
 
-	// Make sure the data length is less than the maximum allowed
+	/*
+	 *	Make sure the data length is less than the maximum allowed
+	 */
 	switch (tag) {
 	case FR_DER_TAG_SEQUENCE:
 	case FR_DER_TAG_SET:
