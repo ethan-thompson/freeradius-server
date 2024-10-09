@@ -96,9 +96,6 @@ typedef enum {
  * @param[in] out		Where to store the decoded pairs.
  * @param[in] parent		Parent attribute.  This should be the root of the dictionary
  *				we're using to decode DER data initially, and then nested children.
- * @param[in] tag		The tag of the DER encoded data
- * @param[in] constructed	Whether the data is constructed (true) or primative (false).
- * @param[in] tag_flags		Flags describing the tag.  See #fr_der_tag_flag_t
  * @param[in] in		The DER encoded data.
  * @param[in] decode_ctx	Any decode specific data.
  * @return
@@ -107,7 +104,6 @@ typedef enum {
  *	- < 0 on error.  May be the offset (as a negative value) where the error occurred.
  */
 typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				   fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				   fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 typedef struct {
@@ -119,71 +115,54 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 			   		fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static fr_der_tag_decode_t tag_funcs[] = {
@@ -220,8 +199,7 @@ static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
 	return 0;
 }
 
-static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_der_tag_t tag,
-				     fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -268,8 +246,7 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	return 1;
 }
 
-static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_der_tag_t tag,
-				     fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -303,11 +280,6 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	 *	      and consisting of bits 8 to 1 of the first octet, followed by bits 8 to 1 of the second octet,
 	 *	      followed by bits 8 to 1 of each octet in turn up to and including the last octet of the contents octets.
 	 */
-	if (constructed) {
-		fr_strerror_const("Integer is not correctly DER encoded (cannot be constructed)");
-		return -1;
-	}
-
 	if (unlikely(fr_dbuff_out(&sign, in) < 0)) {
 		fr_strerror_const("Insufficient data for integer");
 		return -1;
@@ -370,7 +342,6 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 }
 
 static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -482,7 +453,6 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 }
 
 static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     UNUSED fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -514,7 +484,6 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 }
 
 static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -536,7 +505,6 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 }
 
 static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -656,7 +624,6 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 }
 
 static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -689,9 +656,8 @@ static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 	return 1;
 }
 
-static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_der_tag_t tag,
-				 fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
-				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t		*vp;
 	fr_dict_attr_t const *child = NULL;
@@ -726,7 +692,6 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 }
 
 static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t		*vp;
@@ -787,7 +752,6 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 }
 
 static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -847,7 +811,6 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 
 
 static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -916,7 +879,6 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 }
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -950,7 +912,6 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 }
 
 static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 #define DER_UTC_TIME_LEN 13
@@ -1016,7 +977,6 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 }
 
 static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 #define DER_GENERALIZED_TIME_LEN_MIN 15
@@ -1144,7 +1104,6 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 }
 
 static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -1206,7 +1165,6 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 }
 
 static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t 	*vp;
@@ -1240,7 +1198,6 @@ static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 }
 
 static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t 	*vp;
@@ -1402,7 +1359,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 
-	slen = func->decode(ctx, out, parent, tag, constructed, tag_flags, &our_in, decode_ctx);
+	slen = func->decode(ctx, out, parent, &our_in, decode_ctx);
 
 	if (unlikely(slen < 0)) return slen;
 
