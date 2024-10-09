@@ -138,7 +138,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
-static ssize_t fr_der_decode_utf8string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
@@ -189,7 +189,7 @@ static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_OCTET_STRING] = fr_der_decode_octetstring,
 	[FR_DER_TAG_NULL] = fr_der_decode_null,
 	[FR_DER_TAG_OID] = fr_der_decode_oid,
-	[FR_DER_TAG_UTF8_STRING] = fr_der_decode_utf8string,
+	[FR_DER_TAG_UTF8_STRING] = fr_der_decode_utf8_string,
 	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence,
 	[FR_DER_TAG_SET] = fr_der_decode_set,
 	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_decode_printable_string,
@@ -587,7 +587,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	return 1;
 }
 
-static ssize_t fr_der_decode_utf8string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
