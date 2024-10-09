@@ -260,7 +260,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_integer_except_bool(parent->type)) {
-		fr_strerror_const("Integer found in non-integer attribute");
+		fr_strerror_printf("Integer found in non-integer attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -339,7 +339,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_octets(parent->type) && !fr_type_is_struct(parent->type)) {
-		fr_strerror_const("Bitstring found in non-octets attribute");
+		fr_strerror_printf("Bitstring found in non-octets attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -432,7 +432,7 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_octets(parent->type)) {
-		fr_strerror_const("Octetstring found in non-octets attribute");
+		fr_strerror_printf("Octetstring found in non-octets attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -479,7 +479,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_const("OID found in non-string attribute");
+		fr_strerror_printf("OID found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -584,7 +584,7 @@ static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_const("UTF8 string found in non-string attribute");
+		fr_strerror_printf("UTF8 string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -612,7 +612,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	fr_dbuff_t		our_in = FR_DBUFF(in);
 
 	if (!fr_type_is_struct(parent->type) && !fr_type_is_tlv(parent->type) && !fr_type_is_group(parent->type)) {
-		fr_strerror_const("Sequence found in non-struct attribute");
+		fr_strerror_printf("Sequence found in incompatible attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -649,7 +649,7 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	uint8_t			previous_tag = 0x00;
 
 	if (!fr_type_is_struct(parent->type) && !fr_type_is_tlv(parent->type) && !fr_type_is_group(parent->type)) {
-		fr_strerror_const("Set found in non-struct attribute");
+		fr_strerror_printf("Set found in incompatible attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -719,7 +719,7 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_const("Printable string found in non-string attribute");
+		fr_strerror_printf("Printable string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -784,7 +784,7 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_const("T61 string found in non-string attribute");
+		fr_strerror_printf("T61 string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -821,7 +821,7 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_const("IA5 string found in non-string attribute");
+		fr_strerror_printf("IA5 string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -853,7 +853,7 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_date(parent->type)) {
-		fr_strerror_const("UTC time found in non-date attribute");
+		fr_strerror_printf("UTC time found in non-date attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -915,7 +915,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_date(parent->type)) {
-		fr_strerror_const("Generalized time found in non-date attribute");
+		fr_strerror_printf("Generalized time found in non-date attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -1037,7 +1037,7 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_const("Visible string found in non-string attribute");
+		fr_strerror_printf("Visible string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -1075,7 +1075,7 @@ static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_const("General string found in non-string attribute");
+		fr_strerror_printf("General string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -1104,7 +1104,7 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	size_t len = fr_dbuff_remaining(in);
 
 	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_const("Universal string found in non-string attribute");
+		fr_strerror_printf("Universal string found in non-string attribute %s of type %s", parent->name, fr_type_to_str(parent->type));
 		return -1;
 	}
 
