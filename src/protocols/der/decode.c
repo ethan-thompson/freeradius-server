@@ -27,11 +27,6 @@
  * @copyright 2024 Inkbridge Networks SAS.
  */
 #include "include/build.h"
-#include "lib/util/proto.h"
-#include "lib/util/struct.h"
-#include "lib/util/time.h"
-#include "talloc.h"
-#include "lib/util/debug.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -45,6 +40,10 @@
 #include <freeradius-devel/util/strerror.h>
 #include <freeradius-devel/util/types.h>
 
+#include <freeradius-devel/util/proto.h>
+#include <freeradius-devel/util/struct.h>
+#include <freeradius-devel/util/time.h>
+
 typedef struct {
 	uint8_t		*tmp_ctx;
 } fr_der_decode_ctx_t;
@@ -54,8 +53,8 @@ typedef struct {
 typedef enum {
 	FR_DER_TAG_BOOLEAN = 0x01,		//!< Boolean true/false
 	FR_DER_TAG_INTEGER = 0x02,		//!< Arbitrary width signed integer.
-	FR_DER_TAG_BIT_STRING = 0x03,		//!< String of bits (length field specifies bits).
-	FR_DER_TAG_OCTET_STRING = 0x04,		//!< String of octets (length field specifies bytes).
+	FR_DER_TAG_BITSTRING = 0x03,		//!< String of bits (length field specifies bits).
+	FR_DER_TAG_OCTETSTRING = 0x04,		//!< String of octets (length field specifies bytes).
 	FR_DER_TAG_NULL = 0x05,			//!< An empty value.
 	FR_DER_TAG_OID = 0x06,			//!< Reference to an OID based attribute.
 	FR_DER_TAG_UTF8_STRING = 0x0c,		//!< String of UTF8 chars.
@@ -182,11 +181,13 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
+// TODO: RENAME BITSTRING AND OCTET STRING CONSTS
+
 static fr_der_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN] = fr_der_decode_boolean,
 	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
-	[FR_DER_TAG_BIT_STRING] = fr_der_decode_bitstring,
-	[FR_DER_TAG_OCTET_STRING] = fr_der_decode_octetstring,
+	[FR_DER_TAG_BITSTRING] = fr_der_decode_bitstring,
+	[FR_DER_TAG_OCTETSTRING] = fr_der_decode_octetstring,
 	[FR_DER_TAG_NULL] = fr_der_decode_null,
 	[FR_DER_TAG_OID] = fr_der_decode_oid,
 	[FR_DER_TAG_UTF8_STRING] = fr_der_decode_utf8_string,
@@ -237,6 +238,10 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
 
 	vp->vp_bool = val > 0;
 
@@ -252,10 +257,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	fr_pair_t	*vp;
 	int64_t		val = 0;
 	uint8_t		sign = 0;
-	static int64_t const		min[] = { INT8_MIN, INT16_MIN, INT32_MIN, INT32_MIN, INT64_MIN,
-						  INT64_MIN, INT64_MIN, INT64_MIN };
-	static int64_t const		max[] = { INT8_MAX, INT16_MAX, INT32_MAX, INT32_MAX, INT64_MAX,
-						  INT64_MAX, INT64_MAX, INT64_MAX };
+	size_t 		i;
 
 	size_t len = fr_dbuff_remaining(in);
 
@@ -302,7 +304,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		val = (val << 8) | byte;
 	}
 
-	for (size_t i = 2; i < len; i++) {
+	for (i = 2; i < len; i++) {
 		uint8_t byte;
 
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
@@ -313,12 +315,11 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		val = (val << 8) | byte;
 	}
 
-	if ( (val < min[len - 1 ]) || (val > max[len - 1]) ) {
-		fr_strerror_printf("Integer out of range (%" PRId64 ")", val);
+	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
 		return -1;
 	}
-
-	vp = fr_pair_afrom_da(ctx, parent);
 
 	vp->vp_int64 = val;
 
@@ -383,8 +384,9 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		uint8_t byte;
 
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
-			talloc_free(data);
 			fr_strerror_const("Insufficient data for bitstring");
+		error:
+			talloc_free(data);
 			return -1;
 		}
 
@@ -413,6 +415,10 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		goto error;
+	}
 
 	// add the bitstring to the pair value as octets
 	fr_pair_value_memdup(vp, data, len, false);
@@ -423,7 +429,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 }
 
 static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
+				     UNUSED fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	*vp;
@@ -437,6 +443,11 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
 	if (unlikely(fr_pair_value_mem_alloc(vp, &data, len, false) < 0)){
 		fr_strerror_const("Out of memory");
 		return -1;
@@ -461,6 +472,10 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
 
 	fr_pair_append(out, vp);
 
@@ -566,6 +581,10 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
 
 	fr_pair_value_strdup(vp, oid, false);
 
@@ -589,6 +608,11 @@ static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
@@ -617,10 +641,10 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
-
 	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
 		return -1;
-	};
+	}
 
 	while ((child = fr_dict_attr_iterate_children(parent, &child))) {
 		ssize_t ret;
@@ -654,10 +678,10 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
-
 	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
 		return -1;
-	};
+	}
 
 	while ((child = fr_dict_attr_iterate_children(parent, &child))) {
 		ssize_t ret;
@@ -724,6 +748,11 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
@@ -789,6 +818,11 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
@@ -826,6 +860,11 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
@@ -892,6 +931,10 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
 
 	vp->vp_date = fr_unix_time_from_tm(&tm);
 
@@ -998,6 +1041,10 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
 
 	vp->vp_date = fr_unix_time_add(fr_unix_time_from_tm(&tm), fr_time_delta_wrap(subseconds));
 
@@ -1042,6 +1089,11 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
@@ -1080,6 +1132,11 @@ static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
@@ -1109,6 +1166,11 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory");
+		return -1;
+	}
+
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
@@ -1162,6 +1224,17 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		} while (tag_byte & 0x80);
 	} else {
 		tag = tag_byte & DER_TAG_CONTINUATION;
+	}
+
+	/*
+	 *	Check if the tag is not universal
+	 */
+	if (tag_flags != FR_DER_TAG_FLAG_UNIVERSAL) {
+		// The data type will need to be resolved using the dictionary and the tag value
+
+		tag = FR_DER_TAG_SEQUENCE;
+		// fr_strerror_printf("Non-universal tag %" PRIu64, tag);
+		// return -1;
 	}
 
 	if ((tag > NUM_ELEMENTS(tag_funcs)) || (tag == 0)) {
