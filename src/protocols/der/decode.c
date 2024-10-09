@@ -74,7 +74,7 @@ typedef enum {
 #define DER_TAG_CONTINUATION 0x1f 		//!< Mask to check if the tag is a continuation.
 
 #define IS_DER_TAG_CONTINUATION(_tag)	(((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
-#define IS_DER_TAG_CONSTRUCTED(_tag)	((_tag) & 0x20)
+#define IS_DER_TAG_CONSTRUCTED(_tag)	( ((_tag) & 0x20) == 0x20)
 
 #define DER_MAX_STR 16384
 
@@ -109,6 +109,11 @@ typedef enum {
 typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				   fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				   fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
+typedef struct {
+	fr_der_tag_constructed_t	constructed;
+	fr_der_decode_t			decode;
+} fr_der_tag_decode_t;
 
 static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 			   		fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -181,24 +186,24 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 				     fr_der_tag_t tag, fr_der_tag_constructed_t constructed, fr_der_tag_flag_t tag_flags,
 				     fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
-static fr_der_decode_t tag_funcs[] = {
-	[FR_DER_TAG_BOOLEAN] = fr_der_decode_boolean,
-	[FR_DER_TAG_INTEGER] = fr_der_decode_integer,
-	[FR_DER_TAG_BITSTRING] = fr_der_decode_bitstring,
-	[FR_DER_TAG_OCTETSTRING] = fr_der_decode_octetstring,
-	[FR_DER_TAG_NULL] = fr_der_decode_null,
-	[FR_DER_TAG_OID] = fr_der_decode_oid,
-	[FR_DER_TAG_UTF8_STRING] = fr_der_decode_utf8_string,
-	[FR_DER_TAG_SEQUENCE] = fr_der_decode_sequence,
-	[FR_DER_TAG_SET] = fr_der_decode_set,
-	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_decode_printable_string,
-	[FR_DER_TAG_T61_STRING] = fr_der_decode_t61_string,
-	[FR_DER_TAG_IA5_STRING] = fr_der_decode_ia5_string,
-	[FR_DER_TAG_UTC_TIME] = fr_der_decode_utc_time,
-	[FR_DER_TAG_GENERALIZED_TIME] = fr_der_decode_generalized_time,
-	[FR_DER_TAG_VISIBLE_STRING] = fr_der_decode_visible_string,
-	[FR_DER_TAG_GENERAL_STRING] = fr_der_decode_general_string,
-	[FR_DER_TAG_UNIVERSAL_STRING] = fr_der_decode_universal_string,
+static fr_der_tag_decode_t tag_funcs[] = {
+	[FR_DER_TAG_BOOLEAN] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_boolean },
+	[FR_DER_TAG_INTEGER] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_integer },
+	[FR_DER_TAG_BITSTRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_bitstring },
+	[FR_DER_TAG_OCTETSTRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_octetstring },
+	[FR_DER_TAG_NULL] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_null },
+	[FR_DER_TAG_OID] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_oid },
+	[FR_DER_TAG_UTF8_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utf8_string },
+	[FR_DER_TAG_SEQUENCE] = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_sequence },
+	[FR_DER_TAG_SET] = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_set },
+	[FR_DER_TAG_PRINTABLE_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_printable_string },
+	[FR_DER_TAG_T61_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_t61_string },
+	[FR_DER_TAG_IA5_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_ia5_string },
+	[FR_DER_TAG_UTC_TIME] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utc_time },
+	[FR_DER_TAG_GENERALIZED_TIME] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_generalized_time },
+	[FR_DER_TAG_VISIBLE_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_visible_string },
+	[FR_DER_TAG_GENERAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_general_string },
+	[FR_DER_TAG_UNIVERSAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_universal_string },
 };
 
 static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
@@ -228,12 +233,25 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	}
 
 	/*
-	 * 	Ensure the value conforms to DER standards where:
-	 * 	1. False is represented by 0x00
-	 * 	2. True is represented by 0xFF
+	 * 	ISO/IEC 8825-1:2021
+	 * 	8.2 Encoding of a boolean value
+	 * 	8.2.1 The encoding of a boolean value shall be primitive.
+	 *       	The contents octets shall consist of a single octet.
+	 * 	8.2.2 If the boolean value is:
+	 *       	FALSE the octet shall be zero [0x00].
+	 *       	If the boolean value is TRUE the octet shall have any non-zero value, as a sender's option.
+	 *
+	 * 	11.1 Boolean values
+	 * 		If the encoding represents the boolean value TRUE, its single contents octet shall have all
+	 *		eight bits set to one [0xFF]. (Contrast with 8.2.2.)
 	 */
 	if (val != 0x00 && val != 0xFF) {
-		fr_strerror_const("Boolean is not correctly DER encoded");
+		fr_strerror_const("Boolean is not correctly DER encoded (cannot be constructed)");
+		return -1;
+	}
+
+	if (val != 0x00 && val != 0xFF) {
+		fr_strerror_const("Boolean is not correctly DER encoded (0x00 or 0xFF)");
 		return -1;
 	}
 
@@ -268,6 +286,25 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 
 	if (len > sizeof(val)) {
 		fr_strerror_printf("Integer too large (%zu)", len);
+		return -1;
+	}
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.3 Encoding of an integer value
+	 *	8.3.1 The encoding of an integer value shall be primitive.
+	 *	      The contents octets shall consist of one or more octets.
+	 *	8.3.2 If the contents octets of an integer value encoding consist of more than one octet,
+	 *	      then the bits of the first octet and bit 8 of the second octet:
+	 *	      a) shall not all be ones; and
+	 *	      b) shall not all be zero.
+	 *	      NOTE – These rules ensure that an integer value is always encoded in the smallest possible number of octets.
+	 *	8.3.3 The contents octets shall be a two's complement binary number equal to the integer value,
+	 *	      and consisting of bits 8 to 1 of the first octet, followed by bits 8 to 1 of the second octet,
+	 *	      followed by bits 8 to 1 of each octet in turn up to and including the last octet of the contents octets.
+	 */
+	if (constructed) {
+		fr_strerror_const("Integer is not correctly DER encoded (cannot be constructed)");
 		return -1;
 	}
 
@@ -420,7 +457,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		/*
 		 *	If the structure decoder didn't consume all the data, we need to free the data and bail out
 		 */
-		if (unlikely(slen < (data_len - (int8_t)unused_bits) )) {
+		if (unlikely(slen < data_len )) {
 			talloc_free(data);
 			return slen;
 		}
@@ -1248,7 +1285,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	uint8_t				len_byte;
 	size_t				len = 0;
-	fr_der_decode_t 		func;
+	fr_der_tag_decode_t		*func;
 
 	if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) return 0;
 
@@ -1294,9 +1331,14 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		fr_strerror_printf("Unknown tag %" PRIu64 , tag);
 	}
 
-	func = tag_funcs[tag];
-	if (unlikely(func == NULL)) {
+	func = &tag_funcs[tag];
+	if (unlikely(func->decode == NULL)) {
 		fr_strerror_printf("No decode function for tag %" PRIu64, tag);
+		return -1;
+	}
+
+	if (func->constructed != constructed) {
+		fr_strerror_printf("Constructed flag mismatch for tag %" PRIu64, tag);
 		return -1;
 	}
 
@@ -1360,7 +1402,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 
-	slen = func(ctx, out, parent, tag, constructed, tag_flags, &our_in, decode_ctx);
+	slen = func->decode(ctx, out, parent, tag, constructed, tag_flags, &our_in, decode_ctx);
 
 	if (unlikely(slen < 0)) return slen;
 
