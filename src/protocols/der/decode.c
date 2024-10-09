@@ -586,29 +586,15 @@ static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 		return -1;
 	}
 
-	str = talloc_array(ctx, char, len + 1);
-	if (unlikely(str == NULL)) {
+	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
 		fr_strerror_const("Out of memory");
 		return -1;
 	}
 
-	for (size_t i = 0; i < len; i++) {
-		uint8_t byte;
-
-		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
-			talloc_free(str);
-			fr_strerror_const("Insufficient data for UTF8 string");
-			return -1;
-		}
-
-		str[i] = byte;
-	}
+	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
 
 	str[len] = '\0';
-
-	vp = fr_pair_afrom_da(ctx, parent);
-
-	fr_pair_value_strdup(vp, str, false);
 
 	fr_pair_append(out, vp);
 
