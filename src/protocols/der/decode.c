@@ -206,9 +206,10 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 				     fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	uint8_t	   val;
 
-	if (unlikely(fr_dbuff_out(&val, in) < 0)) {
+	if (unlikely(fr_dbuff_out(&val, &our_in) < 0)) {
 		fr_strerror_const("Insufficient data for boolean");
 		return -1;
 	}
@@ -246,18 +247,19 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
 				     fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	int64_t	   val	= 0;
 	uint8_t	   sign = 0;
 	size_t	   i;
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_integer_except_bool(parent->type)) {
 		fr_strerror_printf("Integer found in non-integer attribute %s of type %s", parent->name,
@@ -285,7 +287,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	 *	      second octet, followed by bits 8 to 1 of each octet in turn up to and including the last octet of
 	 *	      the contents octets.
 	 */
-	if (unlikely(fr_dbuff_out(&sign, in) < 0)) {
+	if (unlikely(fr_dbuff_out(&sign, &our_in) < 0)) {
 		fr_strerror_const("Insufficient data for integer. Missing first byte");
 		return -1;
 	}
@@ -310,7 +312,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		 *	These two conditions are necessary to ensure that the integer conforms to DER.
 		 */
 		uint8_t byte;
-		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+		if (unlikely(fr_dbuff_out(&byte, &our_in) < 0)) {
 			fr_strerror_const("Insufficient data for integer. Missing second byte");
 			return -1;
 		}
@@ -326,7 +328,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	for (i = 2; i < len; i++) {
 		uint8_t byte;
 
-		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+		if (unlikely(fr_dbuff_out(&byte, &our_in) < 0)) {
 			fr_strerror_const("Insufficient data for integer. Ran out of bytes");
 			return -1;
 		}
@@ -344,18 +346,19 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				       fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	uint8_t	   unused_bits = 0;
 	uint8_t	  *data;
 
 	ssize_t data_len = 0, index = 0;
-	size_t	len = fr_dbuff_remaining(in);
+	size_t	len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_octets(parent->type) && !fr_type_is_struct(parent->type)) {
 		fr_strerror_printf("Bitstring found in non-octets attribute %s of type %s", parent->name,
@@ -367,7 +370,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	 *	Now we know that the parent is an octets attribute, we can decode the bitstring
 	 */
 
-	if (unlikely(fr_dbuff_out(&unused_bits, in) < 0)) {
+	if (unlikely(fr_dbuff_out(&unused_bits, &our_in) < 0)) {
 		fr_strerror_const("Insufficient data for bitstring");
 		return -1;
 	}
@@ -409,7 +412,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	for (; index < data_len; index++) {
 		uint8_t byte;
 
-		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+		if (unlikely(fr_dbuff_out(&byte, &our_in) < 0)) {
 			fr_strerror_const("Insufficient data for bitstring. Ran out of bytes");
 		error:
 			talloc_free(data);
@@ -436,12 +439,14 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		/*
 		 *	If the structure decoder didn't consume all the data, we need to free the data and bail out
 		 */
-		if (unlikely(slen < data_len)) {
-			talloc_free(data);
-			return slen;
+		if (unlikely(slen < data_len - 1)) {
+			// fr_strerror_const("Bitstring structure decoder didn't consume all data");
+			fr_strerror_printf("Bitstring structure decoder didn't consume all data. Consumed %zu of %zu bytes",
+					    slen, data_len);
+			goto error;
 		}
 
-		return 1;
+		return fr_dbuff_set(in, &our_in);
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
@@ -457,16 +462,17 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	uint8_t	  *data = NULL;
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_octets(parent->type)) {
 		fr_strerror_printf("Octetstring found in non-octets attribute %s of type %s", parent->name,
@@ -485,19 +491,20 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 		return -1;
 	}
 
-	fr_dbuff_out_memcpy(data, in, len);
+	fr_dbuff_out_memcpy(data, &our_in, len);
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
 				  fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 
-	if (fr_dbuff_remaining(in) != 0) {
+	if (fr_dbuff_remaining(&our_in) != 0) {
 		fr_strerror_const("Null has non-zero length");
 		return -1;
 	}
@@ -510,18 +517,19 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
 				 fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	uint64_t   subidentifier = 0;
 	char	  *oid		 = NULL;
 
 	size_t index = 1, magnitude = 1;
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_string(parent->type)) {
 		fr_strerror_printf("OID found in non-string attribute %s of type %s", parent->name,
@@ -538,7 +546,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	for (; index < len; index++) {
 		uint8_t byte;
 
-		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+		if (unlikely(fr_dbuff_out(&byte, &our_in) < 0)) {
 			fr_strerror_const("Insufficient data for OID subidentifier");
 			return -1;
 		}
@@ -589,7 +597,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	for (; index < len; index++) {
 		uint8_t byte;
 
-		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
+		if (unlikely(fr_dbuff_out(&byte, &our_in) < 0)) {
 			fr_strerror_const("Insufficient data for remaining OID subidentifier(s)");
 			return -1;
 		}
@@ -632,16 +640,17 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	char	  *str = NULL;
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_string(parent->type)) {
 		fr_strerror_printf("UTF8 string found in non-string attribute %s of type %s", parent->name,
@@ -660,13 +669,13 @@ static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 		return -1;
 	}
 
-	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+	fr_dbuff_out_memcpy((uint8_t *)str, &our_in, len);
 
 	str[len] = '\0';
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
@@ -770,6 +779,7 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	char	  *str = NULL;
 
 	static bool const allowed_chars[] = {
@@ -786,7 +796,7 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 		['w'] = true, ['x'] = true,  ['y'] = true, ['z'] = true, [UINT8_MAX] = false
 	};
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_string(parent->type)) {
 		fr_strerror_printf("Printable string found in non-string attribute %s of type %s", parent->name,
@@ -805,7 +815,7 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 		return -1;
 	}
 
-	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+	fr_dbuff_out_memcpy((uint8_t *)str, &our_in, len);
 
 	for (size_t i = 0; i < len; i++) {
 		/*
@@ -821,13 +831,14 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	char	  *str = NULL;
 
 	static bool const allowed_chars[] = {
@@ -862,7 +873,7 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		[0xFD] = true, [0xFE] = true, [UINT8_MAX] = false
 	};
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_string(parent->type)) {
 		fr_strerror_printf("T61 string found in non-string attribute %s of type %s", parent->name,
@@ -881,7 +892,7 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		return -1;
 	}
 
-	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+	fr_dbuff_out_memcpy((uint8_t *)str, &our_in, len);
 
 	for (size_t i = 0; i < len; i++) {
 		/*
@@ -897,15 +908,16 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	char	  *str = NULL;
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_string(parent->type)) {
 		fr_strerror_printf("IA5 string found in non-string attribute %s of type %s", parent->name,
@@ -924,13 +936,13 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		return -1;
 	}
 
-	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+	fr_dbuff_out_memcpy((uint8_t *)str, &our_in, len);
 
 	str[len] = '\0';
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
@@ -938,11 +950,12 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 {
 #define DER_UTC_TIME_LEN 13
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	char	   timestr[DER_UTC_TIME_LEN + 1];
 	char	  *p;
 	struct tm  tm = {};
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_date(parent->type)) {
 		fr_strerror_printf("UTC time found in non-date attribute %s of type %s", parent->name,
@@ -967,7 +980,7 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	 *	7. Z is the timezone (UTC)
 	 */
 
-	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, len) < 0) {
+	if (fr_dbuff_out_memcpy((uint8_t *)timestr, &our_in, len) < 0) {
 		fr_strerror_const("Insufficient data for UTC time. Missing data bytes");
 		return -1;
 	}
@@ -996,7 +1009,7 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
@@ -1005,12 +1018,13 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 #define DER_GENERALIZED_TIME_LEN_MIN 15
 #define DER_GENERALIZED_TIME_PRECISION_MAX 4
 	fr_pair_t    *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	char	      timestr[DER_GENERALIZED_TIME_LEN_MIN + 1];
 	char	     *p;
 	unsigned long subseconds = 0;
 	struct tm     tm	 = {};
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_date(parent->type)) {
 		fr_strerror_printf("Generalized time found in non-date attribute %s of type %s", parent->name,
@@ -1036,7 +1050,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	 *	8. Z is the timezone (UTC)
 	 */
 
-	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, DER_GENERALIZED_TIME_LEN_MIN) < 0) {
+	if (fr_dbuff_out_memcpy((uint8_t *)timestr, &our_in, DER_GENERALIZED_TIME_LEN_MIN) < 0) {
 		fr_strerror_const("Insufficient data for generalized time. Missing data bytes");
 		return -1;
 	}
@@ -1062,8 +1076,8 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 
 		uint8_t precision = DER_GENERALIZED_TIME_PRECISION_MAX;
 
-		if (unlikely(fr_dbuff_remaining(in) - 1 < DER_GENERALIZED_TIME_PRECISION_MAX)) {
-			precision = fr_dbuff_remaining(in) - 1;
+		if (unlikely(fr_dbuff_remaining(&our_in) - 1 < DER_GENERALIZED_TIME_PRECISION_MAX)) {
+			precision = fr_dbuff_remaining(&our_in) - 1;
 		}
 
 		if (unlikely(precision == 0)) {
@@ -1071,7 +1085,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 			return -1;
 		}
 
-		if (fr_dbuff_out_memcpy((uint8_t *)subsecstring, in, precision) < 0) {
+		if (fr_dbuff_out_memcpy((uint8_t *)subsecstring, &our_in, precision) < 0) {
 			fr_strerror_const("Insufficient data for subseconds. Missing data bytes");
 			return -1;
 		}
@@ -1122,15 +1136,16 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	 *	Move to the end of the buffer
 	 *	This is necessary because the fractional seconds are being ignored
 	 */
-	fr_dbuff_advance(in, fr_dbuff_remaining(in));
+	fr_dbuff_advance(&our_in, fr_dbuff_remaining(&our_in));
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	char	  *str = NULL;
 
 	static bool const allowed_chars[] = {
@@ -1152,7 +1167,7 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 		['z'] = true,  ['{'] = true,  ['|'] = true, ['}'] = true, [UINT8_MAX] = false
 	};
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_string(parent->type)) {
 		fr_strerror_printf("Visible string found in non-string attribute %s of type %s", parent->name,
@@ -1171,7 +1186,7 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 		return -1;
 	}
 
-	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+	fr_dbuff_out_memcpy((uint8_t *)str, &our_in, len);
 
 	for (size_t i = 0; i < len; i++) {
 		/*
@@ -1187,16 +1202,17 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	char	  *str = NULL;
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_string(parent->type)) {
 		fr_strerror_printf("General string found in non-string attribute %s of type %s", parent->name,
@@ -1215,22 +1231,23 @@ static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 		return -1;
 	}
 
-	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+	fr_dbuff_out_memcpy((uint8_t *)str, &our_in, len);
 
 	str[len] = '\0';
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
 	char	  *str = NULL;
 
-	size_t len = fr_dbuff_remaining(in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_string(parent->type)) {
 		fr_strerror_printf("Universal string found in non-string attribute %s of type %s", parent->name,
@@ -1249,13 +1266,13 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 		return -1;
 	}
 
-	fr_dbuff_out_memcpy((uint8_t *)str, in, len);
+	fr_dbuff_out_memcpy((uint8_t *)str, &our_in, len);
 
 	str[len] = '\0';
 
 	fr_pair_append(out, vp);
 
-	return 1;
+	return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
