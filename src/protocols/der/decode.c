@@ -371,6 +371,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	 */
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.6 Encoding of a bitstring value
 	 *		8.6.1 The encoding of a bitstring value shall be either primitive or constructed at the option
 	 *		      of the sender.
@@ -511,6 +512,7 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 	}
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.7 Encoding of an octetstring value
 	 *		8.7.1 The encoding of an octetstring value shall be either primitive or constructed at the
 	 *		      option of the sender.
@@ -564,6 +566,7 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 	}
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.8 Encoding of a null value 8.8.1 The encoding of a null value shall be primitive. 8.8.2 The contents
 	 *	    octets shall not contain any octets. NOTE – The length octet is zero.
 	 */
@@ -597,6 +600,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	}
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.19 Encoding of an object identifier value
 	 *	8.19.1 The encoding of an object identifier value shall be primitive.
 	 *	8.19.2 The contents octets shall be an (ordered) list of encodings of subidentifiers (see 8.19.3
@@ -773,6 +777,23 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		return -1;
 	}
 
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.9 Encoding of a sequence value
+	 *		8.9.1 The encoding of a sequence value shall be constructed.
+	 *		8.9.2 The contents octets shall consist of the complete encoding of one data value from each of
+	 *		      the types listed in the ASN.1 definition of the sequence type, in the order of their
+	 *		      appearance in the definition, unless the type was referenced with the keyword OPTIONAL
+	 *		      or the keyword DEFAULT.
+	 *		8.9.3 The encoding of a data value may, but need not, be present for a type referenced with the
+	 *		      keyword OPTIONAL or the keyword DEFAULT. If present, it shall appear in the order of
+	 *		      appearance of the corresponding type in the ASN.1 definition.
+	 *
+	 *	11.5 Set and sequence components with default value
+	 *		The encoding of a set value or sequence value shall not include an encoding for any component
+	 *		value which is equal to its default value.
+	 */
+
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("Out of memory for sequence pair");
@@ -809,6 +830,21 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 				   fr_type_to_str(parent->type));
 		return -1;
 	}
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.11 Encoding of a set value
+	 *		8.11.1 The encoding of a set value shall be constructed.
+	 *		8.11.2 The contents octets shall consist of the complete encoding of one data value from each
+	 *		       of the types listed in the ASN.1 definition of the set type, in an order chosen by the
+	 *		       sender, unless the type was referenced with the keyword OPTIONAL or the keyword DEFAULT.
+	 *		8.11.3 The encoding of a data value may, but need not, be present for a type referenced with the
+	 *		       keyword OPTIONAL or the keyword DEFAULT.
+	 *
+	 *	11.5 Set and sequence components with default value
+	 *		The encoding of a set value or sequence value shall not include an encoding for any component
+	 *		value which is equal to its default value.
+	 */
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
@@ -1051,6 +1087,30 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	}
 
 	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.25 Encoding for values of the useful types
+	 *		The following "useful types" shall be encoded as if they had been replaced by their definitions
+	 *		given in clauses 46-48 of Rec. ITU-T X.680 | ISO/IEC 8824-1:
+	 *			– generalized time;
+	 *			– universal time;
+	 *			– object descriptor.
+	 *
+	 *	8.26 Encoding for values of the TIME type and the useful time types
+	 *		8.26 Encoding for values of the TIME type and the useful time types 8.26.1 Encoding for values
+	 *		of the TIME type NOTE – The defined time types are subtypes of the TIME type, with the same
+	 *		tag, and have the same encoding as the TIME type. 8.26.1.1 The encoding of the TIME type shall
+	 *		be primitive. 8.26.1.2 The contents octets shall be the UTF-8 encoding of the value notation,
+	 *		after the removal of initial and final QUOTATION MARK (34) characters.
+	 *
+	 *	11.8 UTCTime
+	 *		11.8.1 The encoding shall terminate with "Z", as described in the ITU-T X.680 | ISO/IEC 8824-1
+	 *		       clause on UTCTime.
+	 *		11.8.2 The seconds element shall always be present.
+	 *		11.8.3 Midnight (GMT) shall be represented as "YYMMDD000000Z", where "YYMMDD" represents the
+	 *		       day following the midnight in question.
+	 */
+
+	/*
 	 *	The format of a UTC time is "YYMMDDhhmmssZ"
 	 *	Where:
 	 *	1. YY is the year
@@ -1118,6 +1178,31 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 		fr_strerror_const("Insufficient data for generalized time or incorrect length");
 		return -1;
 	}
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.25 Encoding for values of the useful types
+	 *		The following "useful types" shall be encoded as if they had been replaced by their definitions
+	 *		given in clauses 46-48 of Rec. ITU-T X.680 | ISO/IEC 8824-1:
+	 *			– generalized time;
+	 *			– universal time;
+	 *			– object descriptor.
+	 *
+	 *	8.26 Encoding for values of the TIME type and the useful time types
+	 *		8.26 Encoding for values of the TIME type and the useful time types 8.26.1 Encoding for values
+	 *		of the TIME type NOTE – The defined time types are subtypes of the TIME type, with the same
+	 *		tag, and have the same encoding as the TIME type. 8.26.1.1 The encoding of the TIME type shall
+	 *		be primitive. 8.26.1.2 The contents octets shall be the UTF-8 encoding of the value notation,
+	 *		after the removal of initial and final QUOTATION MARK (34) characters.
+	 *
+	 *	11.7 GeneralizedTime
+	 *		11.7.1 The encoding shall terminate with a "Z", as described in the Rec. ITU-T X.680 | ISO/IEC
+	 *		       8824-1 clause on GeneralizedTime.
+	 *		11.7.2 The seconds element shall always be present.
+	 *		11.7.3 The fractional-seconds elements, if present, shall omit all trailing zeros; if the
+	 *		       elements correspond to 0, they shall be wholly omitted, and the decimal point element
+	 *		       also shall be omitted.
+	 */
 
 	/*
 	 *	The format of a generalized time is "YYYYMMDDHHMMSS[.fff]Z"
