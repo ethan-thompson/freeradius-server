@@ -190,8 +190,11 @@ match Bitstring-Struct = { foo = 0 }
 decode-pair 03 03 00 FB FB
 match Bitstring-Struct = { foo = 251, bar = 15, foo-bar = 11 }
 
-decode-pair 03 04 00 FF FF FF
+decode-pair 03 03 00 FF FF
 match Bitstring-Struct = { foo = 255, bar = 15, foo-bar = 15 }
+
+decode-pair 03 04 00 FF FF FF
+# match Bitstring structure decoder didn't consume all data
 
 
 proto-dictionary-root Bitstring-Struct-7
