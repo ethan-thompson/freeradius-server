@@ -370,6 +370,35 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	 *	Now we know that the parent is an octets attribute, we can decode the bitstring
 	 */
 
+	/*
+	 *	8.6 Encoding of a bitstring value
+	 *		8.6.1 The encoding of a bitstring value shall be either primitive or constructed at the option
+	 *		      of the sender.
+	 *			NOTE – Where it is necessary to transfer part of a bit string before the entire
+	 *			       bitstring is available, the constructed encoding is used.
+	 *		8.6.2 The contents octets for the primitive encoding shall contain an initial octet followed
+	 *		      by zero, one or more subsequent octets.
+	 *			8.6.2.1 The bits in the bitstring value, commencing with the leading bit and proceeding
+	 *				to the trailing bit, shall be placed in bits 8 to 1 of the first subsequent
+	 *				octet, followed by bits 8 to 1 of the second subsequent octet, followed by bits
+	 *				8 to 1 of each octet in turn, followed by as many bits as are needed of the
+	 *				final subsequent octet, commencing with bit 8.
+	 *				NOTE – The terms "leading bit" and "trailing bit" are defined in
+	 *				       Rec. ITU-T X.680 | ISO/IEC 8824-1, 22.2.
+	 *			8.6.2.2 The initial octet shall encode, as an unsigned binary integer with bit 1 as the
+	 *				least significant bit, the number of unused bits in the final subsequent octet.
+	 *				The number shall be in the range zero to seven.
+	 *			8.6.2.3 If the bitstring is empty, there shall be no subsequent octets, and the initial
+	 *				octet shall be zero.
+	 *
+	 *	10.2 String encoding forms
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
+	 *
+	 *	11.2 Unused bits 11.2.1 Each unused bit in the final octet of the encoding of a bit string value shall
+	 *	     be set to zero.
+	 */
+
 	if (unlikely(fr_dbuff_out(&unused_bits, &our_in) < 0)) {
 		fr_strerror_const("Insufficient data for bitstring");
 		return -1;
@@ -481,6 +510,30 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 		return -1;
 	}
 
+	/*
+	 *	8.7 Encoding of an octetstring value
+	 *		8.7.1 The encoding of an octetstring value shall be either primitive or constructed at the
+	 *		      option of the sender.
+	 *			NOTE – Where it is necessary to transfer part of an octet string before the entire
+	 *			       octetstring is available, the constructed encoding is used.
+	 *		8.7.2 The primitive encoding contains zero, one or more contents octets equal in value to the
+	 *		      octets in the data value, in the order they appear in the data value, and with the most
+	 *		      significant bit of an octet of the data value aligned with the most significant bit of an
+	 *		      octet of the contents octets.
+	 *		8.7.3 The contents octets for the constructed encoding shall consist of zero, one, or more
+	 *		      encodings.
+	 *			NOTE – Each such encoding includes identifier, length, and contents octets, and may
+	 *			       include end-of-contents octets if it is constructed.
+	 *			8.7.3.1 To encode an octetstring value in this way, it is segmented. Each segment shall
+	 *			       consist of a series of consecutive octets of the value. There shall be no
+	 *			       significance placed on the segment boundaries.
+	 *				NOTE – A segment may be of size zero, i.e. contain no octets.
+	 *
+	 *	10.2 String encoding forms
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
+	 */
+
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("Out of memory for octetstring pair");
@@ -509,6 +562,11 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 		fr_strerror_const("Null has non-zero length");
 		return -1;
 	}
+
+	/*
+	 *	8.8 Encoding of a null value 8.8.1 The encoding of a null value shall be primitive. 8.8.2 The contents
+	 *	    octets shall not contain any octets. NOTE – The length octet is zero.
+	 */
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
@@ -539,8 +597,31 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	}
 
 	/*
+	 *	8.19 Encoding of an object identifier value
+	 *	8.19.1 The encoding of an object identifier value shall be primitive.
+	 *	8.19.2 The contents octets shall be an (ordered) list of encodings of subidentifiers (see 8.19.3
+	 *	       and 8.19.4) concatenated together. Each subidentifier is represented as a series of
+	 *	       (one or more) octets. Bit 8 of each octet indicates whether it is the last in the series: bit 8
+	 *	       of the last octet is zero; bit 8 of each preceding octet is one. Bits 7 to 1 of the octets in
+	 *	       the series collectively encode the subidentifier. Conceptually, these groups of bits are
+	 *	       concatenated to form an unsigned binary number whose most significant bit is bit 7 of the first
+	 *	       octet and whose least significant bit is bit 1 of the last octet. The subidentifier shall be
+	 *	       encoded in the fewest possible octets, that is, the leading octet of the subidentifier shall not
+	 *	       have the value 8016.
+	 *	8.19.3 The number of subidentifiers (N) shall be one less than the number of object identifier
+	 *		components in the object identifier value being encoded. 8.19.4 The numerical value of the
+	 *		first subidentifier is derived from the values of the first two object identifier components in
+	 *		the object identifier value being encoded, using the formula: (X*40) + Y where X is the value
+	 *		of the first object identifier component and Y is the value of the second object identifier
+	 *		component. NOTE – This packing of the first two object identifier components recognizes that
+	 *		only three values are allocated from the root node, and at most 39 subsequent values from nodes
+	 *		reached by X = 0 and X = 1. 8.19.5 The numerical value of the ith subidentifier, (2 ≤ i ≤ N) is
+	 *		that of the (i + 1)th object identifier component.
+	 */
+
+	/*
 	 *	The first subidentifier is the encoding of the first two object identifier components, encoded as:
-	 *	(X * 40) + Y
+	 *		(X * 40) + Y
 	 *	where X is the first number and Y is the second number.
 	 *	The first number is 0, 1, or 2.
 	 */
