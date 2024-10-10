@@ -206,7 +206,7 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 				     fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
+	fr_dbuff_t our_in = FR_DBUFF(in);
 	uint8_t	   val;
 
 	if (unlikely(fr_dbuff_out(&val, &our_in) < 0)) {
@@ -254,9 +254,9 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 				     fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
-	int64_t	   val	= 0;
-	uint8_t	   sign = 0;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	int64_t	   val	  = 0;
+	uint8_t	   sign	  = 0;
 	size_t	   i;
 
 	size_t len = fr_dbuff_remaining(&our_in);
@@ -353,7 +353,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 				       fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
+	fr_dbuff_t our_in      = FR_DBUFF(in);
 	uint8_t	   unused_bits = 0;
 	uint8_t	  *data;
 
@@ -441,8 +441,9 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		 */
 		if (unlikely(slen < data_len - 1)) {
 			// fr_strerror_const("Bitstring structure decoder didn't consume all data");
-			fr_strerror_printf("Bitstring structure decoder didn't consume all data. Consumed %zu of %zu bytes",
-					    slen, data_len);
+			fr_strerror_printf(
+				"Bitstring structure decoder didn't consume all data. Consumed %zu of %zu bytes", slen,
+				data_len);
 			goto error;
 		}
 
@@ -469,8 +470,8 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
-	uint8_t	  *data = NULL;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	uint8_t	  *data	  = NULL;
 
 	size_t len = fr_dbuff_remaining(&our_in);
 
@@ -502,7 +503,7 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 				  fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
+	fr_dbuff_t our_in = FR_DBUFF(in);
 
 	if (fr_dbuff_remaining(&our_in) != 0) {
 		fr_strerror_const("Null has non-zero length");
@@ -524,7 +525,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 				 fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
+	fr_dbuff_t our_in	 = FR_DBUFF(in);
 	uint64_t   subidentifier = 0;
 	char	  *oid		 = NULL;
 
@@ -647,8 +648,8 @@ static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
-	char	  *str = NULL;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	char	  *str	  = NULL;
 
 	size_t len = fr_dbuff_remaining(&our_in);
 
@@ -779,8 +780,8 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
-	char	  *str = NULL;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	char	  *str	  = NULL;
 
 	static bool const allowed_chars[] = {
 		[' '] = true, ['\''] = true, ['('] = true, [')'] = true, ['+'] = true,	     [','] = true, ['-'] = true,
@@ -838,8 +839,8 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
-	char	  *str = NULL;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	char	  *str	  = NULL;
 
 	static bool const allowed_chars[] = {
 		[0x08] = true, [0x0A] = true, [0x0C] = true,	  [0x0D] = true, [0x0E] = true, [0x0F] = true,
@@ -914,8 +915,8 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
-	char	  *str = NULL;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	char	  *str	  = NULL;
 
 	size_t len = fr_dbuff_remaining(&our_in);
 
@@ -950,7 +951,7 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 {
 #define DER_UTC_TIME_LEN 13
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
+	fr_dbuff_t our_in = FR_DBUFF(in);
 	char	   timestr[DER_UTC_TIME_LEN + 1];
 	char	  *p;
 	struct tm  tm = {};
@@ -1018,7 +1019,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 #define DER_GENERALIZED_TIME_LEN_MIN 15
 #define DER_GENERALIZED_TIME_PRECISION_MAX 4
 	fr_pair_t    *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
+	fr_dbuff_t    our_in = FR_DBUFF(in);
 	char	      timestr[DER_GENERALIZED_TIME_LEN_MIN + 1];
 	char	     *p;
 	unsigned long subseconds = 0;
@@ -1145,8 +1146,8 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
-	char	  *str = NULL;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	char	  *str	  = NULL;
 
 	static bool const allowed_chars[] = {
 		[' '] = true,  ['!'] = true,  ['"'] = true, ['#'] = true, ['$'] = true,	      ['%'] = true,
@@ -1209,8 +1210,8 @@ static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
-	char	  *str = NULL;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	char	  *str	  = NULL;
 
 	size_t len = fr_dbuff_remaining(&our_in);
 
@@ -1244,8 +1245,8 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t	      our_in = FR_DBUFF(in);
-	char	  *str = NULL;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	char	  *str	  = NULL;
 
 	size_t len = fr_dbuff_remaining(&our_in);
 
