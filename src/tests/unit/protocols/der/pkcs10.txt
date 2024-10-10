@@ -129,7 +129,7 @@ decode-pair 30 03 01 01 FF
 match Bar = { Test-Boolean = yes }
 
 decode-pair 30 03 01 01 01
-match Boolean is not correctly DER encoded
+match Boolean is not correctly DER encoded (cannot be constructed)
 
 
 proto-dictionary-root Foo-Bar
@@ -141,7 +141,7 @@ decode-pair 30 06 02 01 09 01 01 FF
 match Foo-Bar = { Test-Integer = 9, Test-Boolean = yes }
 
 decode-pair 30 06 02 01 09 01 01 01
-match Boolean is not correctly DER encoded
+match Boolean is not correctly DER encoded (cannot be constructed)
 
 decode-pair 30 06 02 02 09 01 01 FF
 match Length field too large (127)
@@ -276,13 +276,13 @@ decode-pair 06 10 2a 86 48 ff ff ff ff ff ff ff ff 7f 0d 01 01 0b
 match Test-Oid = "1.2.840.9223372036854775807.13.1.1.11"
 
 decode-pair 06 11 2a 86 48 ff ff ff ff ff ff ff ff ff 7f 0d 01 01 0b
-match OID subidentifier too large
+match OID subidentifier too large (9 chunks)
 
 decode-pair 06 12 2a 86 48 ff ff ff ff ff ff ff ff ff 86 f7 0d 01 01 0b
-match OID subidentifier too large
+match OID subidentifier too large (9 chunks)
 
 decode-pair 06 19 2a 86 48 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 86 f7 0d 01 01 0b
-match OID subidentifier too large
+match OID subidentifier too large (9 chunks)
 
 
 proto-dictionary-root Seq-Oid
@@ -318,13 +318,13 @@ decode-pair 30 12 06 10 2a 86 48 ff ff ff ff ff ff ff ff 7f 0d 01 01 0b
 match Seq-Oid = { Test-Oid = "1.2.840.9223372036854775807.13.1.1.11" }
 
 decode-pair 30 13 06 11 2a 86 48 ff ff ff ff ff ff ff ff ff 7f 0d 01 01 0b
-match OID subidentifier too large
+match OID subidentifier too large (9 chunks)
 
 decode-pair 30 14 06 12 2a 86 48 ff ff ff ff ff ff ff ff ff 86 f7 0d 01 01 0b
-match OID subidentifier too large
+match OID subidentifier too large (9 chunks)
 
 decode-pair 30 1b 06 19 2a 86 48 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 86 f7 0d 01 01 0b
-match OID subidentifier too large
+match OID subidentifier too large (9 chunks)
 
 
 proto-dictionary-root Test-String
@@ -555,13 +555,13 @@ decode-pair 18 13 32 303139313231363033303231302e30303031
 match Test-Date = "2019-12-16T03:02:10Z"
 
 decode-pair 18 0D 31 39 31 32 31 36 30 33 30 32 31 30 5A
-match Insufficient data for generalized time
+match Insufficient data for generalized time or incorrect length
 
 decode-pair 18 14 32 30 31 39 31 32 31 36 30 33 00 32 31 30 2e 30 30 30 31 5a
 match Generalized time contains null byte
 
 decode-pair 18 14 32 30 31 39 31 32 31 36 30 33 30 32 31 30 2e 30 30 00 31 5a
-match Generalized time contains null byte
+match Generalized time contains null byte in subseconds
 
 decode-pair 18 10 32 30 31 39 31 32 31 36 30 33 30 32 31 30 2e 5a
 match Insufficient data for subseconds
