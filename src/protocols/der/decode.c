@@ -470,7 +470,6 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		 *	If the structure decoder didn't consume all the data, we need to free the data and bail out
 		 */
 		if (unlikely(slen < data_len - 1)) {
-			// fr_strerror_const("Bitstring structure decoder didn't consume all data");
 			fr_strerror_printf(
 				"Bitstring structure decoder didn't consume all data. Consumed %zu of %zu bytes", slen,
 				data_len);
