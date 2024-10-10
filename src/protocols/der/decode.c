@@ -238,7 +238,7 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for boolean pair");
 		return -1;
 	}
 
@@ -286,7 +286,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	 *	      the contents octets.
 	 */
 	if (unlikely(fr_dbuff_out(&sign, in) < 0)) {
-		fr_strerror_const("Insufficient data for integer");
+		fr_strerror_const("Insufficient data for integer. Missing first byte");
 		return -1;
 	}
 
@@ -311,7 +311,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		 */
 		uint8_t byte;
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
-			fr_strerror_const("Insufficient data for integer");
+			fr_strerror_const("Insufficient data for integer. Missing second byte");
 			return -1;
 		}
 
@@ -327,7 +327,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		uint8_t byte;
 
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
-			fr_strerror_const("Insufficient data for integer");
+			fr_strerror_const("Insufficient data for integer. Ran out of bytes");
 			return -1;
 		}
 
@@ -336,7 +336,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for integer pair");
 		return -1;
 	}
 
@@ -373,12 +373,12 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	}
 
 	if (unlikely(unused_bits > 7)) {
-		fr_strerror_const("Invalid number of unused bits");
+		fr_strerror_const("Invalid number of unused bits in bitstring");
 		return -1;
 	}
 
 	if (len == 1 && unused_bits) {
-		fr_strerror_const("Insufficient data for bitstring");
+		fr_strerror_const("Insufficient data for bitstring. Missing data bytes");
 		return -1;
 	}
 
@@ -394,7 +394,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 
 	data = talloc_array(ctx, uint8_t, data_len);
 	if (unlikely(data == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for bitstring");
 		return -1;
 	}
 
@@ -410,7 +410,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 		uint8_t byte;
 
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
-			fr_strerror_const("Insufficient data for bitstring");
+			fr_strerror_const("Insufficient data for bitstring. Ran out of bytes");
 		error:
 			talloc_free(data);
 			return -1;
@@ -446,7 +446,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for bitstring pair");
 		goto error;
 	}
 
@@ -476,12 +476,12 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for octetstring pair");
 		return -1;
 	}
 
 	if (unlikely(fr_pair_value_mem_alloc(vp, &data, len, false) < 0)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for octetstring");
 		return -1;
 	}
 
@@ -504,7 +504,7 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for null pair");
 		return -1;
 	}
 
@@ -539,7 +539,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		uint8_t byte;
 
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
-			fr_strerror_const("Insufficient data for OID");
+			fr_strerror_const("Insufficient data for OID subidentifier");
 			return -1;
 		}
 
@@ -561,7 +561,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 			}
 
 			if (unlikely(oid == NULL)) {
-				fr_strerror_const("Out of memory");
+				fr_strerror_const("Out of memory for OID");
 				return -1;
 			}
 
@@ -578,7 +578,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		 *	than 9 chunks
 		 */
 		if (unlikely(magnitude > 9)) {
-			fr_strerror_const("OID subidentifier too large");
+			fr_strerror_const("OID subidentifier too large (9 chunks)");
 			return -1;
 		}
 	}
@@ -590,7 +590,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		uint8_t byte;
 
 		if (unlikely(fr_dbuff_out(&byte, in) < 0)) {
-			fr_strerror_const("Insufficient data for OID");
+			fr_strerror_const("Insufficient data for remaining OID subidentifier(s)");
 			return -1;
 		}
 
@@ -600,7 +600,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 			oid = talloc_asprintf_append(oid, ".%llu", subidentifier);
 
 			if (unlikely(oid == NULL)) {
-				fr_strerror_const("Out of memory");
+				fr_strerror_const("Out of memory for OID subidentifier");
 				return -1;
 			}
 
@@ -617,14 +617,14 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		 *	than 9 chunks
 		 */
 		if (unlikely(magnitude > 9)) {
-			fr_strerror_const("OID subidentifier too large");
+			fr_strerror_const("OID subidentifier too large (9 chunks)");
 			return -1;
 		}
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for OID pair");
 		return -1;
 	}
 
@@ -651,12 +651,12 @@ static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for UTF8 string pair");
 		return -1;
 	}
 
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for UTF8 string");
 		return -1;
 	}
 
@@ -684,7 +684,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for sequence pair");
 		return -1;
 	}
 
@@ -721,7 +721,7 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for set pair");
 		return -1;
 	}
 
@@ -736,7 +736,7 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		 *	Check that the tag is in ascending order
 		 */
 		if (unlikely(fr_dbuff_out(&current_tag, &our_in) < 0)) {
-			fr_strerror_const("Insufficient data for set");
+			fr_strerror_const("Insufficient data for set. Missing tag");
 			talloc_free(vp);
 			return -1;
 		}
@@ -796,12 +796,12 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for printable string pair");
 		return -1;
 	}
 
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for printable string");
 		return -1;
 	}
 
@@ -872,12 +872,12 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for T61 string pair");
 		return -1;
 	}
 
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for T61 string");
 		return -1;
 	}
 
@@ -915,12 +915,12 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for IA5 string pair");
 		return -1;
 	}
 
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for IA5 string");
 		return -1;
 	}
 
@@ -951,7 +951,7 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	}
 
 	if (len != DER_UTC_TIME_LEN) {
-		fr_strerror_const("Insufficient data for UTC time");
+		fr_strerror_const("Insufficient data for UTC time or incorrect length");
 		return -1;
 	}
 
@@ -968,7 +968,7 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	 */
 
 	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, len) < 0) {
-		fr_strerror_const("Insufficient data for UTC time");
+		fr_strerror_const("Insufficient data for UTC time. Missing data bytes");
 		return -1;
 	}
 
@@ -988,7 +988,7 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for UTC time pair");
 		return -1;
 	}
 
@@ -1019,7 +1019,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	}
 
 	if (len < DER_GENERALIZED_TIME_LEN_MIN) {
-		fr_strerror_const("Insufficient data for generalized time");
+		fr_strerror_const("Insufficient data for generalized time or incorrect length");
 		return -1;
 	}
 
@@ -1037,7 +1037,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	 */
 
 	if (fr_dbuff_out_memcpy((uint8_t *)timestr, in, DER_GENERALIZED_TIME_LEN_MIN) < 0) {
-		fr_strerror_const("Insufficient data for generalized time");
+		fr_strerror_const("Insufficient data for generalized time. Missing data bytes");
 		return -1;
 	}
 
@@ -1047,7 +1047,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	}
 
 	if (timestr[DER_GENERALIZED_TIME_LEN_MIN - 1] != 'Z' && timestr[DER_GENERALIZED_TIME_LEN_MIN - 1] != '.') {
-		fr_strerror_const("Incorrect format for generalized time");
+		fr_strerror_const("Incorrect format for generalized time. Missing timezone");
 		return -1;
 	}
 
@@ -1072,12 +1072,12 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 		}
 
 		if (fr_dbuff_out_memcpy((uint8_t *)subsecstring, in, precision) < 0) {
-			fr_strerror_const("Insufficient data for subseconds");
+			fr_strerror_const("Insufficient data for subseconds. Missing data bytes");
 			return -1;
 		}
 
 		if (memchr(subsecstring, '\0', precision) != NULL) {
-			fr_strerror_const("Generalized time contains null byte");
+			fr_strerror_const("Generalized time contains null byte in subseconds");
 			return -1;
 		}
 
@@ -1104,13 +1104,13 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 	p = strptime(timestr, "%Y%m%d%H%M%SZ", &tm);
 
 	if (unlikely(p == NULL)) {
-		fr_strerror_const("Invalid generalized time format");
+		fr_strerror_const("Invalid generalized time format (strptime)");
 		return -1;
 	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for generalized time pair");
 		return -1;
 	}
 
@@ -1162,12 +1162,12 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for visible string pair");
 		return -1;
 	}
 
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for visible string");
 		return -1;
 	}
 
@@ -1206,12 +1206,12 @@ static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for general string pair");
 		return -1;
 	}
 
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for general string");
 		return -1;
 	}
 
@@ -1240,12 +1240,12 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for universal string pair");
 		return -1;
 	}
 
 	if (unlikely(fr_pair_value_bstr_alloc(vp, &str, len, false) < 0)) {
-		fr_strerror_const("Out of memory");
+		fr_strerror_const("Out of memory for universal string");
 		return -1;
 	}
 
