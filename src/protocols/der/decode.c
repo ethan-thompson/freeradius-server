@@ -57,6 +57,7 @@ typedef enum {
 	FR_DER_TAG_OCTETSTRING	    = 0x04,	   //!< String of octets (length field specifies bytes).
 	FR_DER_TAG_NULL		    = 0x05,	   //!< An empty value.
 	FR_DER_TAG_OID		    = 0x06,	   //!< Reference to an OID based attribute.
+	FR_DER_TAG_ENUMERATED	    = 0x0a,	   //!< An enumerated value.
 	FR_DER_TAG_UTF8_STRING	    = 0x0c,	   //!< String of UTF8 chars.
 	FR_DER_TAG_SEQUENCE	    = 0x10,	   //!< A sequence of DER encoded data (a structure).
 	FR_DER_TAG_SET		    = 0x11,	   //!< A set of DER encoded data (a structure).
@@ -132,6 +133,9 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
 				 fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+
 static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
@@ -172,6 +176,7 @@ static fr_der_tag_decode_t tag_funcs[] = {
 	[FR_DER_TAG_OCTETSTRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_octetstring },
 	[FR_DER_TAG_NULL]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_null },
 	[FR_DER_TAG_OID]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_oid },
+	[FR_DER_TAG_ENUMERATED]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_enumerated },
 	[FR_DER_TAG_UTF8_STRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utf8_string },
 	[FR_DER_TAG_SEQUENCE]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_sequence },
 	[FR_DER_TAG_SET]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_set },
@@ -722,6 +727,97 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	}
 
 	fr_pair_value_strdup(vp, oid, false);
+
+	fr_pair_append(out, vp);
+
+	return fr_dbuff_set(in, &our_in);
+}
+
+static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t *vp;
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	int64_t	   val	  = 0;
+	uint8_t	   sign	  = 0;
+	size_t	   i;
+
+	size_t len = fr_dbuff_remaining(&our_in);
+
+	if (!fr_type_is_integer_except_bool(parent->type)) {
+		fr_strerror_printf("Enumerated value found in non-integer attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
+		return -1;
+	}
+
+	if (len > sizeof(val)) {
+		fr_strerror_printf("Enumerated value too large (%zu)", len);
+		return -1;
+	}
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.4 Encoding of an enumerated value
+	 *		The encoding of an enumerated value shall be that of the integer value with which it is
+	 *		associated.
+	 *			NOTE – It is primitive.
+	 */
+	if (unlikely(fr_dbuff_out(&sign, &our_in) < 0)) {
+		fr_strerror_const("Insufficient data for enumerated value. Missing first byte");
+		return -1;
+	}
+
+	if (sign & 0x80) {
+		/*
+		 *	If the sign bit is set, this is a negative number.
+		 *	This will fill the upper bits with 1s.
+		 *	This is important for the case where the length of the integer is less than the length of the
+		 *integer type.
+		 */
+		val = -1;
+	}
+
+	val = (val << 8) | sign;
+
+	if (len > 1) {
+		/*
+		 *	If the length of the integer is greater than 1, we need to check that the first 9 bits:
+		 *	1. are not all 0s; and
+		 *	2. are not all 1s
+		 *	These two conditions are necessary to ensure that the integer conforms to DER.
+		 */
+		uint8_t byte;
+		if (unlikely(fr_dbuff_out(&byte, &our_in) < 0)) {
+			fr_strerror_const("Insufficient data for enumerated value. Missing second byte");
+			return -1;
+		}
+
+		if ((((val & 0xFF) == 0xFF) && (byte & 0x80)) || (((~val & 0xFF) == 0xFF) && !(byte & 0x80))) {
+			fr_strerror_const("Enumerated value is not correctly DER encoded");
+			return -1;
+		}
+
+		val = (val << 8) | byte;
+	}
+
+	for (i = 2; i < len; i++) {
+		uint8_t byte;
+
+		if (unlikely(fr_dbuff_out(&byte, &our_in) < 0)) {
+			fr_strerror_const("Insufficient data for enumerated value. Ran out of bytes");
+			return -1;
+		}
+
+		val = (val << 8) | byte;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory for enumerated value pair");
+		return -1;
+	}
+
+	vp->vp_int64 = val;
 
 	fr_pair_append(out, vp);
 
