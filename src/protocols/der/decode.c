@@ -31,6 +31,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "der.h"
+
 #include <freeradius-devel/io/test_point.h>
 
 #include <freeradius-devel/util/decode.h>
@@ -48,48 +50,8 @@ typedef struct {
 	uint8_t *tmp_ctx;
 } fr_der_decode_ctx_t;
 
-/** Enumeration describing the data types in a DER encoded structure
- */
-typedef enum {
-	FR_DER_TAG_BOOLEAN	    = 0x01,	   //!< Boolean true/false
-	FR_DER_TAG_INTEGER	    = 0x02,	   //!< Arbitrary width signed integer.
-	FR_DER_TAG_BITSTRING	    = 0x03,	   //!< String of bits (length field specifies bits).
-	FR_DER_TAG_OCTETSTRING	    = 0x04,	   //!< String of octets (length field specifies bytes).
-	FR_DER_TAG_NULL		    = 0x05,	   //!< An empty value.
-	FR_DER_TAG_OID		    = 0x06,	   //!< Reference to an OID based attribute.
-	FR_DER_TAG_ENUMERATED	    = 0x0a,	   //!< An enumerated value.
-	FR_DER_TAG_UTF8_STRING	    = 0x0c,	   //!< String of UTF8 chars.
-	FR_DER_TAG_SEQUENCE	    = 0x10,	   //!< A sequence of DER encoded data (a structure).
-	FR_DER_TAG_SET		    = 0x11,	   //!< A set of DER encoded data (a structure).
-	FR_DER_TAG_PRINTABLE_STRING = 0x13,	   //!< String of printable chars.
-	FR_DER_TAG_T61_STRING	    = 0x14,	   //!< String of T61 (8bit) chars.
-	FR_DER_TAG_IA5_STRING	    = 0x16,	   //!< String of IA5 (7bit) chars.
-	FR_DER_TAG_UTC_TIME	    = 0x17,	   //!< A time in UTC "YYMMDDhhmmssZ" format.
-	FR_DER_TAG_GENERALIZED_TIME = 0x18,	   //!< A time in "YYYYMMDDHHMMSS[.fff]Z" format.
-	FR_DER_TAG_VISIBLE_STRING   = 0x1a,	   //!< String of visible chars.
-	FR_DER_TAG_GENERAL_STRING   = 0x1b,	   //!< String of general chars.
-	FR_DER_TAG_UNIVERSAL_STRING = 0x1c,	   //!< String of universal chars.
-	FR_DER_TAG_BMP_STRING	    = 0x1e	  //!< String of BMP chars.
-} fr_der_tag_t;
-
-#define DER_TAG_CONTINUATION 0x1f	 //!< Mask to check if the tag is a continuation.
-
 #define IS_DER_TAG_CONTINUATION(_tag) (((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
 #define IS_DER_TAG_CONSTRUCTED(_tag) (((_tag) & 0x20) == 0x20)
-
-#define DER_MAX_STR 16384
-
-typedef enum {
-	FR_DER_TAG_PRIMATIVE   = 0x00,	      //!< This is a leaf value, it contains no children.
-	FR_DER_TAG_CONSTRUCTED = 0x01	     //!< This is a sequence or set, it contains children.
-} fr_der_tag_constructed_t;
-
-typedef enum {
-	FR_DER_TAG_FLAG_UNIVERSAL   = 0x00,	   //!<
-	FR_DER_TAG_FLAG_APPLICATION = 0x01,
-	FR_DER_TAG_FLAG_CONTEXT	    = 0x02,
-	FR_DER_TAG_FLAG_PRIVATE	    = 0x03
-} fr_der_tag_flag_t;
 
 /** Function signature for DER decode functions
  *
@@ -191,6 +153,8 @@ static fr_der_tag_decode_t tag_funcs[] = {
 	[FR_DER_TAG_GENERAL_STRING]   = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_general_string },
 	[FR_DER_TAG_UNIVERSAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE,
 					  .decode      = fr_der_decode_universal_string },
+
+	[UINT8_MAX]		      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = NULL },
 };
 
 static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
@@ -1544,7 +1508,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	ssize_t			 slen;
 	uint8_t			 tag_byte;
 	uint64_t		 tag;
-	fr_der_tag_flag_t	 tag_flags;
+	fr_der_tag_class_t	 tag_flags;
 	fr_der_tag_constructed_t constructed;
 
 	uint8_t		     len_byte;
@@ -1581,7 +1545,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	/*
 	 *	Check if the tag is not universal
 	 */
-	if (tag_flags != FR_DER_TAG_FLAG_UNIVERSAL) {
+	if (tag_flags != FR_DER_CLASS_UNIVERSAL) {
 		/*
 		 *	The data type will need to be resolved using the dictionary and the tag value
 		 */
@@ -1673,6 +1637,15 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	return fr_dbuff_set(in, &our_in);
 }
 
+static ssize_t fr_der_decode_proto(TALLOC_CTX *ctx, fr_pair_list_t *out, uint8_t const *data, size_t data_len, void *proto_ctx)
+{
+	fr_dbuff_t our_in = FR_DBUFF_TMP(data, data_len);
+
+	fr_dict_attr_t const *parent = fr_dict_root(dict_der);
+
+	return fr_der_decode_pair_dbuff(ctx, out, parent, &our_in, proto_ctx);
+}
+
 /** Decode a DER structure using the specific dictionary
  *
  * @param[in] ctx		to allocate new pairs in.
@@ -1698,4 +1671,10 @@ extern fr_test_point_pair_decode_t der_tp_decode_pair;
 fr_test_point_pair_decode_t	   der_tp_decode_pair = {
 	       .test_ctx = decode_test_ctx,
 	       .func	 = decode_pair,
+};
+
+extern fr_test_point_proto_decode_t der_tp_decode_proto;
+fr_test_point_proto_decode_t	   der_tp_decode_proto = {
+	       .test_ctx = decode_test_ctx,
+	       .func	 = fr_der_decode_proto,
 };
