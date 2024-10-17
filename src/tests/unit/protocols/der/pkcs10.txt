@@ -129,7 +129,7 @@ decode-pair 30 03 01 01 FF
 match Bar = { Test-Boolean = yes }
 
 decode-pair 30 03 01 01 01
-match Boolean is not correctly DER encoded (cannot be constructed)
+match Boolean is not correctly DER encoded (0x00 or 0xFF)
 
 
 proto-dictionary-root Foo-Bar
@@ -141,7 +141,7 @@ decode-pair 30 06 02 01 09 01 01 FF
 match Foo-Bar = { Test-Integer = 9, Test-Boolean = yes }
 
 decode-pair 30 06 02 01 09 01 01 01
-match Boolean is not correctly DER encoded (cannot be constructed)
+match Boolean is not correctly DER encoded (0x00 or 0xFF)
 
 decode-pair 30 06 02 02 09 01 01 FF
 match Length field too large (127)
