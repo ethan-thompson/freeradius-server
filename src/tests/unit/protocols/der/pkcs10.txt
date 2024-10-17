@@ -587,3 +587,23 @@ match Set-Bool-Integer = { Test-Bool = no, Test-Integer = 9 }
 
 decode-pair 3106020109010100
 match Integer found in non-integer attribute Test-Bool of type bool
+
+# Test-Encode
+#proto der
+#proto-dictionary pkcs10
+#fuzzer-out der
+
+proto-dictionary-root Test-Boolean
+
+decode-pair 01 01 FF
+match Test-Boolean = yes
+
+# proto der
+proto-dictionary pkcs10
+# proto-dictionary-root Test-Boolean
+
+encode-pair Test-Boolean = yes
+match 01 01 ff
+
+encode-pair Test-Boolean = no
+match 01 01 00
