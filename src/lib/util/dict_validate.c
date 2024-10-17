@@ -630,7 +630,7 @@ bool dict_attr_fields_valid(fr_dict_t *dict, fr_dict_attr_t const *parent,
 		 *	We can use DEFINE in number-based protocol dictionaries, and the attributes will be
 		 *	marked up as "internal".
 		 */
-		flags->internal |= !flags->name_only | !dict->string_based;
+		//flags->internal |= !flags->name_only | !dict->string_based;
 
 		v = fr_dict_attr_by_name(NULL, parent, name);
 		if (v) {
