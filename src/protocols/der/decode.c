@@ -1530,14 +1530,8 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		/*
 		 *	We have a multi-byte tag
 		 */
-		tag = 0;
-		do {
-			if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) {
-				fr_strerror_const("Insufficient data to satisfy multi-byte tag");
-				return -1;
-			}
-			tag = (tag << 7) | (tag_byte & 0x7f);
-		} while (tag_byte & 0x80);
+		fr_strerror_const("Multi-byte tags are not supported");
+		return -1;
 	} else {
 		tag = tag_byte & DER_TAG_CONTINUATION;
 	}
