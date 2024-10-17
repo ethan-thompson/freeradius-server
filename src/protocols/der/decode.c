@@ -178,8 +178,11 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	fr_dbuff_t our_in = FR_DBUFF(in);
 	uint8_t	   val;
 
-	if (unlikely(fr_dbuff_out(&val, &our_in) < 0)) {
-		fr_strerror_const("Insufficient data for boolean");
+	ssize_t len = fr_dbuff_remaining(&our_in);
+
+	if (!fr_type_is_bool(parent->type)) {
+		fr_strerror_printf("Boolean found in non-boolean attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
 		return -1;
 	}
 
@@ -196,8 +199,13 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	 * 		If the encoding represents the boolean value TRUE, its single contents octet shall have all
 	 *		eight bits set to one [0xFF]. (Contrast with 8.2.2.)
 	 */
-	if (val != 0x00 && val != 0xFF) {
-		fr_strerror_const("Boolean is not correctly DER encoded (cannot be constructed)");
+	if (len != 1) {
+		fr_strerror_printf("Boolean has incorrect length (%zu). Must be 1.", len);
+		return -1;
+	}
+
+	if (unlikely(fr_dbuff_out(&val, &our_in) < 0)) {
+		fr_strerror_const("Insufficient data for boolean");
 		return -1;
 	}
 
