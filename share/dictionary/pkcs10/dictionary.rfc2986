@@ -1,5 +1,7 @@
 DEFINE Test-Boolean             bool
 
+DEFINE Test-Integer             int64
+
 DEFINE Foo                      struct
 
 MEMBER Test-Integer             int64
