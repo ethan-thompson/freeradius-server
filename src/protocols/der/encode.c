@@ -122,6 +122,115 @@ static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr
 	return 1;
 }
 
+static ssize_t calculate_integer_len(int64_t value)
+{
+	uint8_t		first_octet = 0;
+	ssize_t		slen = 0;
+	size_t		i = 0;
+
+	for (; i < sizeof(value); i++) {
+		uint8_t byte = (uint8_t)(value >> (((sizeof(value) * 8) - 8) - (i * 8)));
+
+		if (slen == 0) {
+			first_octet = byte;
+			slen++;
+			continue;
+		} else if (slen == 1) {
+			/*
+			 *	8.3.2 If the contents octets of an integer value encoding consist of more than one octet,
+	 		 *	      then the bits of the first octet and bit 8 of the second octet:
+	 		 *	      a) shall not all be ones; and
+	 		 *	      b) shall not all be zero.
+			 */
+			if ((first_octet == 0xff && (byte & 0x80)) || (first_octet == 0x00 && byte >> 7 == 0)) {
+				first_octet = byte;
+				continue;
+			} else {
+				slen ++;
+				continue;
+			}
+		}
+
+		slen++;
+	}
+
+	return slen;
+}
+
+static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	int64_t			value;
+	uint8_t			first_octet = 0;
+	ssize_t			slen = 0;
+	size_t			i = 0;
+
+	// Get the current pair
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.3 Encoding of an integer value
+	 *	8.3.1 The encoding of an integer value shall be primitive.
+	 *	      The contents octets shall consist of one or more octets.
+	 *	8.3.2 If the contents octets of an integer value encoding consist of more than one octet,
+	 *	      then the bits of the first octet and bit 8 of the second octet:
+	 *	      a) shall not all be ones; and
+	 *	      b) shall not all be zero.
+	 *	      NOTE – These rules ensure that an integer value is always encoded in the smallest possible number
+	 *	      of octets. 8.3.3 The contents octets shall be a two's complement binary number equal to the
+	 *	      integer value, and consisting of bits 8 to 1 of the first octet, followed by bits 8 to 1 of the
+	 *	      second octet, followed by bits 8 to 1 of each octet in turn up to and including the last octet of
+	 *	      the contents octets.
+	 */
+	value = vp->vp_int64;
+
+	for (; i < sizeof(value); i++) {
+		uint8_t byte = (uint8_t)(value >> (((sizeof(value) * 8) - 8) - (i * 8)));
+
+		if (slen == 0) {
+			first_octet = byte;
+			slen++;
+			continue;
+		} else if (slen == 1) {
+			/*
+			 *	8.3.2 If the contents octets of an integer value encoding consist of more than one octet,
+	 		 *	      then the bits of the first octet and bit 8 of the second octet:
+	 		 *	      a) shall not all be ones; and
+	 		 *	      b) shall not all be zero.
+			 */
+			if ((first_octet == 0xff && (byte & 0x80)) || (first_octet == 0x00 && byte >> 7 == 0)) {
+				if (i == sizeof(value) - 1) {
+					/*
+					 * If this is the only byte, then we can encode it as a single byte.
+					 */
+					fr_dbuff_in(dbuff, byte);
+					continue;
+				}
+
+				first_octet = byte;
+				continue;
+			} else {
+				fr_dbuff_in(dbuff, first_octet);
+				fr_dbuff_in(dbuff, byte);
+				slen ++;
+				continue;
+			}
+		}
+
+		fr_dbuff_in(dbuff, byte);
+		slen++;
+	}
+
+	return slen;
+}
+
 static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_pair_t const		*vp;
@@ -223,6 +332,20 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 
 		break;
 
+	case FR_TYPE_INTEGER_EXCEPT_BOOL:
+		// Encode the tag
+		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_INTEGER, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+		if (slen < 0) return slen;
+
+		// Encode the length
+		slen = fr_der_encode_len(&our_dbuff, calculate_integer_len(vp->vp_int64));
+		if (slen < 0) return slen;
+
+		// Encode the value
+		slen = fr_der_encode_integer(&our_dbuff, cursor, encode_ctx);
+		if (slen < 0) return slen;
+
+		break;
 	case FR_TYPE_STRUCT:
 		// Encode the tag
 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
