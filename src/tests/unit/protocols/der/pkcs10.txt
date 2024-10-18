@@ -607,3 +607,12 @@ match 01 01 ff
 
 encode-pair Test-Boolean = no
 match 01 01 00
+
+encode-pair Test-Integer = 1
+match 02 01 01
+
+encode-pair Test-Integer = 549755813887
+match 02 05 7f ff ff ff ff
+
+encode-pair Test-Integer = 9223372036854775807
+match 02 08 7f ff ff ff ff ff ff ff
