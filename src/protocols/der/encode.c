@@ -105,7 +105,6 @@ static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr
 	fr_pair_t const		*vp;
 	uint8_t			value;
 
-	// Get the current pair
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("No pair to encode");
@@ -114,7 +113,6 @@ static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr
 
 	PAIR_VERIFY(vp);
 
-	// Get the value
 	value = vp->vp_bool;
 
 	fr_dbuff_in(dbuff, (uint8_t)(value ? 0xff : 0x00));
@@ -235,7 +233,6 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, f
 {
 	fr_pair_t const		*vp;
 
-	// Get the current pair
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("No pair to encode");
@@ -244,7 +241,6 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, f
 
 	PAIR_VERIFY(vp);
 
-	// For testing purposes
 	fr_dbuff_in(dbuff, 0x0101FF);
 
 	return 1;
@@ -302,7 +298,6 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 		return -1;
 	}
 
-	// Get the current pair
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("No pair to encode");
@@ -318,44 +313,35 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 		fr_strerror_printf("Unknown type %d", vp->vp_type);
 		return -1;
 	case FR_TYPE_BOOL:
-		// Encode the tag
 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BOOLEAN, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
 		if (slen < 0) return slen;
 
-		// Encode the length
 		slen = fr_der_encode_len(&our_dbuff, 1);
 		if (slen < 0) return slen;
 
-		// Encode the value
 		slen = fr_der_encode_boolean(&our_dbuff, cursor, encode_ctx);
 		if (slen < 0) return slen;
 
 		break;
 
 	case FR_TYPE_INTEGER_EXCEPT_BOOL:
-		// Encode the tag
 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_INTEGER, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
 		if (slen < 0) return slen;
 
-		// Encode the length
 		slen = fr_der_encode_len(&our_dbuff, calculate_integer_len(vp->vp_int64));
 		if (slen < 0) return slen;
 
-		// Encode the value
 		slen = fr_der_encode_integer(&our_dbuff, cursor, encode_ctx);
 		if (slen < 0) return slen;
 
 		break;
 	case FR_TYPE_STRUCT:
-		// Encode the tag
 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
 		if (slen < 0) return slen;
 
-		// Encode the length
 		slen = fr_der_encode_len(&our_dbuff, 3);
 		if (slen < 0) return slen;
 
-		// Encode the value
 		slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
 		if (slen < 0) return slen;
 
@@ -375,13 +361,10 @@ static ssize_t fr_der_encode_proto(UNUSED TALLOC_CTX *ctx, fr_pair_list_t *vps, 
 	fr_dcursor_t		cursor;
 	ssize_t			slen;
 
-	// Initialize the dbuff
 	fr_dbuff_init(&dbuff, data, data_len);
 
-	// Initialize the cursor
 	fr_pair_dcursor_init(&cursor, vps);
 
-	// Encode the data
 	slen = encode_pair(&dbuff, &cursor, encode_ctx);
 
 	if (slen < 0) {
