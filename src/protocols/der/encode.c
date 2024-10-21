@@ -314,41 +314,42 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 		return -1;
 	case FR_TYPE_BOOL:
 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BOOLEAN, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+	error:
 		if (slen < 0) return slen;
 
 		slen = fr_der_encode_len(&our_dbuff, 1);
-		if (slen < 0) return slen;
+		if (slen < 0) goto error;
 
 		slen = fr_der_encode_boolean(&our_dbuff, cursor, encode_ctx);
-		if (slen < 0) return slen;
+		if (slen < 0) goto error;
 
 		break;
 
 	case FR_TYPE_INTEGER_EXCEPT_BOOL:
 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_INTEGER, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
-		if (slen < 0) return slen;
+		if (slen < 0) goto error;
 
 		slen = fr_der_encode_len(&our_dbuff, calculate_integer_len(vp->vp_int64));
-		if (slen < 0) return slen;
+		if (slen < 0) goto error;
 
 		slen = fr_der_encode_integer(&our_dbuff, cursor, encode_ctx);
-		if (slen < 0) return slen;
+		if (slen < 0) goto error;
 
 		break;
 	case FR_TYPE_STRUCT:
 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
-		if (slen < 0) return slen;
+		if (slen < 0) goto error;
 
 		slen = fr_der_encode_len(&our_dbuff, 3);
-		if (slen < 0) return slen;
+		if (slen < 0) goto error;
 
 		slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
-		if (slen < 0) return slen;
+		if (slen < 0) goto error;
 
 		break;
 	}
 
-	if (slen < 0) return slen;
+	if (slen < 0) goto error;
 
 	fr_dcursor_next(cursor);
 
