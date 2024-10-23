@@ -616,3 +616,6 @@ match 02 05 7f ff ff ff ff
 
 encode-pair Test-Integer = 9223372036854775807
 match 02 08 7f ff ff ff ff ff ff ff
+
+encode-pair Test-Bitstring = 01101
+match
