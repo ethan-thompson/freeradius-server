@@ -48,7 +48,7 @@ static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr
 // static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -70,7 +70,7 @@ static fr_der_encode_t tag_funcs[] = {
 	// [FR_DER_TAG_NULL]	      = fr_der_encode_null,
 	// [FR_DER_TAG_OID]	      = fr_der_encode_oid,
 	// [FR_DER_TAG_ENUMERATED]	      = fr_der_encode_enumerated,
-	// [FR_DER_TAG_UTF8_STRING]      = fr_der_encode_utf8_string,
+	[FR_DER_TAG_UTF8_STRING]      = fr_der_encode_utf8_string,
 	// [FR_DER_TAG_SEQUENCE]	      = fr_der_encode_sequence,
 	// [FR_DER_TAG_SET]	      = fr_der_encode_set,
 	// [FR_DER_TAG_PRINTABLE_STRING] = fr_der_encode_printable_string,
@@ -116,41 +116,6 @@ static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UN
 
 	return 1;
 }
-
-// static ssize_t calculate_integer_len(int64_t value)
-// {
-// 	uint8_t		first_octet = 0;
-// 	ssize_t		slen = 0;
-// 	size_t		i = 0;
-
-// 	for (; i < sizeof(value); i++) {
-// 		uint8_t byte = (uint8_t)(value >> (((sizeof(value) * 8) - 8) - (i * 8)));
-
-// 		if (slen == 0) {
-// 			first_octet = byte;
-// 			slen++;
-// 			continue;
-// 		} else if (slen == 1) {
-// 			/*
-// 			 *	8.3.2 If the contents octets of an integer value encoding consist of more than one octet,
-// 	 		 *	      then the bits of the first octet and bit 8 of the second octet:
-// 	 		 *	      a) shall not all be ones; and
-// 	 		 *	      b) shall not all be zero.
-// 			 */
-// 			if ((first_octet == 0xff && (byte & 0x80)) || (first_octet == 0x00 && byte >> 7 == 0)) {
-// 				first_octet = byte;
-// 				continue;
-// 			} else {
-// 				slen ++;
-// 				continue;
-// 			}
-// 		}
-
-// 		slen++;
-// 	}
-
-// 	return slen;
-// }
 
 static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
@@ -227,6 +192,32 @@ static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UN
 	return slen;
 }
 
+static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	char const		*value = NULL;
+	size_t			len;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	value = vp->vp_strvalue;
+	len = vp->vp_length;
+
+	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+		fr_strerror_const("Failed to copy string value");
+		fr_strerror_printf("Failed to copy string value with error number %ld", fr_dbuff_in_memcpy(dbuff, value, len));
+		return -1;
+	}
+
+	return len;
+}
+
 static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_pair_t const		*vp;
@@ -246,56 +237,10 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 
 static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len)
 {
-	// fr_dbuff_marker_t dst, tmp;
-	// fr_dbuff_t	value_field = FR_DBUFF(marker);
-	// uint8_t		len_len;
-	// ssize_t		i = 0;
-
-	// fr_dbuff_marker(&dst, dbuff);
-	// fr_dbuff_marker(&tmp, dbuff);
-
-	// fr_dbuff_set(&tmp, marker);
-
-	// if (len < 0x7f) {
-	// 	fr_dbuff_set(dbuff, fr_dbuff_current(marker) + 1);
-
-	// 	fr_dbuff_move(dbuff, &value_field, len);
-
-	// 	// fr_dbuff_in(&tmp, (uint8_t)len);
-
-	// 	fr_dbuff_set(dbuff, fr_dbuff_current(marker));
-	// 	fr_dbuff_in(dbuff, (uint8_t)len);
-
-	// 	fr_dbuff_set(dbuff, fr_dbuff_current(marker) + 1 + len);
-	// 	fr_dbuff_marker_release(&tmp);
-	// 	return 1;
-	// }
-
-	// len_len = len / 0x80;
-
-	// if (len_len > 0x7f) {
-	// 	fr_strerror_printf("Length %zd is too large to encode", len);
-	// 	return -1;
-	// }
-
-	// fr_dbuff_move(dbuff, marker, len_len + 1);
-
-	// fr_dbuff_in(&tmp, (uint8_t)(0x80 | len_len));
-
-	// for (; i < len_len; i++) {
-	// 	fr_dbuff_in(&tmp, (uint8_t)(len));
-	// 	len >>= 8;
-	// }
-
-	// fr_dbuff_set(dbuff, fr_dbuff_current(marker) + len_len + 1);
-
-	// fr_dbuff_marker_release(&tmp);
-
-	// return len_len + 1;
-
-	fr_dbuff_marker_t value_start, value_end, length_end;
-	uint8_t		len_len;
-	ssize_t		i = 0;
+	fr_dbuff_marker_t value_start;
+	fr_dbuff_t value_field;
+	uint8_t		len_len = 0;
+	ssize_t		i = 0, our_len = len;
 
 	/*
 	 * If the length can fit in a single byte, we don't need to extend the size of the length field
@@ -305,29 +250,39 @@ static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *le
 		return 1;
 	}
 
-	len_len = len / 0x80;
+	/*
+	 * Calculate the number of bytes needed to encode the length
+	 */
+	while (our_len > 0) {
+		our_len >>= 8;
+		len_len++;
+	}
 
 	if (len_len > 0x7f) {
 		fr_strerror_printf("Length %zd is too large to encode", len);
 		return -1;
 	}
 
-	fr_dbuff_set(&value_start, fr_dbuff_current(length_start) + 1);
-	fr_dbuff_set(&value_end, fr_dbuff_current(length_start) + 1 + len);
-	fr_dbuff_set(&length_end, fr_dbuff_current(length_start) + len_len + 1);
+	value_field = FR_DBUFF(length_start + 1);
+	fr_dbuff_set(&value_field, fr_dbuff_current(length_start));
 
-	fr_dbuff_move(&length_end, &value_start, len);
+	fr_dbuff_marker(&value_start, &value_field);
 
-	fr_dbuff_in(length_start, (uint8_t)(0x80 | len_len));
+	fr_dbuff_set(dbuff, fr_dbuff_start(length_start) + len_len + 1);
+
+	fr_dbuff_move(dbuff, fr_dbuff_ptr(&value_start), len + 1);
+
+	fr_dbuff_set(dbuff, length_start);
+
+	fr_dbuff_in(dbuff, (uint8_t)(0x80 | len_len));
 
 	for (; i < len_len; i++) {
-		fr_dbuff_in(length_start, (uint8_t)(len));
-		len >>= 8;
+		fr_dbuff_in(dbuff, (uint8_t)((len) >> ((len_len - i - 1) * 8)));
 	}
 
+	fr_dbuff_set(dbuff, fr_dbuff_current(length_start) + len_len + 1 + len);
+
 	fr_dbuff_marker_release(&value_start);
-	fr_dbuff_marker_release(&value_end);
-	fr_dbuff_marker_release(&length_end);
 
 	return len_len + 1;
 }
@@ -403,6 +358,23 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 		fr_dbuff_advance(&our_dbuff, 1);
 
 		slen = fr_der_encode_integer(&our_dbuff, cursor, encode_ctx);
+		if (slen < 0) goto error;
+
+		slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+		if (slen < 0) goto error;
+
+		break;
+	case FR_TYPE_STRING:
+		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UTF8_STRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+		if (slen < 0) goto error;
+
+		/*
+		 * Mark and reserve space in the buffer for the length field
+		 */
+		fr_dbuff_marker(&marker, &our_dbuff);
+		fr_dbuff_advance(&our_dbuff, 1);
+
+		slen = fr_der_encode_utf8_string(&our_dbuff, cursor, encode_ctx);
 		if (slen < 0) goto error;
 
 		slen = fr_der_encode_len(&our_dbuff, &marker, slen);
