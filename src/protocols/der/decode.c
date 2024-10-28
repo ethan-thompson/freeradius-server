@@ -96,7 +96,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 				 fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
+					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -154,7 +154,7 @@ static fr_der_tag_decode_t tag_funcs[] = {
 	[FR_DER_TAG_UNIVERSAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE,
 					  .decode      = fr_der_decode_universal_string },
 
-	[UINT8_MAX]		      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = NULL },
+	[UINT8_MAX] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = NULL },
 };
 
 static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
@@ -172,7 +172,7 @@ static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
 }
 
 static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
-				     fr_der_decode_ctx_t *decode_ctx)
+				     UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -209,8 +209,9 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		return -1;
 	}
 
-	if (val != 0x00 && val != 0xFF) {
-		fr_strerror_const("Boolean is not correctly DER encoded (0x00 or 0xFF)");
+	if (unlikely(val != DER_BOOLEAN_FALSE && val != DER_BOOLEAN_TRUE)) {
+		fr_strerror_printf("Boolean is not correctly DER encoded (0x%02x or 0x%02x).", DER_BOOLEAN_FALSE,
+				   DER_BOOLEAN_TRUE);
 		return -1;
 	}
 
@@ -228,7 +229,7 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 }
 
 static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
-				     fr_der_decode_ctx_t *decode_ctx)
+				     UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -274,7 +275,7 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		 *	If the sign bit is set, this is a negative number.
 		 *	This will fill the upper bits with 1s.
 		 *	This is important for the case where the length of the integer is less than the length of the
-		 *integer type.
+		 *	integer type.
 		 */
 		val = -1;
 	}
@@ -295,7 +296,8 @@ static ssize_t fr_der_decode_integer(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 		}
 
 		if ((((val & 0xFF) == 0xFF) && (byte & 0x80)) || (((~val & 0xFF) == 0xFF) && !(byte & 0x80))) {
-			fr_strerror_const("Integer is not correctly DER encoded");
+			fr_strerror_const(
+				"Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.");
 			return -1;
 		}
 
@@ -473,7 +475,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 }
 
 static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					 fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -531,7 +533,7 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 }
 
 static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
-				  fr_der_decode_ctx_t *decode_ctx)
+				  UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -559,7 +561,7 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 }
 
 static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
-				 fr_der_decode_ctx_t *decode_ctx)
+				 UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in	 = FR_DBUFF(in);
@@ -706,7 +708,7 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 }
 
 static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -797,7 +799,7 @@ static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 }
 
 static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					 fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					 fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -961,7 +963,7 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 }
 
 static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					      fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -1020,7 +1022,7 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 }
 
 static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -1096,7 +1098,7 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	return fr_dbuff_set(in, &our_in);
 }
 static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -1131,7 +1133,7 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 }
 
 static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-				      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+				      fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 #define DER_UTC_TIME_LEN 13
 	fr_pair_t *vp;
@@ -1222,7 +1224,7 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 }
 
 static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					      fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 #define DER_GENERALIZED_TIME_LEN_MIN 15
 #define DER_GENERALIZED_TIME_PRECISION_MAX 4
@@ -1376,7 +1378,7 @@ static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *o
 }
 
 static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					    fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -1440,7 +1442,7 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 }
 
 static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					    fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -1475,7 +1477,7 @@ static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 }
 
 static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+					      fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
@@ -1559,6 +1561,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	if ((tag > NUM_ELEMENTS(tag_funcs)) || (tag == 0)) {
 		fr_strerror_printf("Unknown tag %" PRIu64, tag);
+		return -1;
 	}
 
 	func = &tag_funcs[tag];
@@ -1639,7 +1642,8 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	return fr_dbuff_set(in, &our_in);
 }
 
-static ssize_t fr_der_decode_proto(TALLOC_CTX *ctx, fr_pair_list_t *out, uint8_t const *data, size_t data_len, void *proto_ctx)
+static ssize_t fr_der_decode_proto(TALLOC_CTX *ctx, fr_pair_list_t *out, uint8_t const *data, size_t data_len,
+				   void *proto_ctx)
 {
 	fr_dbuff_t our_in = FR_DBUFF_TMP(data, data_len);
 
@@ -1676,7 +1680,7 @@ fr_test_point_pair_decode_t	   der_tp_decode_pair = {
 };
 
 extern fr_test_point_proto_decode_t der_tp_decode_proto;
-fr_test_point_proto_decode_t	   der_tp_decode_proto = {
+fr_test_point_proto_decode_t	    der_tp_decode_proto = {
 	       .test_ctx = decode_test_ctx,
 	       .func	 = fr_der_decode_proto,
 };
