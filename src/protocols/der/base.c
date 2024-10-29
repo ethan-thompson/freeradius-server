@@ -184,9 +184,10 @@ static int dict_flag_sub_type(fr_dict_attr_t **da_p, char const *value, UNUSED f
 	return 0;
 }
 
-static fr_dict_flag_parser_t const der_flags[] = { { L("tag_num"), { .func = dict_flag_tag_num } },
+static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("class"), { .func = dict_flag_class } },
-						   { L("sub_type"), { .func = dict_flag_sub_type } } };
+						   { L("sub_type"), { .func = dict_flag_sub_type } },
+						    { L("tag_num"), { .func = dict_flag_tag_num } } };
 
 static bool attr_valid(fr_dict_attr_t *da)
 {
