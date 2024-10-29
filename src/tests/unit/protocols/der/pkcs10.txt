@@ -625,6 +625,8 @@ match 02 05 7f ff ff ff ff
 encode-pair Test-Integer = 9223372036854775807
 match 02 08 7f ff ff ff ff ff ff ff
 
+encode-pair Test-String = "foo"
+match Unknown string sub-type 0
 
 encode-pair Test-String-UTF8 = "In a hole in the ground there lived a hobbit."
 match 0c 2d 49 6e 20 61 20 68 6f 6c 65 20 69 6e 20 74 68 65 20 67 72 6f 75 6e 64 20 74 68 65 72 65 20 6c 69 76 65 64 20 61 20 68 6f 62 62 69 74 2e
