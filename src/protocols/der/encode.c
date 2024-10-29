@@ -365,17 +365,24 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 
 		break;
 	case FR_TYPE_STRING:
-		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UTF8_STRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
-		if (slen < 0) goto error;
+		switch (fr_der_flag_sub_type(vp->da)) {
+		default:
+			fr_strerror_printf("Unknown tag %d", fr_der_flag_tag_num(vp->da));
+			//return -1;
+			break;
+		case FR_DER_TAG_UTF8_STRING:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UTF8_STRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
 
-		/*
-		 * Mark and reserve space in the buffer for the length field
-		 */
-		fr_dbuff_marker(&marker, &our_dbuff);
-		fr_dbuff_advance(&our_dbuff, 1);
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
 
-		slen = fr_der_encode_utf8_string(&our_dbuff, cursor, encode_ctx);
-		if (slen < 0) goto error;
+			slen = fr_der_encode_utf8_string(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+		}
 
 		slen = fr_der_encode_len(&our_dbuff, &marker, slen);
 		if (slen < 0) goto error;

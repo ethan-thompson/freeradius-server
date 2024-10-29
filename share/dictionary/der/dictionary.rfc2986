@@ -1,0 +1,144 @@
+DEFINE Test-Boolean             bool
+
+DEFINE Test-Integer             int64
+
+DEFINE Foo                      struct
+
+MEMBER Test-Integer             int64
+
+DEFINE Bar                      struct
+
+MEMBER Test-Boolean             bool
+
+DEFINE Foo-Bar                  struct
+
+MEMBER Test-Integer             int64
+MEMBER Test-Boolean             bool
+
+DEFINE Test-Bitstring           octets
+
+DEFINE Seq-Bitstring-Octets     struct
+
+MEMBER Test-Bitstring           octets
+
+DEFINE Bitstring-Struct         struct
+
+MEMBER foo                      bit[8]
+MEMBER bar                      bit[4]
+MEMBER foo-bar                  bit[4]
+
+DEFINE Bitstring-Struct-7       struct
+
+MEMBER foo                      bit[2]
+MEMBER bar                      bit[1]
+MEMBER foo-bar                  bit[4]
+
+DEFINE Octetstring              octets
+
+DEFINE Seq-Octetstring          struct
+
+MEMBER Octetstring              octets
+
+DEFINE Test-NULL                integer
+
+DEFINE Seq-Null                 struct
+
+MEMBER Test-Null                integer
+
+DEFINE Seq-Integer-Null         struct
+
+MEMBER Test-Integer             int64
+MEMBER Test-Null                integer
+
+DEFINE Test-Oid                 string
+
+DEFINE Seq-Oid                  struct
+
+MEMBER Test-Oid                 string
+
+DEFINE Test-String              string
+
+DEFINE Test-String-UTF8         string sub_type=utf8string
+
+DEFINE Seq-String               struct
+
+MEMBER Test-String              string
+
+DEFINE Test-Date                date
+
+DEFINE Seq-Date                 struct
+
+MEMBER Test-Date                date
+
+DEFINE Set-Bool-Integer         struct
+
+MEMBER Test-Bool                bool
+MEMBER Test-Integer             int64
+
+
+# CSR
+DEFINE subjectAltName           tlv
+BEGIN-TLV subjectAltName
+DEFINE OID                      string
+DEFINE Name                     string
+END-TLV subjectAltName
+
+DEFINE AttributeValue           tlv
+BEGIN-TLV AttributeValue
+DEFINE OID                      string
+DEFINE Value                    tlv clone=subjectAltName
+END-TLV AttributeValue
+
+DEFINE Attribute                tlv
+BEGIN-TLV Attribute
+DEFINE OID                      string
+DEFINE Value                    tlv clone=AttributeValue
+END-TLV Attribute
+
+#DEFINE Attributes               group ref=Attribute
+# MEMBER Attribute                struct clone=Attribute
+
+DEFINE AlgorithmIdentifier      tlv
+BEGIN-TLV AlgorithmIdentifier
+DEFINE OID                      string
+END-TLV AlgorithmIdentifier
+
+DEFINE subjectPublicKeyInfo     tlv
+BEGIN-TLV subjectPublicKeyInfo
+DEFINE algorithm                tlv clone=AlgorithmIdentifier
+DEFINE subjectPublicKey         octets
+END-TLV subjectPublicKeyInfo
+
+DEFINE ABSAttributeTypeAndValue    tlv
+BEGIN-TLV ABSAttributeTypeAndValue
+DEFINE OID                      string
+DEFINE Value                    string
+END-TLV ABSAttributeTypeAndValue
+
+DEFINE RelativeDistinguishedName        tlv
+BEGIN-TLV RelativeDistinguishedName
+DEFINE AttributeTypeAndValue    tlv clone=ABSAttributeTypeAndValue
+END-TLV RelativeDistinguishedName
+
+DEFINE subject                  tlv
+BEGIN-TLV subject
+DEFINE RelativeDistinguishedName        tlv clone=RelativeDistinguishedName
+END-TLV subject
+
+DEFINE certificationRequestInfo tlv
+BEGIN-TLV certificationRequestInfo
+DEFINE version                  integer
+DEFINE subject                  tlv clone=subject
+DEFINE subjectPublicKeyInfo     tlv clone=subjectPublicKeyInfo
+DEFINE Attributes               group ref=Attribute
+END-TLV certificationRequestInfo
+
+DEFINE signatureAlgorithm       struct
+MEMBER OID                      string
+
+DEFINE CertificationRequest     tlv
+BEGIN-TLV CertificationRequest
+DEFINE certificationRequestInfo tlv clone=certificationRequestInfo
+DEFINE signatureAlgorithm       struct clone=signatureAlgorithm
+DEFINE signature                octets
+END-TLV CertificationRequest

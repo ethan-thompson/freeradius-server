@@ -40,14 +40,16 @@ static uint32_t instance_count = 0;
 fr_dict_t const *dict_der;
 
 extern fr_dict_autoload_t libfreeradius_der_dict[];
-fr_dict_autoload_t	  libfreeradius_der_dict[] = { { .out = &dict_der, .proto = "PKCS10" }, { NULL } };
+fr_dict_autoload_t	  libfreeradius_der_dict[] = { { .out = &dict_der, .proto = "der" }, { NULL } };
 
 // Define the dictionary attributes here
-fr_dict_attr_t const *attr_der_foo;
+fr_dict_attr_t const *attr_der_boolean;
+fr_dict_attr_t const *attr_der_utf8;
 
 extern fr_dict_attr_autoload_t libfreeradius_der_dict_attr[];
 fr_dict_attr_autoload_t	       libfreeradius_der_dict_attr[] = {
-	       { .out = &attr_der_foo, .name = "foo", .type = FR_TYPE_STRUCT, .dict = &dict_der },
+	       { .out = &attr_der_boolean, .name = "Test-Boolean", .type = FR_TYPE_BOOL, .dict = &dict_der },
+	       { .out = &attr_der_utf8, .name = "Test-String-UTF8", .type = FR_TYPE_STRING, .dict = &dict_der },
 	       { NULL }
 };
 
@@ -142,25 +144,25 @@ static int dict_flag_class(fr_dict_attr_t **da_p, char const *value, UNUSED fr_d
 static int dict_flag_sub_type(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	static fr_table_num_sorted_t const table[] = {
-		{ L("boolean"), FR_DER_TAG_BOOLEAN },
-		{ L("integer"), FR_DER_TAG_INTEGER },
 		{ L("bitstring"), FR_DER_TAG_BITSTRING },
-		{ L("octetstring"), FR_DER_TAG_OCTETSTRING },
+		{ L("boolean"), FR_DER_TAG_BOOLEAN },
+		{ L("bmpstring"), FR_DER_TAG_BMP_STRING },
+		{ L("enumerated"), FR_DER_TAG_ENUMERATED },
+		{ L("generalizedtime"), FR_DER_TAG_GENERALIZED_TIME },
+		{ L("generalstring"), FR_DER_TAG_GENERAL_STRING },
+		{ L("ia5string"), FR_DER_TAG_IA5_STRING },
+		{ L("integer"), FR_DER_TAG_INTEGER },
 		{ L("null"), FR_DER_TAG_NULL },
 		{ L("oid"), FR_DER_TAG_OID },
-		{ L("enumerated"), FR_DER_TAG_ENUMERATED },
-		{ L("utf8string"), FR_DER_TAG_UTF8_STRING },
+		{ L("octetstring"), FR_DER_TAG_OCTETSTRING },
+		{ L("printablestring"), FR_DER_TAG_PRINTABLE_STRING },
 		{ L("sequence"), FR_DER_TAG_SEQUENCE },
 		{ L("set"), FR_DER_TAG_SET },
-		{ L("printablestring"), FR_DER_TAG_PRINTABLE_STRING },
 		{ L("t61string"), FR_DER_TAG_T61_STRING },
-		{ L("ia5string"), FR_DER_TAG_IA5_STRING },
+		{ L("unicode"), FR_DER_TAG_UNIVERSAL_STRING },
 		{ L("utctime"), FR_DER_TAG_UTC_TIME },
-		{ L("generalizedtime"), FR_DER_TAG_GENERALIZED_TIME },
+		{ L("utf8string"), FR_DER_TAG_UTF8_STRING },
 		{ L("visiblestring"), FR_DER_TAG_VISIBLE_STRING },
-		{ L("generalstring"), FR_DER_TAG_GENERAL_STRING },
-		{ L("universalstring"), FR_DER_TAG_UNIVERSAL_STRING },
-		{ L("bmpstring"), FR_DER_TAG_BMP_STRING },
 	};
 
 	static size_t table_len = NUM_ELEMENTS(table);
@@ -180,11 +182,9 @@ static int dict_flag_sub_type(fr_dict_attr_t **da_p, char const *value, UNUSED f
 	return 0;
 }
 
-static fr_dict_flag_parser_t const der_flags[] = {
-	{ L("tag_num"), { .func = dict_flag_tag_num } },
-	{ L("class"), { .func = dict_flag_class } },
-	{ L("sub_type"), { .func = dict_flag_sub_type } }
-};
+static fr_dict_flag_parser_t const der_flags[] = { { L("tag_num"), { .func = dict_flag_tag_num } },
+						   { L("class"), { .func = dict_flag_class } },
+						   { L("sub_type"), { .func = dict_flag_sub_type } } };
 
 static bool attr_valid(fr_dict_attr_t *da)
 {
@@ -196,9 +196,6 @@ fr_dict_protocol_t	  libfreeradius_der_dict_protocol = {
 	       .name		    = "der",
 	       .default_type_size   = 1,
 	       .default_type_length = 1,
-	       //        .subtype_table	    = subtype_table,
-	       //        .subtype_table_len   = NUM_ELEMENTS(subtype_table),
-	       //        .attr_valid	    = attr_valid,
 	       .attr = {
 		       .flags = {
 			       .table    = der_flags,
@@ -208,7 +205,7 @@ fr_dict_protocol_t	  libfreeradius_der_dict_protocol = {
 		       .valid = attr_valid
 	       },
 
-		.init = fr_der_global_init,
+	       .init = fr_der_global_init,
 	       .free		     = fr_der_global_free,
 
 	       // .decode = fr_der_decode_foreign,
