@@ -32,10 +32,11 @@ typedef enum {
 } fr_der_tag_constructed_t;
 
 typedef enum {
-	FR_DER_CLASS_UNIVERSAL   = 0x00,	   //!<
+	FR_DER_CLASS_UNIVERSAL   = 0x00,
 	FR_DER_CLASS_APPLICATION = 0x01,
 	FR_DER_CLASS_CONTEXT	    = 0x02,
-	FR_DER_CLASS_PRIVATE	    = 0x03
+	FR_DER_CLASS_PRIVATE	    = 0x03,
+	FR_DER_CLASS_INVALID	    = 0x04
 } fr_der_tag_class_t;
 
 extern fr_der_tag_constructed_t tag_labels[];
@@ -50,43 +51,26 @@ extern fr_der_tag_constructed_t tag_labels[];
 
 #define DER_TAG_CONTINUATION 0x1f	 //!< Mask to check if the tag is a continuation.
 
-enum {
-        FLAG_DER_NONE = 0,
-        FLAG_DER_TAG_0,
-        FLAG_DER_TAG_1,
-        FLAG_DER_TAG_2,
-        FLAG_DER_TAG_3,
-        FLAG_DER_TAG_4,
-        FLAG_DER_TAG_5,
-        FLAG_DER_TAG_6,
-        FLAG_DER_TAG_7,
-        FLAG_DER_TAG_8,
-        FLAG_DER_TAG_9,
-        FLAG_DER_TAG_10,
+#define DER_BOOLEAN_FALSE 0x00	 //!< DER encoded boolean false value.
+#define DER_BOOLEAN_TRUE 0xff	 //!< DER encoded boolean true value.
 
-        FLAG_DER_CLASS_UNIVERSAL,
-        FLAG_DER_CLASS_APPLICATION,
-        FLAG_DER_CLASS_CONTEXT,
-        FLAG_DER_CLASS_PRIVATE,
-};
+typedef struct {
+	uint8_t tag_num;
+	fr_der_tag_class_t tag_class;
+	fr_der_tag_num_t sub_type;
+} fr_der_attr_flags_t;
 
-#define flag_der_tag_0(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_0))
-#define flag_der_tag_1(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_1))
-#define flag_der_tag_2(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_2))
-#define flag_der_tag_3(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_3))
-#define flag_der_tag_4(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_4))
-#define flag_der_tag_5(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_5))
-#define flag_der_tag_6(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_6))
-#define flag_der_tag_7(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_7))
-#define flag_der_tag_8(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_8))
-#define flag_der_tag_9(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_9))
-#define flag_der_tag_10(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_TAG_10))
+static inline fr_der_attr_flags_t const *fr_der_attr_flags(fr_dict_attr_t const *da)
+{
+	return fr_dict_attr_ext(da, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+}
 
-#define flag_der_tag(_flags) ((_flags)->subtype)
+#define fr_der_flag_tag_num(_da) 	(fr_der_attr_flags(_da)->tag_num)
+#define fr_der_flag_tag_class(_da) 	(fr_der_attr_flags(_da)->tag_class)
+#define fr_der_flag_sub_type(_da) 		(fr_der_attr_flags(_da)->sub_type)
 
-#define flag_der_class_universal(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_CLASS_UNIVERSAL))
-#define flag_der_class_application(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_CLASS_APPLICATION))
-#define flag_der_class_context(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_CLASS_CONTEXT))
-#define flag_der_class_private(_flags) (!(_flags)->extra && ((_flags)->subtype == FLAG_DER_CLASS_PRIVATE))
-
-#define flag_der_class(_flags) ((_flags)->subtype)
+/*
+ * 	base.c
+ */
+int fr_der_global_init(void);
+void fr_der_global_free(void);

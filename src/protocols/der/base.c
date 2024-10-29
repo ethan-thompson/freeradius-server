@@ -25,9 +25,15 @@
  * @copyright 2024 Inkbridge Networks SAS.
  */
 
-#include "lib/util/dict.h"
+#include "include/build.h"
 #include "der.h"
+#include "lib/util/debug.h"
+#include "lib/util/table.h"
 #include "lib/util/types.h"
+#include <freeradius-devel/util/proto.h>
+#include <freeradius-devel/util/dict.h>
+#include <freeradius-devel/util/net.h>
+#include <stdbool.h>
 
 static uint32_t instance_count = 0;
 
@@ -91,33 +97,98 @@ int fr_der_global_init(void)
 
 void fr_der_global_free(void)
 {
+	fr_assert(instance_count > 0);
+
 	if (--instance_count != 0) return;
 
 	fr_dict_autofree(libfreeradius_der_dict);
 }
 
-static fr_table_num_ordered_t const subtype_table[] = {
-	{ L("tag=0"), FLAG_DER_TAG_0 },
-	{ L("tag=1"), FLAG_DER_TAG_1 },
-	{ L("tag=2"), FLAG_DER_TAG_2 },
-	{ L("tag=3"), FLAG_DER_TAG_3 },
-	{ L("tag=4"), FLAG_DER_TAG_4 },
-	{ L("tag=5"), FLAG_DER_TAG_5 },
-	{ L("tag=6"), FLAG_DER_TAG_6 },
-	{ L("tag=7"), FLAG_DER_TAG_7 },
-	{ L("tag=8"), FLAG_DER_TAG_8 },
-	{ L("tag=9"), FLAG_DER_TAG_9 },
-	{ L("tag=10"), FLAG_DER_TAG_10 },
+static int dict_flag_tag_num(fr_dict_attr_t const **da_p, char const *value)
+{
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
 
-	{ L("class=universal"), FLAG_DER_CLASS_UNIVERSAL },
-	{ L("class=application"), FLAG_DER_CLASS_APPLICATION },
-	{ L("class=context-specific"), FLAG_DER_CLASS_CONTEXT },
-	{ L("class=private"), FLAG_DER_CLASS_PRIVATE },
+	flags->tag_num = (uint8_t)atoi(value);
+
+	return 0;
+}
+
+static int dict_flag_class(fr_dict_attr_t const **da_p, char const *value)
+{
+	static fr_table_num_sorted_t const table[] = {
+		{ L("universal"), FR_DER_CLASS_UNIVERSAL },
+		{ L("application"), FR_DER_CLASS_APPLICATION },
+		{ L("context-specific"), FR_DER_CLASS_CONTEXT },
+		{ L("private"), FR_DER_CLASS_PRIVATE },
+	};
+
+	static size_t table_len = NUM_ELEMENTS(table);
+
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+	fr_der_tag_class_t   tag_class;
+
+	tag_class = fr_table_value_by_str(table, value, FR_DER_CLASS_INVALID);
+
+	if (tag_class == FR_DER_CLASS_INVALID) {
+		fr_strerror_printf("Invalid tag class '%s'", value);
+		return -1;
+	}
+
+	flags->tag_class = tag_class;
+
+	return 0;
+}
+
+static int dict_flag_sub_type(fr_dict_attr_t const **da_p, char const *value)
+{
+	static fr_table_num_sorted_t const table[] = {
+		{ L("boolean"), FR_DER_TAG_BOOLEAN },
+		{ L("integer"), FR_DER_TAG_INTEGER },
+		{ L("bitstring"), FR_DER_TAG_BITSTRING },
+		{ L("octetstring"), FR_DER_TAG_OCTETSTRING },
+		{ L("null"), FR_DER_TAG_NULL },
+		{ L("oid"), FR_DER_TAG_OID },
+		{ L("enumerated"), FR_DER_TAG_ENUMERATED },
+		{ L("utf8string"), FR_DER_TAG_UTF8_STRING },
+		{ L("sequence"), FR_DER_TAG_SEQUENCE },
+		{ L("set"), FR_DER_TAG_SET },
+		{ L("printablestring"), FR_DER_TAG_PRINTABLE_STRING },
+		{ L("t61string"), FR_DER_TAG_T61_STRING },
+		{ L("ia5string"), FR_DER_TAG_IA5_STRING },
+		{ L("utctime"), FR_DER_TAG_UTC_TIME },
+		{ L("generalizedtime"), FR_DER_TAG_GENERALIZED_TIME },
+		{ L("visiblestring"), FR_DER_TAG_VISIBLE_STRING },
+		{ L("generalstring"), FR_DER_TAG_GENERAL_STRING },
+		{ L("universalstring"), FR_DER_TAG_UNIVERSAL_STRING },
+		{ L("bmpstring"), FR_DER_TAG_BMP_STRING },
+	};
+
+	static size_t table_len = NUM_ELEMENTS(table);
+
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+	fr_der_tag_num_t     sub_type;
+
+	sub_type = fr_table_value_by_str(table, value, UINT8_MAX);
+
+	if (sub_type == UINT8_MAX) {
+		fr_strerror_printf("Invalid tag sub_type '%s'", value);
+		return -1;
+	}
+
+	flags->sub_type = sub_type;
+
+	return 0;
+}
+
+static fr_dict_flag_parser_t const der_flags[] = {
+	{ L("tag_num"), dict_flag_tag_num },
+	{ L("class"), dict_flag_class },
+	{ L("sub_type"), dict_flag_sub_type },
 };
 
-static bool attr_valid(UNUSED fr_dict_t *dict, fr_dict_attr_t const *parent, UNUSED char const *name, UNUSED int attr,
-		       fr_type_t type, fr_dict_attr_flags_t *flags)
+static bool attr_valid(fr_dict_attr_t *da)
 {
+	return true;
 }
 
 extern fr_dict_protocol_t libfreeradius_der_dict_protocol;
@@ -125,12 +196,18 @@ fr_dict_protocol_t	  libfreeradius_der_dict_protocol = {
 	       .name		    = "der",
 	       .default_type_size   = 1,
 	       .default_type_length = 1,
-	       .subtype_table	    = subtype_table,
-	       .subtype_table_len   = NUM_ELEMENTS(subtype_table),
-	       .attr_valid	    = attr_valid,
+	       //        .subtype_table	    = subtype_table,
+	       //        .subtype_table_len   = NUM_ELEMENTS(subtype_table),
+	       //        .attr_valid	    = attr_valid,
+	       .attr = {
+		       .flags_table = der_flags,
+		       .flags_table_len = NUM_ELEMENTS(der_flags),
+		       .flags_len = sizeof(fr_der_attr_flags_t),
+		       .valid = attr_valid,
+	       },
 
-	       .init = fr_der_global_init,
-	       .free = fr_der_global_free,
+		.init = fr_der_global_init,
+	       .free		     = fr_der_global_free,
 
 	       // .decode = fr_der_decode_foreign,
 	       // .encode = fr_der_encode_foreign,
