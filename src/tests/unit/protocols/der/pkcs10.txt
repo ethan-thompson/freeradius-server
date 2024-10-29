@@ -16,10 +16,10 @@ decode-pair 30 04 02 02 00 80
 match Foo = { Test-Integer = 128 }
 
 decode-pair 30 04 02 02 FF 80
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 04 02 02 00 70
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 04 02 02 80 00
 match Foo = { Test-Integer = -32768 }
@@ -31,10 +31,10 @@ decode-pair 30 05 02 03 00 80 00
 match Foo = { Test-Integer = 32768 }
 
 decode-pair 30 05 02 03 FF 80 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 05 02 03 00 70 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 05 02 03 80 00 00
 match Foo = { Test-Integer = -8388608 }
@@ -46,10 +46,10 @@ decode-pair 30 06 02 04 00 80 00 00
 match Foo = { Test-Integer = 8388608 }
 
 decode-pair 30 06 02 04 FF 80 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 06 02 04 00 70 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 06 02 04 80 00 00 00
 match Foo = { Test-Integer = -2147483648 }
@@ -61,10 +61,10 @@ decode-pair 30 07 02 05 00 80 00 00 00
 match Foo = { Test-Integer = 2147483648 }
 
 decode-pair 30 07 02 05 FF 80 00 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 07 02 05 00 70 00 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 07 02 05 80 00 00 00 00
 match Foo = { Test-Integer = -549755813888 }
@@ -76,10 +76,10 @@ decode-pair 30 08 02 06 00 80 00 00 00 00
 match Foo = { Test-Integer = 549755813888 }
 
 decode-pair 30 08 02 06 FF 80 00 00 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 08 02 06 00 70 00 00 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 08 02 06 80 00 00 00 00 00
 match Foo = { Test-Integer = -140737488355328 }
@@ -91,10 +91,10 @@ decode-pair 30 09 02 07 00 80 00 00 00 00 00
 match Foo = { Test-Integer = 140737488355328 }
 
 decode-pair 30 09 02 07 FF 80 00 00 00 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 09 02 07 00 70 00 00 00 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 09 02 07 80 00 00 00 00 00 00
 match Foo = { Test-Integer = -36028797018963968 }
@@ -106,10 +106,10 @@ decode-pair 30 0A 02 08 00 80 00 00 00 00 00 00
 match Foo = { Test-Integer = 36028797018963968 }
 
 decode-pair 30 0A 02 08 FF 80 00 00 00 00 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 0A 02 08 00 70 00 00 00 00 00 00
-match Integer is not correctly DER encoded
+match Integer is not correctly DER encoded. First two bytes are all 0s or all 1s.
 
 decode-pair 30 0A 02 08 80 00 00 00 00 00 00 00
 match Foo = { Test-Integer = -9223372036854775808 }
@@ -129,7 +129,7 @@ decode-pair 30 03 01 01 FF
 match Bar = { Test-Boolean = yes }
 
 decode-pair 30 03 01 01 01
-match Boolean is not correctly DER encoded (0x00 or 0xFF)
+match Boolean is not correctly DER encoded (0x00 or 0xff).
 
 
 proto-dictionary-root Foo-Bar
@@ -141,7 +141,7 @@ decode-pair 30 06 02 01 09 01 01 FF
 match Foo-Bar = { Test-Integer = 9, Test-Boolean = yes }
 
 decode-pair 30 06 02 01 09 01 01 01
-match Boolean is not correctly DER encoded (0x00 or 0xFF)
+match Boolean is not correctly DER encoded (0x00 or 0xff).
 
 decode-pair 30 06 02 02 09 01 01 FF
 match Length field too large (127)
@@ -617,5 +617,11 @@ match 02 05 7f ff ff ff ff
 encode-pair Test-Integer = 9223372036854775807
 match 02 08 7f ff ff ff ff ff ff ff
 
-encode-pair Test-Bitstring = 01101
-match
+
+encode-pair Test-String = "In a hole in the ground there lived a hobbit."
+match 0c 2d 49 6e 20 61 20 68 6f 6c 65 20 69 6e 20 74 68 65 20 67 72 6f 75 6e 64 20 74 68 65 72 65 20 6c 69 76 65 64 20 61 20 68 6f 62 62 69 74 2e
+
+max-buffer-size 2048
+
+encode-pair Test-String = "In a hole in the ground there lived a hobbit. Not a nasty, dirty, wet hole, filled with the ends of worms and an oozy smell, nor yet a dry, bare, sandy hole with nothing in it to sit down on or to eat: it was a hobbit-hole, and that means comfort. It had a perfectly round door like a porthole, painted green, with a shiny yellow brass knob in the exact middle. The door opened on to a tube-shaped hall like a tunnel: a very comfortable tunnel without smoke, with panelled walls, and floors tiled and carpeted, provided with polished chairs and lots and lots of pegs for hats and coats – the hobbit was fond of visitors. The tunnel wound on and on, going fairly but not quite straight into the side of the hill – The Hill, as all the people for many miles round called it – and many little round doors opened out of it, first on one side and then on another. No going upstairs for the hobbit: bedrooms, bathrooms, cellars, pantries (lots of these), wardrobes (he had whole rooms devoted to clothes), kitchens, dining-rooms, all were on the same floor, and indeed on the same passage. The best rooms were all on the left-hand side (going in), for these were the only ones to have windows, deep-set round windows looking over his garden, and meadows beyond, sloping down to the river. This hobbit was a very well-to-do hobbit, and his name was Baggins. The Bagginses have lived in the neighbourhood of The Hill for time out of mind, and people considered them very respectable, not only because most of them were rich, but also because they never had any adventures or did anything unexpected: you could tell what a Baggins would say on any question without the bother of asking him. This is a story of how a Baggins had an adventure, and found himself doing and saying things altogether unexpected. He may have lost the neighbours’ respect, but he gained – well, you will see whether he gained anything in the end."
+match 0c 82 07 83 49 6e 20 61 20 68 6f 6c 65 20 69 6e 20 74 68 65 20 67 72 6f 75 6e 64 20 74 68 65 72 65 20 6c 69 76 65 64 20 61 20 68 6f 62 62 69 74 2e 20 4e 6f 74 20 61 20 6e 61 73 74 79 2c 20 64 69 72 74 79 2c 20 77 65 74 20 68 6f 6c 65 2c 20 66 69 6c 6c 65 64 20 77 69 74 68 20 74 68 65 20 65 6e 64 73 20 6f 66 20 77 6f 72 6d 73 20 61 6e 64 20 61 6e 20 6f 6f 7a 79 20 73 6d 65 6c 6c 2c 20 6e 6f 72 20 79 65 74 20 61 20 64 72 79 2c 20 62 61 72 65 2c 20 73 61 6e 64 79 20 68 6f 6c 65 20 77 69 74 68 20 6e 6f 74 68 69 6e 67 20 69 6e 20 69 74 20 74 6f 20 73 69 74 20 64 6f 77 6e 20 6f 6e 20 6f 72 20 74 6f 20 65 61 74 3a 20 69 74 20 77 61 73 20 61 20 68 6f 62 62 69 74 2d 68 6f 6c 65 2c 20 61 6e 64 20 74 68 61 74 20 6d 65 61 6e 73 20 63 6f 6d 66 6f 72 74 2e 20 49 74 20 68 61 64 20 61 20 70 65 72 66 65 63 74 6c 79 20 72 6f 75 6e 64 20 64 6f 6f 72 20 6c 69 6b 65 20 61 20 70 6f 72 74 68 6f 6c 65 2c 20 70 61 69 6e 74 65 64 20 67 72 65 65 6e 2c 20 77 69 74 68 20 61 20 73 68 69 6e 79 20 79 65 6c 6c 6f 77 20 62 72 61 73 73 20 6b 6e 6f 62 20 69 6e 20 74 68 65 20 65 78 61 63 74 20 6d 69 64 64 6c 65 2e 20 54 68 65 20 64 6f 6f 72 20 6f 70 65 6e 65 64 20 6f 6e 20 74 6f 20 61 20 74 75 62 65 2d 73 68 61 70 65 64 20 68 61 6c 6c 20 6c 69 6b 65 20 61 20 74 75 6e 6e 65 6c 3a 20 61 20 76 65 72 79 20 63 6f 6d 66 6f 72 74 61 62 6c 65 20 74 75 6e 6e 65 6c 20 77 69 74 68 6f 75 74 20 73 6d 6f 6b 65 2c 20 77 69 74 68 20 70 61 6e 65 6c 6c 65 64 20 77 61 6c 6c 73 2c 20 61 6e 64 20 66 6c 6f 6f 72 73 20 74 69 6c 65 64 20 61 6e 64 20 63 61 72 70 65 74 65 64 2c 20 70 72 6f 76 69 64 65 64 20 77 69 74 68 20 70 6f 6c 69 73 68 65 64 20 63 68 61 69 72 73 20 61 6e 64 20 6c 6f 74 73 20 61 6e 64 20 6c 6f 74 73 20 6f 66 20 70 65 67 73 20 66 6f 72 20 68 61 74 73 20 61 6e 64 20 63 6f 61 74 73 20 e2 80 93 20 74 68 65 20 68 6f 62 62 69 74 20 77 61 73 20 66 6f 6e 64 20 6f 66 20 76 69 73 69 74 6f 72 73 2e 20 54 68 65 20 74 75 6e 6e 65 6c 20 77 6f 75 6e 64 20 6f 6e 20 61 6e 64 20 6f 6e 2c 20 67 6f 69 6e 67 20 66 61 69 72 6c 79 20 62 75 74 20 6e 6f 74 20 71 75 69 74 65 20 73 74 72 61 69 67 68 74 20 69 6e 74 6f 20 74 68 65 20 73 69 64 65 20 6f 66 20 74 68 65 20 68 69 6c 6c 20 e2 80 93 20 54 68 65 20 48 69 6c 6c 2c 20 61 73 20 61 6c 6c 20 74 68 65 20 70 65 6f 70 6c 65 20 66 6f 72 20 6d 61 6e 79 20 6d 69 6c 65 73 20 72 6f 75 6e 64 20 63 61 6c 6c 65 64 20 69 74 20 e2 80 93 20 61 6e 64 20 6d 61 6e 79 20 6c 69 74 74 6c 65 20 72 6f 75 6e 64 20 64 6f 6f 72 73 20 6f 70 65 6e 65 64 20 6f 75 74 20 6f 66 20 69 74 2c 20 66 69 72 73 74 20 6f 6e 20 6f 6e 65 20 73 69 64 65 20 61 6e 64 20 74 68 65 6e 20 6f 6e 20 61 6e 6f 74 68 65 72 2e 20 4e 6f 20 67 6f 69 6e 67 20 75 70 73 74 61 69 72 73 20 66 6f 72 20 74 68 65 20 68 6f 62 62 69 74 3a 20 62 65 64 72 6f 6f 6d 73 2c 20 62 61 74 68 72 6f 6f 6d 73 2c 20 63 65 6c 6c 61 72 73 2c 20 70 61 6e 74 72 69 65 73 20 28 6c 6f 74 73 20 6f 66 20 74 68 65 73 65 29 2c 20 77 61 72 64 72 6f 62 65 73 20 28 68 65 20 68 61 64 20 77 68 6f 6c 65 20 72 6f 6f 6d 73 20 64 65 76 6f 74 65 64 20 74 6f 20 63 6c 6f 74 68 65 73 29 2c 20 6b 69 74 63 68 65 6e 73 2c 20 64 69 6e 69 6e 67 2d 72 6f 6f 6d 73 2c 20 61 6c 6c 20 77 65 72 65 20 6f 6e 20 74 68 65 20 73 61 6d 65 20 66 6c 6f 6f 72 2c 20 61 6e 64 20 69 6e 64 65 65 64 20 6f 6e 20 74 68 65 20 73 61 6d 65 20 70 61 73 73 61 67 65 2e 20 54 68 65 20 62 65 73 74 20 72 6f 6f 6d 73 20 77 65 72 65 20 61 6c 6c 20 6f 6e 20 74 68 65 20 6c 65 66 74 2d 68 61 6e 64 20 73 69 64 65 20 28 67 6f 69 6e 67 20 69 6e 29 2c 20 66 6f 72 20 74 68 65 73 65 20 77 65 72 65 20 74 68 65 20 6f 6e 6c 79 20 6f 6e 65 73 20 74 6f 20 68 61 76 65 20 77 69 6e 64 6f 77 73 2c 20 64 65 65 70 2d 73 65 74 20 72 6f 75 6e 64 20 77 69 6e 64 6f 77 73 20 6c 6f 6f 6b 69 6e 67 20 6f 76 65 72 20 68 69 73 20 67 61 72 64 65 6e 2c 20 61 6e 64 20 6d 65 61 64 6f 77 73 20 62 65 79 6f 6e 64 2c 20 73 6c 6f 70 69 6e 67 20 64 6f 77 6e 20 74 6f 20 74 68 65 20 72 69 76 65 72 2e 20 54 68 69 73 20 68 6f 62 62 69 74 20 77 61 73 20 61 20 76 65 72 79 20 77 65 6c 6c 2d 74 6f 2d 64 6f 20 68 6f 62 62 69 74 2c 20 61 6e 64 20 68 69 73 20 6e 61 6d 65 20 77 61 73 20 42 61 67 67 69 6e 73 2e 20 54 68 65 20 42 61 67 67 69 6e 73 65 73 20 68 61 76 65 20 6c 69 76 65 64 20 69 6e 20 74 68 65 20 6e 65 69 67 68 62 6f 75 72 68 6f 6f 64 20 6f 66 20 54 68 65 20 48 69 6c 6c 20 66 6f 72 20 74 69 6d 65 20 6f 75 74 20 6f 66 20 6d 69 6e 64 2c 20 61 6e 64 20 70 65 6f 70 6c 65 20 63 6f 6e 73 69 64 65 72 65 64 20 74 68 65 6d 20 76 65 72 79 20 72 65 73 70 65 63 74 61 62 6c 65 2c 20 6e 6f 74 20 6f 6e 6c 79 20 62 65 63 61 75 73 65 20 6d 6f 73 74 20 6f 66 20 74 68 65 6d 20 77 65 72 65 20 72 69 63 68 2c 20 62 75 74 20 61 6c 73 6f 20 62 65 63 61 75 73 65 20 74 68 65 79 20 6e 65 76 65 72 20 68 61 64 20 61 6e 79 20 61 64 76 65 6e 74 75 72 65 73 20 6f 72 20 64 69 64 20 61 6e 79 74 68 69 6e 67 20 75 6e 65 78 70 65 63 74 65 64 3a 20 79 6f 75 20 63 6f 75 6c 64 20 74 65 6c 6c 20 77 68 61 74 20 61 20 42 61 67 67 69 6e 73 20 77 6f 75 6c 64 20 73 61 79 20 6f 6e 20 61 6e 79 20 71 75 65 73 74 69 6f 6e 20 77 69 74 68 6f 75 74 20 74 68 65 20 62 6f 74 68 65 72 20 6f 66 20 61 73 6b 69 6e 67 20 68 69 6d 2e 20 54 68 69 73 20 69 73 20 61 20 73 74 6f 72 79 20 6f 66 20 68 6f 77 20 61 20 42 61 67 67 69 6e 73 20 68 61 64 20 61 6e 20 61 64 76 65 6e 74 75 72 65 2c 20 61 6e 64 20 66 6f 75 6e 64 20 68 69 6d 73 65 6c 66 20 64 6f 69 6e 67 20 61 6e 64 20 73 61 79 69 6e 67 20 74 68 69 6e 67 73 20 61 6c 74 6f 67 65 74 68 65 72 20 75 6e 65 78 70 65 63 74 65 64 2e 20 48 65 20 6d 61 79 20 68 61 76 65 20 6c 6f 73 74 20 74 68 65 20 6e 65 69 67 68 62 6f 75 72 73 e2 80 99 20 72 65 73 70 65 63 74 2c 20 62 75 74 20 68 65 20 67 61 69 6e 65 64 20 e2 80 93 20 77 65 6c 6c 2c 20 79 6f 75 20 77 69 6c 6c 20 73 65 65 20 77 68 65 74 68 65 72 20 68 65 20 67 61 69 6e 65 64 20 61 6e 79 74 68 69 6e 67 20 69 6e 20 74 68 65 20 65 6e 64 2e
