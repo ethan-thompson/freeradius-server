@@ -443,7 +443,7 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	if (fr_type_is_struct(parent->type)) {
 		ssize_t slen;
 
-		slen = fr_struct_from_network(ctx, out, parent, data, data_len, true, decode_ctx, NULL, NULL);
+		slen = fr_struct_from_network(ctx, out, parent, data, data_len, decode_ctx, NULL, NULL);
 
 		/*
 		 *	If the structure decoder didn't consume all the data, we need to free the data and bail out
