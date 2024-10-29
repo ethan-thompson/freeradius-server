@@ -104,7 +104,7 @@ void fr_der_global_free(void)
 	fr_dict_autofree(libfreeradius_der_dict);
 }
 
-static int dict_flag_tag_num(fr_dict_attr_t const **da_p, char const *value)
+static int dict_flag_tag_num(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
 
@@ -113,7 +113,7 @@ static int dict_flag_tag_num(fr_dict_attr_t const **da_p, char const *value)
 	return 0;
 }
 
-static int dict_flag_class(fr_dict_attr_t const **da_p, char const *value)
+static int dict_flag_class(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	static fr_table_num_sorted_t const table[] = {
 		{ L("universal"), FR_DER_CLASS_UNIVERSAL },
@@ -139,7 +139,7 @@ static int dict_flag_class(fr_dict_attr_t const **da_p, char const *value)
 	return 0;
 }
 
-static int dict_flag_sub_type(fr_dict_attr_t const **da_p, char const *value)
+static int dict_flag_sub_type(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	static fr_table_num_sorted_t const table[] = {
 		{ L("boolean"), FR_DER_TAG_BOOLEAN },
@@ -181,9 +181,9 @@ static int dict_flag_sub_type(fr_dict_attr_t const **da_p, char const *value)
 }
 
 static fr_dict_flag_parser_t const der_flags[] = {
-	{ L("tag_num"), dict_flag_tag_num },
-	{ L("class"), dict_flag_class },
-	{ L("sub_type"), dict_flag_sub_type },
+	{ L("tag_num"), { .func = dict_flag_tag_num } },
+	{ L("class"), { .func = dict_flag_class } },
+	{ L("sub_type"), { .func = dict_flag_sub_type } }
 };
 
 static bool attr_valid(fr_dict_attr_t *da)
@@ -200,10 +200,12 @@ fr_dict_protocol_t	  libfreeradius_der_dict_protocol = {
 	       //        .subtype_table_len   = NUM_ELEMENTS(subtype_table),
 	       //        .attr_valid	    = attr_valid,
 	       .attr = {
-		       .flags_table = der_flags,
-		       .flags_table_len = NUM_ELEMENTS(der_flags),
-		       .flags_len = sizeof(fr_der_attr_flags_t),
-		       .valid = attr_valid,
+		       .flags = {
+			       .table    = der_flags,
+			       .table_len = NUM_ELEMENTS(der_flags),
+			       .len	   = sizeof(fr_der_attr_flags_t),
+		       },
+		       .valid = attr_valid
 	       },
 
 		.init = fr_der_global_init,
