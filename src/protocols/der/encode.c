@@ -326,8 +326,6 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 	switch (vp->vp_type) {
 	default:
 		fr_strerror_printf("Unknown type %d", vp->vp_type);
-		//return -1;
-	skip:
 		break;
 	case FR_TYPE_BOOL:
 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BOOLEAN, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
@@ -366,9 +364,9 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 
 		break;
 	case FR_TYPE_STRING:
-		switch (fr_der_flag_sub_type(vp->da)) {
+		switch (fr_der_flag_subtype(vp->da)) {
 		default:
-			fr_strerror_printf("Unknown string sub-type %d", fr_der_flag_sub_type(vp->da));
+			fr_strerror_printf("Unknown string sub-type %d", fr_der_flag_subtype(vp->da));
 			return -1;
 		case FR_DER_TAG_UTF8_STRING:
 			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UTF8_STRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
