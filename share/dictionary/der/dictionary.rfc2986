@@ -75,6 +75,7 @@ DEFINE Set-Bool-Integer         struct
 MEMBER Test-Bool                bool
 MEMBER Test-Integer             int64
 
+DEFINE Test-Context-Specific    bool class=context-specific,sub_type=boolean
 
 # CSR
 DEFINE subjectAltName           tlv
