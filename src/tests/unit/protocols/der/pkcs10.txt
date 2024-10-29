@@ -596,6 +596,12 @@ proto-dictionary-root Test-String-UTF8
 decode-pair 0c 04 f0 9f 98 8e
 match Test-String-UTF8 = "😎"
 
+# Test Context-Specific
+proto-dictionary-root Test-Context-Specific
+
+decode-pair 80 01 00
+match Test-Context-Specific = foo
+
 # Test-Encode
 #proto der
 #proto-dictionary pkcs10
