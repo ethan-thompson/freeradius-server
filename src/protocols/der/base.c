@@ -108,11 +108,11 @@ void fr_der_global_free(void)
 	fr_dict_autofree(libfreeradius_der_dict);
 }
 
-static int dict_flag_tag_num(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+static int dict_flag_tagnum(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
 
-	flags->tag_num = (uint8_t)atoi(value);
+	flags->tagnum = (uint8_t)atoi(value);
 
 	return 0;
 }
@@ -138,12 +138,12 @@ static int dict_flag_class(fr_dict_attr_t **da_p, char const *value, UNUSED fr_d
 		return -1;
 	}
 
-	flags->tag_class = tag_class;
+	flags->class = tag_class;
 
 	return 0;
 }
 
-static int dict_flag_sub_type(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+static int dict_flag_subtype(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	static fr_table_num_sorted_t const table[] = {
 		{ L("bitstring"), FR_DER_TAG_BITSTRING },
@@ -170,24 +170,24 @@ static int dict_flag_sub_type(fr_dict_attr_t **da_p, char const *value, UNUSED f
 	static size_t table_len = NUM_ELEMENTS(table);
 
 	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
-	fr_der_tag_num_t     sub_type;
+	fr_der_tag_num_t     subtype;
 
-	sub_type = fr_table_value_by_str(table, value, UINT8_MAX);
+	subtype = fr_table_value_by_str(table, value, UINT8_MAX);
 
-	if (sub_type == UINT8_MAX) {
-		fr_strerror_printf("Invalid tag sub_type '%s'", value);
+	if (subtype == UINT8_MAX) {
+		fr_strerror_printf("Invalid tag subtype '%s'", value);
 		return -1;
 	}
 
-	flags->sub_type = sub_type;
+	flags->subtype = subtype;
 
 	return 0;
 }
 
 static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("class"), { .func = dict_flag_class } },
-						   { L("sub_type"), { .func = dict_flag_sub_type } },
-						    { L("tag_num"), { .func = dict_flag_tag_num } } };
+						   { L("subtype"), { .func = dict_flag_subtype } },
+						    { L("tagnum"), { .func = dict_flag_tagnum } } };
 
 static bool attr_valid(fr_dict_attr_t *da)
 {

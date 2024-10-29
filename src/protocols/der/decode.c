@@ -1554,15 +1554,15 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		 *	The data type will need to be resolved using the dictionary and the tag value
 		 */
 
-		if (tag_flags == fr_der_flag_tag_class(parent)){
-			if (tag == fr_der_flag_tag_num(parent)){
-				tag = fr_der_flag_sub_type(parent);
+		if (tag_flags == fr_der_flag_class(parent)){
+			if (tag == fr_der_flag_tagnum(parent)){
+				tag = fr_der_flag_subtype(parent);
 			} else{
 				goto bad_tag;
 			}
 		} else {
 		bad_tag:
-			fr_strerror_printf("Invalid tag %llu for attribute %s. Expected %u", tag, parent->name, fr_der_flag_tag_num(parent));
+			fr_strerror_printf("Invalid tag %llu for attribute %s. Expected %u", tag, parent->name, fr_der_flag_tagnum(parent));
 			return -1;
 		}
 	}

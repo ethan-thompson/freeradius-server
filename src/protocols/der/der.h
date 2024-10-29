@@ -55,9 +55,9 @@ extern fr_der_tag_constructed_t tag_labels[];
 #define DER_BOOLEAN_TRUE 0xff	 //!< DER encoded boolean true value.
 
 typedef struct {
-	uint8_t tag_num;
-	fr_der_tag_class_t tag_class;
-	fr_der_tag_num_t sub_type;
+	uint8_t tagnum;
+	fr_der_tag_class_t class;
+	fr_der_tag_num_t subtype;
 } fr_der_attr_flags_t;
 
 static inline fr_der_attr_flags_t const *fr_der_attr_flags(fr_dict_attr_t const *da)
@@ -65,9 +65,9 @@ static inline fr_der_attr_flags_t const *fr_der_attr_flags(fr_dict_attr_t const 
 	return fr_dict_attr_ext(da, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
 }
 
-#define fr_der_flag_tag_num(_da) 	(fr_der_attr_flags(_da)->tag_num)
-#define fr_der_flag_tag_class(_da) 	(fr_der_attr_flags(_da)->tag_class)
-#define fr_der_flag_sub_type(_da) 		(fr_der_attr_flags(_da)->sub_type)
+#define fr_der_flag_tagnum(_da) 	(fr_der_attr_flags(_da)->tagnum)
+#define fr_der_flag_class(_da) 	(fr_der_attr_flags(_da)->class)
+#define fr_der_flag_subtype(_da) 		(fr_der_attr_flags(_da)->subtype)
 
 /*
  * 	base.c

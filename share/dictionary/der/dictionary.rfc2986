@@ -58,7 +58,7 @@ MEMBER Test-Oid                 string
 
 DEFINE Test-String              string
 
-DEFINE Test-String-UTF8         string sub_type=utf8string
+DEFINE Test-String-UTF8         string subtype=utf8string
 
 DEFINE Seq-String               struct
 
@@ -75,7 +75,7 @@ DEFINE Set-Bool-Integer         struct
 MEMBER Test-Bool                bool
 MEMBER Test-Integer             int64
 
-DEFINE Test-Context-Specific    bool class=context-specific,tag_num=0,sub_type=boolean
+DEFINE Test-Context-Specific    bool class=context-specific,tagnum=0,subtype=boolean
 
 # CSR
 DEFINE subjectAltName           tlv
