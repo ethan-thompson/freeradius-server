@@ -600,7 +600,7 @@ match Test-String-UTF8 = "😎"
 proto-dictionary-root Test-Context-Specific
 
 decode-pair 80 01 00
-match Test-Context-Specific = foo
+match Test-Context-Specific = no
 
 # Test-Encode
 #proto der
