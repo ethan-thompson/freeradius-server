@@ -191,6 +191,15 @@ static fr_dict_flag_parser_t const der_flags[] = {
 
 static bool attr_valid(fr_dict_attr_t *da)
 {
+	if (da->flags.subtype && !fr_type_to_der_tag_valid(da->type, da->flags.subtype)) {
+		return false;
+	}
+
+	if ((fr_der_flag_class(da) && !fr_der_flag_tagnum(da)) && unlikely(da->type != FR_TYPE_BOOL)) {
+		fr_strerror_printf("Attribute %s Non-Universal tag %u must have a tagnum.",da->name, fr_der_flag_tagnum(da));
+		return false;
+	}
+
 	return true;
 }
 
