@@ -1,4 +1,7 @@
+#include "include/build.h"
+#include "lib/util/types.h"
 #include <freeradius-devel/util/dict.h>
+#include <stdbool.h>
 
 extern HIDDEN fr_dict_t const *dict_der;
 
@@ -23,7 +26,9 @@ typedef enum {
 	FR_DER_TAG_VISIBLE_STRING   = 0x1a,	   //!< String of visible chars.
 	FR_DER_TAG_GENERAL_STRING   = 0x1b,	   //!< String of general chars.
 	FR_DER_TAG_UNIVERSAL_STRING = 0x1c,	   //!< String of universal chars.
-	FR_DER_TAG_BMP_STRING	    = 0x1e	  //!< String of BMP chars.
+	FR_DER_TAG_BMP_STRING	    = 0x1e,	  //!< String of BMP chars.
+
+	FR_DER_TAG_MAX		= UINT8_MAX
 } fr_der_tag_num_t;
 
 typedef enum {
@@ -40,6 +45,39 @@ typedef enum {
 } fr_der_tag_class_t;
 
 extern fr_der_tag_constructed_t tag_labels[];
+
+/*
+ *	Create a mapping between FR_TYPE_* and valid FR_DER_TAG_*'s
+ */
+static bool *fr_type_to_der_tags[] = {
+	[FR_TYPE_MAX] = NULL,
+	[FR_TYPE_BOOL] = (bool []){[FR_DER_TAG_BOOLEAN] = true, [FR_DER_TAG_INTEGER] = true},
+	[FR_TYPE_UINT8] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
+	[FR_TYPE_UINT16] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
+	[FR_TYPE_UINT32] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
+	[FR_TYPE_UINT64] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
+	[FR_TYPE_INT8] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
+	[FR_TYPE_INT16] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
+	[FR_TYPE_INT32] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
+	[FR_TYPE_INT64] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
+	[FR_TYPE_OCTETS] = (bool []){[FR_DER_TAG_BITSTRING] = true, [FR_DER_TAG_OCTETSTRING] = true},
+	[FR_TYPE_STRING] = (bool []){[FR_DER_TAG_OID] = true, [FR_DER_TAG_UTF8_STRING] = true, [FR_DER_TAG_PRINTABLE_STRING] = true, [FR_DER_TAG_T61_STRING] = true, [FR_DER_TAG_IA5_STRING] = true, [FR_DER_TAG_VISIBLE_STRING] = true, [FR_DER_TAG_GENERAL_STRING] = true, [FR_DER_TAG_UNIVERSAL_STRING] = true},
+	[FR_TYPE_DATE] = (bool []){[FR_DER_TAG_UTC_TIME] = true, [FR_DER_TAG_GENERALIZED_TIME] = true},
+	[FR_TYPE_TLV] = (bool []){[FR_DER_TAG_SEQUENCE] = true, [FR_DER_TAG_SET] = true},
+	[FR_TYPE_STRUCT] = (bool []){[FR_DER_TAG_BITSTRING] = true, [FR_DER_TAG_SEQUENCE] = true, [FR_DER_TAG_SET] = true},
+	[FR_TYPE_GROUP] = (bool []){[FR_DER_TAG_SEQUENCE] = true, [FR_DER_TAG_SET] = true}
+};
+
+/*
+ *	Return true if the given type can be encoded as the given tag.
+ * 		@param[in] type The fr_type to check.
+ * 		@param[in] tag The der tag to check.
+ * 		@return true if the type can be encoded as the given tag.
+ */
+static inline CC_HINT(always_inline) bool fr_type_to_der_tag_valid(fr_type_t type, fr_der_tag_num_t tag)
+{
+	return fr_type_to_der_tags[type][tag];
+}
 
 #define DER_MAX_STR 16384
 
