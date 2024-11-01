@@ -46,12 +46,14 @@ fr_dict_autoload_t	  libfreeradius_der_dict[] = { { .out = &dict_der, .proto = "
 fr_dict_attr_t const *attr_der_boolean;
 fr_dict_attr_t const *attr_der_utf8;
 fr_dict_attr_t const *attr_der_context_specific;
+fr_dict_attr_t const *attr_der_subject;
 
 extern fr_dict_attr_autoload_t libfreeradius_der_dict_attr[];
 fr_dict_attr_autoload_t	       libfreeradius_der_dict_attr[] = {
 	       { .out = &attr_der_boolean, .name = "Test-Boolean", .type = FR_TYPE_BOOL, .dict = &dict_der },
 	       { .out = &attr_der_utf8, .name = "Test-String-UTF8", .type = FR_TYPE_STRING, .dict = &dict_der },
 	       { .out = &attr_der_context_specific, .name = "Test-Context-Specific", .type = FR_TYPE_BOOL, .dict = &dict_der },
+	       { .out = &attr_der_subject, .name = "CertificationRequest.certificationRequestInfo.subject", .type = FR_TYPE_TLV, .dict = &dict_der },
 	       { NULL }
 };
 
@@ -195,10 +197,10 @@ static bool attr_valid(fr_dict_attr_t *da)
 		return false;
 	}
 
-	if ((fr_der_flag_class(da) && !fr_der_flag_tagnum(da)) && unlikely(da->type != FR_TYPE_BOOL)) {
-		fr_strerror_printf("Attribute %s Non-Universal tag %u must have a tagnum.",da->name, fr_der_flag_tagnum(da));
-		return false;
-	}
+	// if ((fr_der_flag_class(da) && !fr_der_flag_tagnum(da)) && unlikely(da->type != FR_TYPE_BOOL)) {
+	// 	fr_strerror_printf("Attribute %s Non-Universal tag %u must have a tagnum.",da->name, fr_der_flag_tagnum(da));
+	// 	return false;
+	// }
 
 	return true;
 }
