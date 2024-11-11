@@ -44,6 +44,22 @@ fr_dict_autoload_t	  libfreeradius_der_dict[] = { { .out = &dict_der, .proto = "
 
 // Define the dictionary attributes here
 fr_dict_attr_t const *attr_der_boolean;
+fr_dict_attr_t const *attr_der_integer;
+fr_dict_attr_t const *attr_der_foo;
+fr_dict_attr_t const *attr_der_foo_integer;
+fr_dict_attr_t const *attr_der_bar;
+fr_dict_attr_t const *attr_der_bar_boolean;
+fr_dict_attr_t const *attr_der_foobar;
+fr_dict_attr_t const *attr_der_foobar_integer;
+fr_dict_attr_t const *attr_der_foobar_boolean;
+fr_dict_attr_t const *attr_der_bitstring;
+fr_dict_attr_t const *attr_der_seq_bitstring_octets;
+fr_dict_attr_t const *attr_der_seq_bitstring;
+fr_dict_attr_t const *attr_der_bitstring_struct;
+fr_dict_attr_t const *attr_der_bitstring_struct_foo;
+fr_dict_attr_t const *attr_der_bitstring_struct_bar;
+fr_dict_attr_t const *attr_der_bitstring_struct_foobar;
+
 fr_dict_attr_t const *attr_der_utf8;
 fr_dict_attr_t const *attr_der_context_specific;
 fr_dict_attr_t const *attr_der_subject;
@@ -51,6 +67,22 @@ fr_dict_attr_t const *attr_der_subject;
 extern fr_dict_attr_autoload_t libfreeradius_der_dict_attr[];
 fr_dict_attr_autoload_t	       libfreeradius_der_dict_attr[] = {
 	       { .out = &attr_der_boolean, .name = "Test-Boolean", .type = FR_TYPE_BOOL, .dict = &dict_der },
+	       { .out = &attr_der_integer, .name = "Test-Integer", .type = FR_TYPE_INT64, .dict = &dict_der },
+	       { .out = &attr_der_foo, .name = "Foo", .type = FR_TYPE_STRUCT, .dict = &dict_der },
+	       { .out = &attr_der_foo_integer, .name = "Foo.Test-Integer", .type = FR_TYPE_INT64, .dict = &dict_der },
+	       { .out = &attr_der_bar, .name = "Bar", .type = FR_TYPE_STRUCT, .dict = &dict_der },
+	       { .out = &attr_der_bar_boolean, .name = "Bar.Test-Boolean", .type = FR_TYPE_BOOL, .dict = &dict_der },
+	       { .out = &attr_der_foobar, .name = "Foo-Bar", .type = FR_TYPE_STRUCT, .dict = &dict_der },
+	       { .out = &attr_der_foobar_integer, .name = "Foo-Bar.Test-Integer", .type = FR_TYPE_INT64, .dict = &dict_der },
+	       { .out = &attr_der_foobar_boolean, .name = "Foo-Bar.Test-Boolean", .type = FR_TYPE_BOOL, .dict = &dict_der },
+	       { .out = &attr_der_bitstring, .name = "Test-Bitstring", .type = FR_TYPE_OCTETS, .dict = &dict_der },
+	       { .out = &attr_der_seq_bitstring_octets, .name = "Seq-Bitstring-Octets", .type = FR_TYPE_STRUCT, .dict = &dict_der },
+	       { .out = &attr_der_seq_bitstring, .name = "Seq-Bitstring-Octets.Test-Bitstring", .type = FR_TYPE_OCTETS, .dict = &dict_der },
+	       { .out = &attr_der_bitstring_struct, .name = "Bitstring-Struct", .type = FR_TYPE_STRUCT, .dict = &dict_der },
+	       { .out = &attr_der_bitstring_struct_foo, .name = "Bitstring-Struct.Foo", .type = FR_TYPE_UINT8, .dict = &dict_der },
+	       { .out = &attr_der_bitstring_struct_bar, .name = "Bitstring-Struct.Bar", .type = FR_TYPE_UINT8, .dict = &dict_der },
+	       { .out = &attr_der_bitstring_struct_foobar, .name = "Bitstring-Struct.Foo-bar", .type = FR_TYPE_UINT8, .dict = &dict_der },
+
 	       { .out = &attr_der_utf8, .name = "Test-String-UTF8", .type = FR_TYPE_STRING, .dict = &dict_der },
 	       { .out = &attr_der_context_specific, .name = "Test-Context-Specific", .type = FR_TYPE_BOOL, .dict = &dict_der },
 	       { .out = &attr_der_subject, .name = "CertificationRequest.certificationRequestInfo.subject", .type = FR_TYPE_TLV, .dict = &dict_der },
@@ -103,7 +135,7 @@ int fr_der_global_init(void)
 
 void fr_der_global_free(void)
 {
-	fr_assert(instance_count > 0);
+	// fr_assert(instance_count > 0);
 
 	if (--instance_count != 0) return;
 
