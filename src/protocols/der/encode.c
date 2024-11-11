@@ -206,6 +206,31 @@ static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 
 	PAIR_VERIFY(vp);
 
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.7 Encoding of an octetstring value
+	 *		8.7.1 The encoding of an octetstring value shall be either primitive or constructed at the
+	 *		      option of the sender.
+	 *			NOTE – Where it is necessary to transfer part of an octet string before the entire
+	 *			       octetstring is available, the constructed encoding is used.
+	 *		8.7.2 The primitive encoding contains zero, one or more contents octets equal in value to the
+	 *		      octets in the data value, in the order they appear in the data value, and with the most
+	 *		      significant bit of an octet of the data value aligned with the most significant bit of an
+	 *		      octet of the contents octets.
+	 *		8.7.3 The contents octets for the constructed encoding shall consist of zero, one, or more
+	 *		      encodings.
+	 *			NOTE – Each such encoding includes identifier, length, and contents octets, and may
+	 *			       include end-of-contents octets if it is constructed.
+	 *			8.7.3.1 To encode an octetstring value in this way, it is segmented. Each segment shall
+	 *			       consist of a series of consecutive octets of the value. There shall be no
+	 *			       significance placed on the segment boundaries.
+	 *				NOTE – A segment may be of size zero, i.e. contain no octets.
+	 *
+	 *	10.2 String encoding forms
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
+	 */
+
 	value = vp->vp_octets;
 	len = vp->vp_length;
 
