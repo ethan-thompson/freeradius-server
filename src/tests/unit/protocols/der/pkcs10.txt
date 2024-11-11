@@ -631,6 +631,15 @@ match 02 05 7f ff ff ff ff
 encode-pair Test-Integer = 9223372036854775807
 match 02 08 7f ff ff ff ff ff ff ff
 
+encode-pair Octetstring = 0x00
+match 04 01 00
+
+encode-pair Octetstring = 0xff
+match 04 01 ff
+
+encode-pair Octetstring = 0xffffffffffffffff
+match 04 08 ff ff ff ff ff ff ff ff
+
 encode-pair Test-String = "foo"
 match Unknown string sub-type 0
 
