@@ -44,7 +44,7 @@ typedef struct {
 static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -66,7 +66,7 @@ static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN]	      = fr_der_encode_boolean,
 	[FR_DER_TAG_INTEGER]	      = fr_der_encode_integer,
 	// [FR_DER_TAG_BITSTRING]	      = fr_der_encode_bitstring,
-	// [FR_DER_TAG_OCTETSTRING]      = fr_der_encode_octetstring,
+	[FR_DER_TAG_OCTETSTRING]      = fr_der_encode_octetstring,
 	// [FR_DER_TAG_NULL]	      = fr_der_encode_null,
 	// [FR_DER_TAG_OID]	      = fr_der_encode_oid,
 	// [FR_DER_TAG_ENUMERATED]	      = fr_der_encode_enumerated,
@@ -190,6 +190,31 @@ static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UN
 	}
 
 	return slen;
+}
+
+static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	uint8_t const		*value = NULL;
+	size_t			len;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode octet string");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	value = vp->vp_octets;
+	len = vp->vp_length;
+
+	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+		fr_strerror_const("Failed to copy octet string value");
+		return -1;
+	}
+
+	return len;
 }
 
 static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
@@ -363,6 +388,25 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 		if (slen < 0) goto error;
 
 		break;
+
+	case FR_TYPE_OCTETS:
+		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_OCTETSTRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+		if (slen < 0) goto error;
+
+		/*
+		 * Mark and reserve space in the buffer for the length field
+		 */
+		fr_dbuff_marker(&marker, &our_dbuff);
+		fr_dbuff_advance(&our_dbuff, 1);
+
+		slen = fr_der_encode_octetstring(&our_dbuff, cursor, encode_ctx);
+		if (slen < 0) goto error;
+
+		slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+		if (slen < 0) goto error;
+
+		break;
+
 	case FR_TYPE_STRING:
 		switch (fr_der_flag_subtype(vp->da)) {
 		default:
