@@ -21,6 +21,7 @@
  * @copyright 2019 The FreeRADIUS server project
  * @copyright 2024 Arran Cudbard-Bell (a.cudbardb@freeradius.org)
  */
+#include "include/build.h"
 RCSID("$Id$")
 
 #include <freeradius-devel/radius/defs.h>
