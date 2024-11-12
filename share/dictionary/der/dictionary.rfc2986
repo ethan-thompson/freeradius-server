@@ -53,8 +53,9 @@ MEMBER Test-Null                bool subtype=null
 DEFINE Test-Oid                 string
 
 DEFINE Seq-Oid                  struct
-
 MEMBER Test-Oid                 string
+
+DEFINE Test-Enumerated          int64 subtype=enumerated
 
 DEFINE Test-String              string
 

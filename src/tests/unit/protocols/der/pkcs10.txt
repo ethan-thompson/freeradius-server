@@ -231,6 +231,11 @@ proto-dictionary-root Test-Null
 decode-pair 05 00
 match Test-NULL = no
 
+proto-dictionary-root Test-Enumerated
+
+decode-pair 0a 02 04 d2
+match Test-Enumerated = 1234
+
 proto-dictionary-root Seq-Null
 
 decode-pair 30 02 05 00
@@ -328,7 +333,6 @@ match OID subidentifier too large (9 chunks)
 
 decode-pair 30 1b 06 19 2a 86 48 ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff 86 f7 0d 01 01 0b
 match OID subidentifier too large (9 chunks)
-
 
 proto-dictionary-root Test-String
 
@@ -648,6 +652,13 @@ match 05 00
 
 encode-pair Test-NULL = 1234
 match 05 00
+
+# Test Enumerated Encoding
+encode-pair Test-Enumerated = 1234
+match 0a 02 04 d2
+
+encode-pair Test-Enumerated = A
+match Failed parsing string as type 'int64'
 
 encode-pair Test-String = "foo"
 match Unknown string sub-type 0
