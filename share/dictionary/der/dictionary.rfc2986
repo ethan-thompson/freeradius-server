@@ -39,16 +39,16 @@ DEFINE Seq-Octetstring          struct
 
 MEMBER Octetstring              octets
 
-DEFINE Test-NULL                integer
+DEFINE Test-NULL                bool subtype=null
 
 DEFINE Seq-Null                 struct
 
-MEMBER Test-Null                integer
+MEMBER Test-Null                bool subtype=null
 
 DEFINE Seq-Integer-Null         struct
 
 MEMBER Test-Integer             int64
-MEMBER Test-Null                integer
+MEMBER Test-Null                bool subtype=null
 
 DEFINE Test-Oid                 string
 
