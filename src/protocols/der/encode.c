@@ -57,7 +57,7 @@ static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 // static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_generalized_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 
 
@@ -81,7 +81,7 @@ static fr_der_encode_t tag_funcs[] = {
 	// [FR_DER_TAG_UTC_TIME]	      = fr_der_encode_utc_time,
 	// [FR_DER_TAG_GENERALIZED_TIME] = fr_der_encode_generalized_time,
 	[FR_DER_TAG_VISIBLE_STRING]   = fr_der_encode_visible_string,
-	// [FR_DER_TAG_GENERAL_STRING]   = fr_der_encode_general_string,
+	[FR_DER_TAG_GENERAL_STRING]   = fr_der_encode_general_string,
 	// [FR_DER_TAG_UNIVERSAL_STRING] = fr_der_encode_universal_string,
 };
 
@@ -508,6 +508,31 @@ static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	return len;
 }
 
+static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	char const		*value = NULL;
+	size_t			len;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode general string");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	value = vp->vp_strvalue;
+	len = vp->vp_length;
+
+	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+		fr_strerror_const("Failed to copy string value to buffer for general string");
+		return -1;
+	}
+
+	return len;
+}
+
 static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len)
 {
 	fr_dbuff_marker_t value_start;
@@ -767,6 +792,20 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 			fr_dbuff_advance(&our_dbuff, 1);
 
 			slen = fr_der_encode_visible_string(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+			break;
+
+		case FR_DER_TAG_GENERAL_STRING:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_GENERAL_STRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
+
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_general_string(&our_dbuff, cursor, encode_ctx);
 			if (slen < 0) goto error;
 			break;
 		}
