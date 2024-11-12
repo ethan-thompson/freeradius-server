@@ -70,6 +70,8 @@ DEFINE Test-String-Visible      string subtype=visiblestring
 
 DEFINE Test-String-General      string subtype=generalstring
 
+DEFINE Test-String-Universal    string subtype=universalstring
+
 DEFINE Seq-String               struct
 
 MEMBER Test-String              string
