@@ -51,7 +51,7 @@ static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_de
 static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -61,7 +61,9 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 // static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 
 
-
+/*
+ *	TODO: Use this to simplify the code
+ */
 static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN]	      = fr_der_encode_boolean,
 	[FR_DER_TAG_INTEGER]	      = fr_der_encode_integer,
@@ -73,7 +75,7 @@ static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_UTF8_STRING]      = fr_der_encode_utf8_string,
 	// [FR_DER_TAG_SEQUENCE]	      = fr_der_encode_sequence,
 	// [FR_DER_TAG_SET]	      = fr_der_encode_set,
-	// [FR_DER_TAG_PRINTABLE_STRING] = fr_der_encode_printable_string,
+	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_encode_printable_string,
 	// [FR_DER_TAG_T61_STRING]	      = fr_der_encode_t61_string,
 	// [FR_DER_TAG_IA5_STRING]	      = fr_der_encode_ia5_string,
 	// [FR_DER_TAG_UTC_TIME]	      = fr_der_encode_utc_time,
@@ -311,6 +313,55 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 	return 1;
 }
 
+static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	char const		*value = NULL;
+	size_t			len;
+
+	static bool const allowed_chars[] = {
+		[' '] = true, ['\''] = true, ['('] = true, [')'] = true, ['+'] = true,	     [','] = true, ['-'] = true,
+		['.'] = true, ['/'] = true,  ['0'] = true, ['1'] = true, ['2'] = true,	     ['3'] = true, ['4'] = true,
+		['5'] = true, ['6'] = true,  ['7'] = true, ['8'] = true, ['9'] = true,	     [':'] = true, ['='] = true,
+		['?'] = true, ['A'] = true,  ['B'] = true, ['C'] = true, ['D'] = true,	     ['E'] = true, ['F'] = true,
+		['G'] = true, ['H'] = true,  ['I'] = true, ['J'] = true, ['K'] = true,	     ['L'] = true, ['M'] = true,
+		['N'] = true, ['O'] = true,  ['P'] = true, ['Q'] = true, ['R'] = true,	     ['S'] = true, ['T'] = true,
+		['U'] = true, ['V'] = true,  ['W'] = true, ['X'] = true, ['Y'] = true,	     ['Z'] = true, ['a'] = true,
+		['b'] = true, ['c'] = true,  ['d'] = true, ['e'] = true, ['f'] = true,	     ['g'] = true, ['h'] = true,
+		['i'] = true, ['j'] = true,  ['k'] = true, ['l'] = true, ['m'] = true,	     ['n'] = true, ['o'] = true,
+		['p'] = true, ['q'] = true,  ['r'] = true, ['s'] = true, ['t'] = true,	     ['u'] = true, ['v'] = true,
+		['w'] = true, ['x'] = true,  ['y'] = true, ['z'] = true, [UINT8_MAX] = false
+	};
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode printable string");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	value = vp->vp_strvalue;
+	len = vp->vp_length;
+
+	for (size_t i = 0; i < len; i++) {
+		/*
+		 *	Check that the byte is a printable ASCII character allowed in a printable string
+		 */
+		if (allowed_chars[(uint8_t)value[i]] == false) {
+			fr_strerror_printf("Invalid character in printable string (%d)", value[i]);
+			return -1;
+		}
+	}
+
+	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+		fr_strerror_const("Failed to copy string value");
+		return -1;
+	}
+
+	return len;
+}
+
 static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len)
 {
 	fr_dbuff_marker_t value_start;
@@ -514,6 +565,20 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 			fr_dbuff_advance(&our_dbuff, 1);
 
 			slen = fr_der_encode_utf8_string(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+			break;
+
+		case FR_DER_TAG_PRINTABLE_STRING:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_PRINTABLE_STRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
+
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_printable_string(&our_dbuff, cursor, encode_ctx);
 			if (slen < 0) goto error;
 		}
 

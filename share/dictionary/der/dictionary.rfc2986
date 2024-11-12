@@ -60,6 +60,8 @@ DEFINE Test-String              string
 
 DEFINE Test-String-UTF8         string subtype=utf8string
 
+DEFINE Test-String-Printable    string subtype=printablestring
+
 DEFINE Seq-String               struct
 
 MEMBER Test-String              string
