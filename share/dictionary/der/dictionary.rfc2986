@@ -64,6 +64,8 @@ DEFINE Test-String-Printable    string subtype=printablestring
 
 DEFINE Test-String-T61          string subtype=t61string
 
+DEFINE Test-String-IA5          string subtype=ia5string
+
 DEFINE Seq-String               struct
 
 MEMBER Test-String              string
