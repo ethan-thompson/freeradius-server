@@ -47,7 +47,7 @@ static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr
 static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -71,7 +71,7 @@ static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_OCTETSTRING]      = fr_der_encode_octetstring,
 	[FR_DER_TAG_NULL]	      = fr_der_encode_null,
 	// [FR_DER_TAG_OID]	      = fr_der_encode_oid,
-	// [FR_DER_TAG_ENUMERATED]	      = fr_der_encode_enumerated,
+	[FR_DER_TAG_ENUMERATED]	      = fr_der_encode_enumerated,
 	[FR_DER_TAG_UTF8_STRING]      = fr_der_encode_utf8_string,
 	// [FR_DER_TAG_SEQUENCE]	      = fr_der_encode_sequence,
 	// [FR_DER_TAG_SET]	      = fr_der_encode_set,
@@ -268,6 +268,73 @@ static ssize_t fr_der_encode_null(UNUSED fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	}
 
 	return 0;
+}
+
+static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	int64_t			value;
+	uint8_t			first_octet = 0;
+	ssize_t			slen = 0;
+	size_t			i = 0;
+
+	// Get the current pair
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode enumerated");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.4 Encoding of an enumerated value
+	 *		The encoding of an enumerated value shall be that of the integer value with which it is
+	 *		associated.
+	 *			NOTE – It is primitive.
+	 */
+	value = vp->vp_int64;
+
+	for (; i < sizeof(value); i++) {
+		uint8_t byte = (uint8_t)(value >> (((sizeof(value) * 8) - 8) - (i * 8)));
+
+		if (slen == 0) {
+			first_octet = byte;
+			slen++;
+			continue;
+		} else if (slen == 1) {
+			/*
+			 *	8.3.2 If the contents octets of an integer value encoding consist of more than one octet,
+	 		 *	      then the bits of the first octet and bit 8 of the second octet:
+	 		 *	      a) shall not all be ones; and
+	 		 *	      b) shall not all be zero.
+			 */
+			if ((first_octet == 0xff && (byte & 0x80)) || (first_octet == 0x00 && byte >> 7 == 0)) {
+				if (i == sizeof(value) - 1) {
+					/*
+					 * If this is the only byte, then we can encode it as a single byte.
+					 */
+					fr_dbuff_in(dbuff, byte);
+					continue;
+				}
+
+				first_octet = byte;
+				continue;
+			} else {
+				fr_dbuff_in(dbuff, first_octet);
+				fr_dbuff_in(dbuff, byte);
+				slen ++;
+				continue;
+			}
+		}
+
+		fr_dbuff_in(dbuff, byte);
+		slen++;
+
+	}
+
+	return slen;
 }
 
 static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
@@ -692,20 +759,43 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 		break;
 
 	case FR_TYPE_INTEGER_EXCEPT_BOOL:
-		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_INTEGER, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
-		if (slen < 0) goto error;
+		switch (fr_der_flag_subtype(vp->da)) {
+		default:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_INTEGER, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
 
-		/*
-		 * Mark and reserve space in the buffer for the length field
-		 */
-		fr_dbuff_marker(&marker, &our_dbuff);
-		fr_dbuff_advance(&our_dbuff, 1);
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
 
-		slen = fr_der_encode_integer(&our_dbuff, cursor, encode_ctx);
-		if (slen < 0) goto error;
+			slen = fr_der_encode_integer(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
 
-		slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-		if (slen < 0) goto error;
+			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+			if (slen < 0) goto error;
+
+			break;
+
+		case FR_DER_TAG_ENUMERATED:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_ENUMERATED, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
+
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_enumerated(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+
+			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+			if (slen < 0) goto error;
+
+			break;
+		}
 
 		break;
 
