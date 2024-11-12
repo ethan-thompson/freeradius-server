@@ -60,6 +60,8 @@ fr_dict_attr_t const *attr_der_bitstring_struct_foo;
 fr_dict_attr_t const *attr_der_bitstring_struct_bar;
 fr_dict_attr_t const *attr_der_bitstring_struct_foobar;
 
+fr_dict_attr_t const *attr_der_null;
+
 fr_dict_attr_t const *attr_der_utf8;
 fr_dict_attr_t const *attr_der_context_specific;
 fr_dict_attr_t const *attr_der_subject;
@@ -82,6 +84,8 @@ fr_dict_attr_autoload_t	       libfreeradius_der_dict_attr[] = {
 	       { .out = &attr_der_bitstring_struct_foo, .name = "Bitstring-Struct.Foo", .type = FR_TYPE_UINT8, .dict = &dict_der },
 	       { .out = &attr_der_bitstring_struct_bar, .name = "Bitstring-Struct.Bar", .type = FR_TYPE_UINT8, .dict = &dict_der },
 	       { .out = &attr_der_bitstring_struct_foobar, .name = "Bitstring-Struct.Foo-bar", .type = FR_TYPE_UINT8, .dict = &dict_der },
+
+	       { .out = &attr_der_null, .name = "Test-Null", .type = FR_TYPE_BOOL, .dict = &dict_der },
 
 	       { .out = &attr_der_utf8, .name = "Test-String-UTF8", .type = FR_TYPE_STRING, .dict = &dict_der },
 	       { .out = &attr_der_context_specific, .name = "Test-Context-Specific", .type = FR_TYPE_BOOL, .dict = &dict_der },

@@ -45,7 +45,7 @@ static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr
 static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -67,7 +67,7 @@ static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_INTEGER]	      = fr_der_encode_integer,
 	// [FR_DER_TAG_BITSTRING]	      = fr_der_encode_bitstring,
 	[FR_DER_TAG_OCTETSTRING]      = fr_der_encode_octetstring,
-	// [FR_DER_TAG_NULL]	      = fr_der_encode_null,
+	[FR_DER_TAG_NULL]	      = fr_der_encode_null,
 	// [FR_DER_TAG_OID]	      = fr_der_encode_oid,
 	// [FR_DER_TAG_ENUMERATED]	      = fr_der_encode_enumerated,
 	[FR_DER_TAG_UTF8_STRING]      = fr_der_encode_utf8_string,
@@ -242,6 +242,32 @@ static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	return len;
 }
 
+static ssize_t fr_der_encode_null(UNUSED fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode null");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.8 Encoding of a null value
+	 *	8.8.1 The encoding of a null value shall be primitive.
+	 *	8.8.2 The contents octets shall be zero.
+	 */
+	if (vp->vp_length != 0) {
+		fr_strerror_printf("Null has non-zero length %zu", vp->vp_length);
+		return -1;
+	}
+
+	return 0;
+}
+
 static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_pair_t const		*vp;
@@ -378,21 +404,43 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 		fr_strerror_printf("Unknown type %d", vp->vp_type);
 		break;
 	case FR_TYPE_BOOL:
-		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BOOLEAN, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
-	error:
-		if (slen < 0) return slen;
+		switch (fr_der_flag_subtype(vp->da)) {
+		default:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BOOLEAN, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+		error:
+			if (slen < 0) return slen;
 
-		/*
-		 * Mark and reserve space in the buffer for the length field
-		 */
-		fr_dbuff_marker(&marker, &our_dbuff);
-		fr_dbuff_advance(&our_dbuff, 1);
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
 
-		slen = fr_der_encode_boolean(&our_dbuff, cursor, encode_ctx);
-		if (slen < 0) goto error;
+			slen = fr_der_encode_boolean(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
 
-		slen = fr_der_encode_len(&our_dbuff, &marker, 1);
-		if (slen < 0) goto error;
+			slen = fr_der_encode_len(&our_dbuff, &marker, 1);
+			if (slen < 0) goto error;
+
+			break;
+		case FR_DER_TAG_NULL:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_NULL, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
+
+			/*
+			 * Mark and reserve space in the buffer for the length field
+			 */
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_null(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+
+			slen = fr_der_encode_len(&our_dbuff, &marker, 0);
+			if (slen < 0) goto error;
+
+			break;
+		}
 
 		break;
 
@@ -425,6 +473,24 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 		fr_dbuff_advance(&our_dbuff, 1);
 
 		slen = fr_der_encode_octetstring(&our_dbuff, cursor, encode_ctx);
+		if (slen < 0) goto error;
+
+		slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+		if (slen < 0) goto error;
+
+		break;
+
+	case FR_TYPE_NULL:
+		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_NULL, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+		if (slen < 0) goto error;
+
+		/*
+		 * Mark and reserve space in the buffer for the length field
+		 */
+		fr_dbuff_marker(&marker, &our_dbuff);
+		fr_dbuff_advance(&our_dbuff, 1);
+
+		slen = fr_der_encode_null(&our_dbuff, cursor, encode_ctx);
 		if (slen < 0) goto error;
 
 		slen = fr_der_encode_len(&our_dbuff, &marker, slen);

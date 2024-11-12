@@ -229,12 +229,12 @@ match Seq-Octetstring = { Octetstring = 0xffffffffffffffff }
 proto-dictionary-root Test-Null
 
 decode-pair 05 00
-match Test-NULL = 0
+match Test-NULL = no
 
 proto-dictionary-root Seq-Null
 
 decode-pair 30 02 05 00
-match Seq-Null = { Test-Null = 0 }
+match Seq-Null = { Test-Null = no }
 
 decode-pair 30 02 05 01
 match Insufficient data for length field (1)
@@ -243,7 +243,7 @@ match Insufficient data for length field (1)
 proto-dictionary-root Seq-Integer-Null
 
 decode-pair 30 05 02 01 01 05 00
-match Seq-Integer-Null = { Test-Integer = 1, Test-Null = 0 }
+match Seq-Integer-Null = { Test-Integer = 1, Test-Null = no }
 
 
 proto-dictionary-root Test-Oid
@@ -639,6 +639,15 @@ match 04 01 ff
 
 encode-pair Octetstring = 0xffffffffffffffff
 match 04 08 ff ff ff ff ff ff ff ff
+
+encode-pair Test-NULL = 0
+match 05 00
+
+encode-pair Test-NULL = 1
+match 05 00
+
+encode-pair Test-NULL = 1234
+match 05 00
 
 encode-pair Test-String = "foo"
 match Unknown string sub-type 0
