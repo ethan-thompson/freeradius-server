@@ -199,7 +199,7 @@ static int dict_flag_subtype(fr_dict_attr_t **da_p, char const *value, UNUSED fr
 		{ L("sequence"), FR_DER_TAG_SEQUENCE },
 		{ L("set"), FR_DER_TAG_SET },
 		{ L("t61string"), FR_DER_TAG_T61_STRING },
-		{ L("unicode"), FR_DER_TAG_UNIVERSAL_STRING },
+		{ L("universalstring"), FR_DER_TAG_UNIVERSAL_STRING },
 		{ L("utctime"), FR_DER_TAG_UTC_TIME },
 		{ L("utf8string"), FR_DER_TAG_UTF8_STRING },
 		{ L("visiblestring"), FR_DER_TAG_VISIBLE_STRING },
