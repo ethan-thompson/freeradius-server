@@ -53,7 +53,7 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 // static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_generalized_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -77,7 +77,7 @@ static fr_der_encode_t tag_funcs[] = {
 	// [FR_DER_TAG_SET]	      = fr_der_encode_set,
 	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_encode_printable_string,
 	[FR_DER_TAG_T61_STRING]	      = fr_der_encode_t61_string,
-	// [FR_DER_TAG_IA5_STRING]	      = fr_der_encode_ia5_string,
+	[FR_DER_TAG_IA5_STRING]	      = fr_der_encode_ia5_string,
 	// [FR_DER_TAG_UTC_TIME]	      = fr_der_encode_utc_time,
 	// [FR_DER_TAG_GENERALIZED_TIME] = fr_der_encode_generalized_time,
 	// [FR_DER_TAG_VISIBLE_STRING]   = fr_der_encode_visible_string,
@@ -288,7 +288,7 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	len = vp->vp_length;
 
 	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
-		fr_strerror_const("Failed to copy string value");
+		fr_strerror_const("Failed to copy string value to buffer for UTF8 string");
 		fr_strerror_printf("Failed to copy string value with error number %ld", fr_dbuff_in_memcpy(dbuff, value, len));
 		return -1;
 	}
@@ -302,7 +302,7 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("No pair to encode");
+		fr_strerror_const("No pair to encode sequence");
 		return -1;
 	}
 
@@ -355,7 +355,7 @@ static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 	}
 
 	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
-		fr_strerror_const("Failed to copy string value");
+		fr_strerror_const("Failed to copy string value to buffer for printable string");
 		return -1;
 	}
 
@@ -402,7 +402,7 @@ static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("No pair to encode");
+		fr_strerror_const("No pair to encode T61 string");
 		return -1;
 	}
 
@@ -422,7 +422,32 @@ static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 	}
 
 	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
-		fr_strerror_const("Failed to copy string value");
+		fr_strerror_const("Failed to copy string value to buffer for T61 string");
+		return -1;
+	}
+
+	return len;
+}
+
+static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	char const		*value = NULL;
+	size_t			len;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode IA5 string");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	value = vp->vp_strvalue;
+	len = vp->vp_length;
+
+	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+		fr_strerror_const("Failed to copy string value to buffer for IA5 string");
 		return -1;
 	}
 
@@ -660,6 +685,20 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 			fr_dbuff_advance(&our_dbuff, 1);
 
 			slen = fr_der_encode_t61_string(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+			break;
+
+		case FR_DER_TAG_IA5_STRING:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_IA5_STRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
+
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_ia5_string(&our_dbuff, cursor, encode_ctx);
 			if (slen < 0) goto error;
 			break;
 		}
