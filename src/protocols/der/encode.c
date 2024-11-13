@@ -21,6 +21,7 @@
 #include <freeradius-devel/util/proto.h>
 #include <freeradius-devel/util/struct.h>
 #include <freeradius-devel/util/time.h>
+#include <string.h>
 
 typedef struct {
 	uint8_t *tmp_ctx;
@@ -58,7 +59,7 @@ static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_generalized_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_generalized_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -82,7 +83,7 @@ static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_T61_STRING]	      = fr_der_encode_t61_string,
 	[FR_DER_TAG_IA5_STRING]	      = fr_der_encode_ia5_string,
 	[FR_DER_TAG_UTC_TIME]	      = fr_der_encode_utc_time,
-	// [FR_DER_TAG_GENERALIZED_TIME] = fr_der_encode_generalized_time,
+	[FR_DER_TAG_GENERALIZED_TIME] = fr_der_encode_generalized_time,
 	[FR_DER_TAG_VISIBLE_STRING]   = fr_der_encode_visible_string,
 	[FR_DER_TAG_GENERAL_STRING]   = fr_der_encode_general_string,
 	[FR_DER_TAG_UNIVERSAL_STRING] = fr_der_encode_universal_string,
@@ -710,6 +711,115 @@ static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 	return DER_UTC_TIME_LEN;
 }
 
+static ssize_t fr_der_encode_generalized_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	fr_sbuff_t		time_sbuff;
+	char			fmt_time[50];
+	size_t			i = 0;
+
+	fmt_time[0] = '\0';
+	time_sbuff = FR_SBUFF_OUT(fmt_time, sizeof(fmt_time));
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode generalized time");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.25 Encoding for values of the useful types
+	 *		The following "useful types" shall be encoded as if they had been replaced by their definitions
+	 *		given in clauses 46-48 of Rec. ITU-T X.680 | ISO/IEC 8824-1:
+	 *			– generalized time;
+	 *			– universal time;
+	 *			– object descriptor.
+	 *
+	 *	8.26 Encoding for values of the TIME type and the useful time types
+	 *		8.26 Encoding for values of the TIME type and the useful time types 8.26.1 Encoding for values
+	 *		of the TIME type NOTE – The defined time types are subtypes of the TIME type, with the same
+	 *		tag, and have the same encoding as the TIME type. 8.26.1.1 The encoding of the TIME type shall
+	 *		be primitive. 8.26.1.2 The contents octets shall be the UTF-8 encoding of the value notation,
+	 *		after the removal of initial and final QUOTATION MARK (34) characters.
+	 *
+	 *	11.7 GeneralizedTime
+	 *		11.7.1 The encoding shall terminate with a "Z", as described in the Rec. ITU-T X.680 | ISO/IEC
+	 *		       8824-1 clause on GeneralizedTime.
+	 *		11.7.2 The seconds element shall always be present.
+	 *		11.7.3 The fractional-seconds elements, if present, shall omit all trailing zeros; if the
+	 *		       elements correspond to 0, they shall be wholly omitted, and the decimal point element
+	 *		       also shall be omitted.
+	 */
+
+	/*
+	 *	The format of a generalized time is "YYYYMMDDHHMMSS[.fff]Z"
+	 *	Where:
+	 *	1. YYYY is the year
+	 *	2. MM is the month
+	 *	3. DD is the day
+	 *	4. HH is the hour
+	 *	5. MM is the minute
+	 *	6. SS is the second
+	 *	7. fff is the fraction of a second (optional)
+	 *	8. Z is the timezone (UTC)
+	 */
+
+	fr_unix_time_to_str(&time_sbuff, vp->vp_date, FR_TIME_RES_USEC, true);
+
+	/*
+	 *	Trim the time string of any unwanted characters
+	 */
+	for (; i < sizeof(fmt_time); i++) {
+		if (fmt_time[i] == '\0') {
+			break;
+		}
+
+		if (fmt_time[i] == '-' || fmt_time[i] == 'T' || fmt_time[i] == ':') {
+			size_t j = i;
+
+			while (fmt_time[j] != '\0') {
+				fmt_time[j] = fmt_time[j + 1];
+				j++;
+			}
+
+			fmt_time[j] = '\0';
+
+			continue;
+		}
+
+		if (fmt_time[i] == '.') {
+			/*
+			 *	Remove any trailing zeros
+			 */
+			size_t j = strlen(fmt_time) - 2;
+
+			while (fmt_time[j] == '0') {
+				fmt_time[j] = fmt_time[j + 1];
+				fmt_time[j + 1] = '\0';
+				j--;
+			}
+
+			/*
+			 *	Remove the decimal point if there are no fractional seconds
+			 */
+			if (j == i) {
+				fmt_time[i] = fmt_time[i + 1];
+				fmt_time[i + 1] = '\0';
+			}
+		}
+	}
+
+	if (fr_dbuff_in_memcpy(dbuff, fmt_time, i) <= 0) {
+		fr_strerror_const("Failed to copy string value to buffer for generalized time");
+		return -1;
+	}
+
+	return i;
+}
+
 static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_pair_t const		*vp;
@@ -994,6 +1104,22 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 			fr_dbuff_advance(&our_dbuff, 1);
 
 			slen = fr_der_encode_utc_time(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+
+			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+			if (slen < 0) goto error;
+			break;
+		case FR_DER_TAG_GENERALIZED_TIME:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_GENERALIZED_TIME, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
+
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_generalized_time(&our_dbuff, cursor, encode_ctx);
 			if (slen < 0) goto error;
 
 			slen = fr_der_encode_len(&our_dbuff, &marker, slen);

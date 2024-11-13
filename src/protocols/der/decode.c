@@ -1225,8 +1225,6 @@ static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 static ssize_t fr_der_decode_generalized_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					      fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
-#define DER_GENERALIZED_TIME_LEN_MIN 15
-#define DER_GENERALIZED_TIME_PRECISION_MAX 4
 	fr_pair_t    *vp;
 	fr_dbuff_t    our_in = FR_DBUFF(in);
 	char	      timestr[DER_GENERALIZED_TIME_LEN_MIN + 1];
