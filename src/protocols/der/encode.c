@@ -7,6 +7,7 @@
 #include "lib/util/dcursor.h"
 #include "lib/util/dict_ext.h"
 #include "lib/util/dict_priv.h"
+#include "lib/util/sbuff.h"
 
 #include <freeradius-devel/io/test_point.h>
 
@@ -56,7 +57,7 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_generalized_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -80,7 +81,7 @@ static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_encode_printable_string,
 	[FR_DER_TAG_T61_STRING]	      = fr_der_encode_t61_string,
 	[FR_DER_TAG_IA5_STRING]	      = fr_der_encode_ia5_string,
-	// [FR_DER_TAG_UTC_TIME]	      = fr_der_encode_utc_time,
+	[FR_DER_TAG_UTC_TIME]	      = fr_der_encode_utc_time,
 	// [FR_DER_TAG_GENERALIZED_TIME] = fr_der_encode_generalized_time,
 	[FR_DER_TAG_VISIBLE_STRING]   = fr_der_encode_visible_string,
 	[FR_DER_TAG_GENERAL_STRING]   = fr_der_encode_general_string,
@@ -202,7 +203,6 @@ static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, 
 	uint8_t const		*value = NULL;
 	size_t			len;
 	uint8_t			unused_bits = 0;
-	uint8_t			*data;
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
@@ -658,6 +658,58 @@ static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 	return len;
 }
 
+static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	fr_sbuff_t		time_sbuff;
+	char			fmt_time[50];
+	size_t			i = 0;
+
+	fmt_time[0] = '\0';
+	time_sbuff = FR_SBUFF_OUT(fmt_time, sizeof(fmt_time));
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode UTC time");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	fr_unix_time_to_str(&time_sbuff, vp->vp_date, FR_TIME_RES_SEC, true);
+
+	memmove(fmt_time, &fmt_time[2], sizeof(fmt_time) - 1);
+
+	/*
+	 *	Trim the time string of any unwanted characters
+	 */
+	for (; i < sizeof(fmt_time); i++) {
+		if (fmt_time[i] == '\0') {
+			break;
+		}
+
+		if (fmt_time[i] == '-' || fmt_time[i] == 'T' || fmt_time[i] == ':') {
+			size_t j = i;
+
+			while (fmt_time[j] != '\0') {
+				fmt_time[j] = fmt_time[j + 1];
+				j++;
+			}
+
+			fmt_time[j] = '\0';
+
+			continue;
+		}
+	}
+
+	if (fr_dbuff_in_memcpy(dbuff, fmt_time, DER_UTC_TIME_LEN) <= 0) {
+		fr_strerror_const("Failed to copy string value to buffer for UTC time");
+		return -1;
+	}
+
+	return DER_UTC_TIME_LEN;
+}
+
 static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_pair_t const		*vp;
@@ -930,7 +982,22 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 
 			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
 			if (slen < 0) goto error;
+			break;
+		case FR_DER_TAG_UTC_TIME:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UTC_TIME, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
 
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_utc_time(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+
+			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+			if (slen < 0) goto error;
 			break;
 		}
 
@@ -1131,6 +1198,26 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 			if (slen < 0) goto error;
 			break;
 		}
+		break;
+	// case FR_TYPE_DATE:
+	// 	switch (fr_der_flag_subtype(vp->da)) {
+	// 	default:
+	// 		fr_strerror_printf("Unknown string sub-type %d", fr_der_flag_subtype(vp->da));
+	// 		return -1;
+	// 	case FR_DER_TAG_UTC_TIME:
+	// 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UTC_TIME, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+	// 		if (slen < 0) goto error;
+
+	// 		/*
+	// 		* Mark and reserve space in the buffer for the length field
+	// 		*/
+	// 		fr_dbuff_marker(&marker, &our_dbuff);
+	// 		fr_dbuff_advance(&our_dbuff, 1);
+
+	// 		slen = fr_der_encode_utc_time(&our_dbuff, cursor, encode_ctx);
+	// 		if (slen < 0) goto error;
+	// 		break;
+	// 	}
 	}
 
 	if (slen < 0) goto error;

@@ -680,6 +680,10 @@ match 0a 02 04 d2
 encode-pair Test-Enumerated = A
 match Failed parsing string as type 'int64'
 
+# Test UTC Time
+encode-pair Test-UTC = "2019-12-16T03:02:10Z"
+match 17 0d 31 39 31 32 31 36 30 33 30 32 31 30 5a
+
 encode-pair Test-String = "foo"
 match Unknown string sub-type 0
 
