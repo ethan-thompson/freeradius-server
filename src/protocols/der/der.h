@@ -81,6 +81,8 @@ static inline CC_HINT(always_inline) bool fr_type_to_der_tag_valid(fr_type_t typ
 
 #define DER_MAX_STR 16384
 
+#define DER_UTC_TIME_LEN 13	 //!< Length of the UTC time string.
+
 #define DER_TAG_CLASS_MASK 0xc0	 //!< Mask to extract the class from the tag.
 #define DER_TAG_CONSTRUCTED_MASK 0x20	 //!< Mask to check if the tag is constructed.
 #define DER_TAG_NUM_MASK 0x1f	 //!< Mask to extract the tag number from the tag.

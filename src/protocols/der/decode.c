@@ -1135,7 +1135,6 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 static ssize_t fr_der_decode_utc_time(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 				      fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
-#define DER_UTC_TIME_LEN 13
 	fr_pair_t *vp;
 	fr_dbuff_t our_in = FR_DBUFF(in);
 	char	   timestr[DER_UTC_TIME_LEN + 1];

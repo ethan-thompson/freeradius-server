@@ -79,6 +79,8 @@ MEMBER Test-String              string
 
 DEFINE Test-Date                date
 
+DEFINE Test-UTC                 date subtype=utctime
+
 DEFINE Seq-Date                 struct
 
 MEMBER Test-Date                date
