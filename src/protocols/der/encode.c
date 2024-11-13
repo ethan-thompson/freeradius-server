@@ -43,7 +43,7 @@ typedef struct {
 
 static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -67,7 +67,7 @@ static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_BOOLEAN]	      = fr_der_encode_boolean,
 	[FR_DER_TAG_INTEGER]	      = fr_der_encode_integer,
-	// [FR_DER_TAG_BITSTRING]	      = fr_der_encode_bitstring,
+	[FR_DER_TAG_BITSTRING]	      = fr_der_encode_bitstring,
 	[FR_DER_TAG_OCTETSTRING]      = fr_der_encode_octetstring,
 	[FR_DER_TAG_NULL]	      = fr_der_encode_null,
 	// [FR_DER_TAG_OID]	      = fr_der_encode_oid,
@@ -193,6 +193,75 @@ static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UN
 
 	return slen;
 }
+
+static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	uint8_t const		*value = NULL;
+	size_t			len;
+	uint8_t			unused_bits = 0;
+	uint8_t			*data;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode bitstring");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.6 Encoding of a bitstring value
+	 *		8.6.1 The encoding of a bitstring value shall be either primitive or constructed at the option
+	 *		      of the sender.
+	 *			NOTE – Where it is necessary to transfer part of a bit string before the entire
+	 *			       bitstring is available, the constructed encoding is used.
+	 *		8.6.2 The contents octets for the primitive encoding shall contain an initial octet followed
+	 *		      by zero, one or more subsequent octets.
+	 *			8.6.2.1 The bits in the bitstring value, commencing with the leading bit and proceeding
+	 *				to the trailing bit, shall be placed in bits 8 to 1 of the first subsequent
+	 *				octet, followed by bits 8 to 1 of the second subsequent octet, followed by bits
+	 *				8 to 1 of each octet in turn, followed by as many bits as are needed of the
+	 *				final subsequent octet, commencing with bit 8.
+	 *				NOTE – The terms "leading bit" and "trailing bit" are defined in
+	 *				       Rec. ITU-T X.680 | ISO/IEC 8824-1, 22.2.
+	 *			8.6.2.2 The initial octet shall encode, as an unsigned binary integer with bit 1 as the
+	 *				least significant bit, the number of unused bits in the final subsequent octet.
+	 *				The number shall be in the range zero to seven.
+	 *			8.6.2.3 If the bitstring is empty, there shall be no subsequent octets, and the initial
+	 *				octet shall be zero.
+	 *
+	 *	10.2 String encoding forms
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
+	 *
+	 *	11.2 Unused bits 11.2.1 Each unused bit in the final octet of the encoding of a bit string value shall
+	 *	     be set to zero.
+	 */
+
+	if (fr_type_is_struct(vp->vp_type)) {
+		fr_strerror_const("Bitstring cannot be a struct");
+		return -1;
+	}
+
+	value = vp->vp_octets;
+	len = vp->vp_length;
+
+	if (len == 0) {
+		fr_dbuff_in(dbuff, 0x00);
+		return 1;
+	}
+
+	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+		fr_strerror_const("Failed to copy bitstring value");
+		return -1;
+	}
+
+	return len;
+}
+
+
 
 static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
@@ -800,20 +869,40 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 		break;
 
 	case FR_TYPE_OCTETS:
-		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_OCTETSTRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
-		if (slen < 0) goto error;
+		switch (fr_der_flag_subtype(vp->da)) {
+		default:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_OCTETSTRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
 
-		/*
-		 * Mark and reserve space in the buffer for the length field
-		 */
-		fr_dbuff_marker(&marker, &our_dbuff);
-		fr_dbuff_advance(&our_dbuff, 1);
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
 
-		slen = fr_der_encode_octetstring(&our_dbuff, cursor, encode_ctx);
-		if (slen < 0) goto error;
+			slen = fr_der_encode_octetstring(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
 
-		slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-		if (slen < 0) goto error;
+			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+			if (slen < 0) goto error;
+			break;
+		case FR_DER_TAG_BITSTRING:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BITSTRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
+
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_bitstring(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+
+			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+			if (slen < 0) goto error;
+			break;
+		}
 
 		break;
 
