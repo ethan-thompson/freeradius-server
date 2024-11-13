@@ -684,6 +684,19 @@ match Failed parsing string as type 'int64'
 encode-pair Test-UTC = "2019-12-16T03:02:10Z"
 match 17 0d 31 39 31 32 31 36 30 33 30 32 31 30 5a
 
+# Test GeneralizedTime
+encode-pair Test-Generalized-Time = "2019-12-16T03:02:10Z"
+match 18 0f 32 30 31 39 31 32 31 36 30 33 30 32 31 30 5a
+
+encode-pair Test-Generalized-Time = "2019-12-16T03:02:10.0000Z"
+match 18 0f 32 30 31 39 31 32 31 36 30 33 30 32 31 30 5a
+
+encode-pair Test-Generalized-Time = "2019-12-16T03:02:10.0100Z"
+match 18 12 32 30 31 39 31 32 31 36 30 33 30 32 31 30 2e 30 31 5a
+
+encode-pair Test-Generalized-Time = "2015-12-31T23:59:59.1230Z"
+match 18 13 32 30 31 35 31 32 33 31 32 33 35 39 35 39 2e 31 32 33 5a
+
 encode-pair Test-String = "foo"
 match Unknown string sub-type 0
 
