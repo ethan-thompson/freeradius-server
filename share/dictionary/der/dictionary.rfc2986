@@ -21,13 +21,13 @@ DEFINE Seq-Bitstring-Octets     struct
 
 MEMBER Test-Bitstring           octets
 
-DEFINE Bitstring-Struct         struct
+DEFINE Bitstring-Struct         struct subtype=bitstring
 
 MEMBER foo                      bit[8]
 MEMBER bar                      bit[4]
 MEMBER foo-bar                  bit[4]
 
-DEFINE Bitstring-Struct-7       struct
+DEFINE Bitstring-Struct-7       struct subtype=bitstring
 
 MEMBER foo                      bit[2]
 MEMBER bar                      bit[1]

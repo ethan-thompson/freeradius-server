@@ -184,7 +184,7 @@ proto-dictionary-root Bitstring-Struct
 decode-pair 03 02 00 01
 match Bitstring-Struct = { foo = 1 }
 
-decode-pair 03 02 01 00
+decode-pair 03 02 00 00
 match Bitstring-Struct = { foo = 0 }
 
 decode-pair 03 03 00 FB FB
@@ -635,8 +635,25 @@ match 02 05 7f ff ff ff ff
 encode-pair Test-Integer = 9223372036854775807
 match 02 08 7f ff ff ff ff ff ff ff
 
+# Test Bitstring
+
 encode-pair Test-Bitstring = 0x040a3b5f291cd0
 match 03 07 04 0a 3b 5f 29 1c d0
+
+encode-pair Bitstring-Struct = { foo = 1 }
+match 03 02 00 01
+
+encode-pair Bitstring-Struct = { foo = 0 }
+match 03 02 00 00
+
+encode-pair Bitstring-Struct = { foo = 251, bar = 15, foo-bar = 11 }
+match 03 03 00 fb fb
+
+encode-pair Bitstring-Struct = { foo = 255, bar = 15, foo-bar = 15 }
+match 03 03 00 ff ff
+
+# encode-pair Bitstring-Struct-7 = { foo = 3, bar = yes, foo-bar = 13 }
+# match 03 02 01 FB
 
 encode-pair Octetstring = 0x00
 match 04 01 00
