@@ -5,6 +5,8 @@
 
 #include "der.h"
 #include "lib/util/dcursor.h"
+#include "lib/util/dict_ext.h"
+#include "lib/util/dict_priv.h"
 
 #include <freeradius-devel/io/test_point.h>
 
@@ -241,9 +243,75 @@ static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, 
 	 */
 
 	if (fr_type_is_struct(vp->vp_type)) {
-		fr_strerror_const("Bitstring cannot be a struct");
-		return -1;
+		ssize_t slen;
+		unsigned int depth = 0;
+		fr_da_stack_t da_stack;
+		fr_dbuff_t work_dbuff = FR_DBUFF(dbuff);
+		fr_dbuff_marker_t unused_bits_marker;
+
+		fr_dbuff_marker(&unused_bits_marker, &work_dbuff);
+		fr_dbuff_advance(&work_dbuff, 1);
+
+		fr_proto_da_stack_build(&da_stack, vp->da);
+
+		FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+		slen = fr_struct_to_network(&work_dbuff, &da_stack, depth, cursor, encode_ctx, NULL, NULL);
+		if (slen < 0) {
+			fr_strerror_printf("Failed to encode struct: %s", fr_strerror());
+			return -1;
+		}
+
+		/*
+		 *	We need to trim any empty trailing octets
+		 */
+		while (slen > 1 && fr_dbuff_current(&work_dbuff) != fr_dbuff_start(&work_dbuff)) {
+			uint8_t byte;
+
+			/*
+			 *	Move the dbuff cursor back by one byte
+			 */
+			fr_dbuff_set(&work_dbuff, fr_dbuff_current(&work_dbuff) - sizeof(byte));
+
+			if (fr_dbuff_out(&byte, &work_dbuff) < 0) {
+				fr_strerror_const("Failed to read byte");
+				return -1;
+			}
+
+			if (byte == 0){
+				/*
+				 *	Trim this byte from the buff
+				 */
+				fr_dbuff_set_end(&work_dbuff, fr_dbuff_current(&work_dbuff) - sizeof(byte));
+				fr_dbuff_set(&work_dbuff, fr_dbuff_current(&work_dbuff) - (sizeof(byte) * 2));
+				slen--;
+			} else {
+				break;
+			}
+		}
+
+		/*
+		 *	Write the unused bits
+		 */
+		fr_dbuff_set(dbuff, fr_dbuff_current(&unused_bits_marker));
+		fr_dbuff_in(dbuff, unused_bits);
+
+		/*
+		 *	Copy the work dbuff to the output dbuff
+		 */
+		fr_dbuff_set(&work_dbuff, dbuff);
+		if (fr_dbuff_in_memcpy(dbuff, &work_dbuff, slen) <= 0) {
+			fr_strerror_const("Failed to copy bitstring value");
+			return -1;
+		}
+
+		return slen + 1;
 	}
+
+	/*
+	 *	For octets type, we do not need to write the unused bits portion
+	 *	because this information should be retained when encoding/decoding.
+	 */
 
 	value = vp->vp_octets;
 	len = vp->vp_length;
@@ -1033,18 +1101,36 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 
 		break;
 	case FR_TYPE_STRUCT:
-		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
-		if (slen < 0) goto error;
+		switch (fr_der_flag_subtype(vp->da)) {
+		default:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
+			if (slen < 0) goto error;
 
-		fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_marker(&marker, &our_dbuff);
 
-		slen = fr_der_encode_len(&our_dbuff, &marker, 3);
-		if (slen < 0) goto error;
+			slen = fr_der_encode_len(&our_dbuff, &marker, 3);
+			if (slen < 0) goto error;
 
-		slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
-		if (slen < 0) goto error;
+			slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+			break;
+		case FR_DER_TAG_BITSTRING:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BITSTRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
 
-		break;
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_bitstring(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+
+			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+			if (slen < 0) goto error;
+			break;
+		}
 	}
 
 	if (slen < 0) goto error;
