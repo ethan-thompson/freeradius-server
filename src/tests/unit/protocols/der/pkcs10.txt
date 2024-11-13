@@ -635,6 +635,9 @@ match 02 05 7f ff ff ff ff
 encode-pair Test-Integer = 9223372036854775807
 match 02 08 7f ff ff ff ff ff ff ff
 
+encode-pair Test-Bitstring = 0x040a3b5f291cd0
+match 03 07 04 0a 3b 5f 29 1c d0
+
 encode-pair Octetstring = 0x00
 match 04 01 00
 

@@ -15,7 +15,7 @@ DEFINE Foo-Bar                  struct
 MEMBER Test-Integer             int64
 MEMBER Test-Boolean             bool
 
-DEFINE Test-Bitstring           octets
+DEFINE Test-Bitstring           octets subtype=bitstring
 
 DEFINE Seq-Bitstring-Octets     struct
 
