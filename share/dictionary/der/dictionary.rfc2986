@@ -94,6 +94,20 @@ MEMBER Test-Integer             int64
 
 DEFINE Test-Context-Specific    bool class=context-specific,tagnum=0,subtype=boolean
 
+DEFINE Test-Sequence-TLV        tlv subtype=sequence
+BEGIN-TLV Test-Sequence-TLV
+DEFINE Test-Integer             int64
+DEFINE Test-Boolean             bool
+END-TLV Test-Sequence-TLV
+
+DEFINE Test-TLV                 tlv
+BEGIN-TLV Test-TLV
+DEFINE Test-Integer             int64
+DEFINE Test-Boolean             bool
+END-TLV Test-TLV
+
+DEFINE Test-Sequence-GROUP      group subtype=sequence,ref=Test-TLV
+
 # CSR
 DEFINE subjectAltName           tlv
 BEGIN-TLV subjectAltName

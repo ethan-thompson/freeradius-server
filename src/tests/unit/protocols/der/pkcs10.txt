@@ -781,3 +781,15 @@ match 30 06 02 01 09 01 01 00
 
 encode-pair Foo-Bar = { Test-Integer = 9, Test-Boolean = yes }
 match 30 06 02 01 09 01 01 ff
+
+encode-pair Test-Sequence-TLV  = { Test-Integer = 9, Test-Boolean = no }
+match 30 06 02 01 09 01 01 00
+
+encode-pair Test-Sequence-TLV  = { Test-Integer = 9, Test-Boolean = yes }
+match 30 06 02 01 09 01 01 ff
+
+encode-pair Test-Sequence-Group = { Test-Integer = 9 }
+match 30 03 02 01 09
+
+encode-pair Test-Sequence-Group = { Test-Integer = 9, Test-Boolean = yes }
+match 30 06 02 01 09 01 01 ff

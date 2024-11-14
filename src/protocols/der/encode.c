@@ -506,7 +506,10 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_pair_t const		*vp;
+	fr_da_stack_t da_stack;
+	fr_dcursor_t child_cursor;
 	ssize_t			slen = 0;
+	unsigned int depth = 0;
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
@@ -533,25 +536,48 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 	 *		value which is equal to its default value.
 	 */
 
-	 if (fr_type_is_struct(vp->vp_type)) {
-		fr_da_stack_t da_stack;
-		unsigned int depth = 0;
-
-		fr_proto_da_stack_build(&da_stack, vp->da);
-
-		FR_PROTO_STACK_PRINT(&da_stack, depth);
-
-		slen = fr_struct_to_network(dbuff, &da_stack, depth, cursor, encode_ctx, encode_value, encode_pair);
-
-		if (slen < 0) {
-			fr_strerror_printf("Failed to encode struct: %s", fr_strerror());
+	switch (vp->vp_type) {
+		default:
+			fr_strerror_printf("Unknown type %d", vp->vp_type);
 			return -1;
-		}
+		case FR_TYPE_STRUCT:
+			fr_proto_da_stack_build(&da_stack, vp->da);
 
-		return slen;
-	 }
+			FR_PROTO_STACK_PRINT(&da_stack, depth);
 
-	 return 0;
+			slen = fr_struct_to_network(dbuff, &da_stack, depth, cursor, encode_ctx, encode_value, encode_pair);
+
+			if (slen < 0) {
+				fr_strerror_printf("Failed to encode struct: %s", fr_strerror());
+				return -1;
+			}
+
+			return slen;
+		case FR_TYPE_TLV:
+		case FR_TYPE_GROUP:
+			fr_proto_da_stack_build(&da_stack, vp->da);
+
+			FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+			fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
+
+			do {
+				ssize_t len_count;
+
+				len_count = fr_pair_cursor_to_network(dbuff, &da_stack, depth, &child_cursor, encode_ctx, encode_pair);
+				if (unlikely(len_count < 0)) {
+					fr_strerror_printf("Failed to encode pair: %s", fr_strerror());
+					return -1;
+				}
+
+				slen += len_count;
+
+			} while (fr_dcursor_next(&child_cursor));
+
+			return slen;
+	}
+
+	return -1;
 }
 
 static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
@@ -1365,25 +1391,45 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned
 			break;
 		}
 		break;
-	// case FR_TYPE_DATE:
-	// 	switch (fr_der_flag_subtype(vp->da)) {
-	// 	default:
-	// 		fr_strerror_printf("Unknown string sub-type %d", fr_der_flag_subtype(vp->da));
-	// 		return -1;
-	// 	case FR_DER_TAG_UTC_TIME:
-	// 		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UTC_TIME, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
-	// 		if (slen < 0) goto error;
+	case FR_TYPE_TLV:
+		switch (fr_der_flag_subtype(vp->da)) {
+			default:
+				slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
+				if (slen < 0) goto error;
 
-	// 		/*
-	// 		* Mark and reserve space in the buffer for the length field
-	// 		*/
-	// 		fr_dbuff_marker(&marker, &our_dbuff);
-	// 		fr_dbuff_advance(&our_dbuff, 1);
+				/*
+				 *	Mark and reserve space in the buffer for the length field
+				 */
+				fr_dbuff_marker(&marker, &our_dbuff);
+				fr_dbuff_advance(&our_dbuff, 1);
 
-	// 		slen = fr_der_encode_utc_time(&our_dbuff, cursor, encode_ctx);
-	// 		if (slen < 0) goto error;
-	// 		break;
-	// 	}
+				slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
+				if (slen < 0) goto error;
+
+				slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+				if (slen < 0) goto error;
+				break;
+		}
+		break;
+	case FR_TYPE_GROUP:
+		switch (fr_der_flag_subtype(vp->da)) {
+			default:
+				slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
+				if (slen < 0) goto error;
+
+				/*
+				 *	Mark and reserve space in the buffer for the length field
+				 */
+				fr_dbuff_marker(&marker, &our_dbuff);
+				fr_dbuff_advance(&our_dbuff, 1);
+
+				slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
+				if (slen < 0) goto error;
+
+				slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+				if (slen < 0) goto error;
+				break;
+		}
 	}
 
 	if (slen < 0) goto error;
