@@ -2,7 +2,7 @@ DEFINE Test-Boolean             bool
 
 DEFINE Test-Integer             int64
 
-DEFINE Foo                      struct
+DEFINE Foo                      struct subtype=sequence
 
 MEMBER Test-Integer             int64
 
@@ -10,7 +10,7 @@ DEFINE Bar                      struct
 
 MEMBER Test-Boolean             bool
 
-DEFINE Foo-Bar                  struct
+DEFINE Foo-Bar                  struct subtype=sequence
 
 MEMBER Test-Integer             int64
 MEMBER Test-Boolean             bool

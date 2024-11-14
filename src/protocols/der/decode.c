@@ -1575,7 +1575,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		return -1;
 	}
 
-	if (func->constructed != constructed) {
+	if (IS_DER_TAG_CONSTRUCTED(func->constructed) != constructed) {
 		fr_strerror_printf("Constructed flag mismatch for tag %" PRIu64, tag);
 		return -1;
 	}

@@ -33,7 +33,7 @@ typedef enum {
 
 typedef enum {
 	FR_DER_TAG_PRIMATIVE   = 0x00,	      //!< This is a leaf value, it contains no children.
-	FR_DER_TAG_CONSTRUCTED = 0x01	     //!< This is a sequence or set, it contains children.
+	FR_DER_TAG_CONSTRUCTED = 0x20	     //!< This is a sequence or set, it contains children.
 } fr_der_tag_constructed_t;
 
 typedef enum {

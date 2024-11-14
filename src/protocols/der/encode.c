@@ -53,7 +53,7 @@ static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_de
 // static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 // static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -64,6 +64,8 @@ static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 
+static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned int depth, fr_dcursor_t *cursor, void *encode_ctx);
+static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned int depth, fr_dcursor_t *cursor, void *encode_ctx);
 
 /*
  *	TODO: Use this to simplify the code
@@ -77,7 +79,7 @@ static fr_der_encode_t tag_funcs[] = {
 	// [FR_DER_TAG_OID]	      = fr_der_encode_oid,
 	[FR_DER_TAG_ENUMERATED]	      = fr_der_encode_enumerated,
 	[FR_DER_TAG_UTF8_STRING]      = fr_der_encode_utf8_string,
-	// [FR_DER_TAG_SEQUENCE]	      = fr_der_encode_sequence,
+	[FR_DER_TAG_SEQUENCE]	      = fr_der_encode_sequence,
 	// [FR_DER_TAG_SET]	      = fr_der_encode_set,
 	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_encode_printable_string,
 	[FR_DER_TAG_T61_STRING]	      = fr_der_encode_t61_string,
@@ -504,6 +506,7 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_pair_t const		*vp;
+	ssize_t			slen = 0;
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
@@ -513,9 +516,42 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 
 	PAIR_VERIFY(vp);
 
-	fr_dbuff_in(dbuff, 0x0101FF);
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.9 Encoding of a sequence value
+	 *		8.9.1 The encoding of a sequence value shall be constructed.
+	 *		8.9.2 The contents octets shall consist of the complete encoding of one data value from each of
+	 *		      the types listed in the ASN.1 definition of the sequence type, in the order of their
+	 *		      appearance in the definition, unless the type was referenced with the keyword OPTIONAL
+	 *		      or the keyword DEFAULT.
+	 *		8.9.3 The encoding of a data value may, but need not, be present for a type referenced with the
+	 *		      keyword OPTIONAL or the keyword DEFAULT. If present, it shall appear in the order of
+	 *		      appearance of the corresponding type in the ASN.1 definition.
+	 *
+	 *	11.5 Set and sequence components with default value
+	 *		The encoding of a set value or sequence value shall not include an encoding for any component
+	 *		value which is equal to its default value.
+	 */
 
-	return 1;
+	 if (fr_type_is_struct(vp->vp_type)) {
+		fr_da_stack_t da_stack;
+		unsigned int depth = 0;
+
+		fr_proto_da_stack_build(&da_stack, vp->da);
+
+		FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+		slen = fr_struct_to_network(dbuff, &da_stack, depth, cursor, encode_ctx, encode_value, encode_pair);
+
+		if (slen < 0) {
+			fr_strerror_printf("Failed to encode struct: %s", fr_strerror());
+			return -1;
+		}
+
+		return slen;
+	 }
+
+	 return 0;
 }
 
 static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
@@ -990,7 +1026,7 @@ ssize_t fr_der_encode_tag(fr_dbuff_t *dbuff, fr_der_tag_num_t tag_num, fr_der_ta
 
 /** Encode a DER structure
  */
-static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode_ctx)
+static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned int depth, fr_dcursor_t *cursor, void *encode_ctx)
 {
 	fr_pair_t const		*vp;
 	ssize_t			slen = 0;
@@ -1299,12 +1335,16 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
 			if (slen < 0) goto error;
 
+			/*
+			 *	Mark and reserve space in the buffer for the length field
+			 */
 			fr_dbuff_marker(&marker, &our_dbuff);
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, 3);
-			if (slen < 0) goto error;
+			fr_dbuff_advance(&our_dbuff, 1);
 
 			slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+
+			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
 			if (slen < 0) goto error;
 			break;
 		case FR_DER_TAG_BITSTRING:
@@ -1353,6 +1393,16 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode
 	return fr_dbuff_set(dbuff, &our_dbuff);
 }
 
+static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned int depth, fr_dcursor_t *cursor, void *encode_ctx)
+{
+	return encode_value(dbuff, da_stack, depth, cursor, encode_ctx);
+}
+
+static ssize_t der_encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode_ctx)
+{
+	return encode_pair(dbuff, NULL, 0, cursor, encode_ctx);
+}
+
 static ssize_t fr_der_encode_proto(UNUSED TALLOC_CTX *ctx, fr_pair_list_t *vps, uint8_t *data, size_t data_len, void *encode_ctx)
 {
 	fr_dbuff_t		dbuff;
@@ -1363,7 +1413,7 @@ static ssize_t fr_der_encode_proto(UNUSED TALLOC_CTX *ctx, fr_pair_list_t *vps, 
 
 	fr_pair_dcursor_init(&cursor, vps);
 
-	slen = encode_pair(&dbuff, &cursor, encode_ctx);
+	slen = der_encode_pair(&dbuff, &cursor, encode_ctx);
 
 	if (slen < 0) {
 		fr_strerror_printf("Failed to encode data: %s", fr_strerror());
@@ -1379,7 +1429,7 @@ static ssize_t fr_der_encode_proto(UNUSED TALLOC_CTX *ctx, fr_pair_list_t *vps, 
 extern fr_test_point_pair_encode_t der_tp_encode_pair;
 fr_test_point_pair_encode_t der_tp_encode_pair = {
 	.test_ctx	= encode_test_ctx,
-	.func		= encode_pair,
+	.func		= der_encode_pair,
 };
 
 extern fr_test_point_proto_encode_t der_tp_encode_proto;
