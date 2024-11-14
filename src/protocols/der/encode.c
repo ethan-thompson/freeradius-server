@@ -54,7 +54,7 @@ static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_de
 static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -66,6 +66,7 @@ static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 
 static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned int depth, fr_dcursor_t *cursor, void *encode_ctx);
 static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned int depth, fr_dcursor_t *cursor, void *encode_ctx);
+static ssize_t der_encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode_ctx);
 
 /*
  *	TODO: Use this to simplify the code
@@ -80,7 +81,7 @@ static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_ENUMERATED]	      = fr_der_encode_enumerated,
 	[FR_DER_TAG_UTF8_STRING]      = fr_der_encode_utf8_string,
 	[FR_DER_TAG_SEQUENCE]	      = fr_der_encode_sequence,
-	// [FR_DER_TAG_SET]	      = fr_der_encode_set,
+	[FR_DER_TAG_SET]	      = fr_der_encode_set,
 	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_encode_printable_string,
 	[FR_DER_TAG_T61_STRING]	      = fr_der_encode_t61_string,
 	[FR_DER_TAG_IA5_STRING]	      = fr_der_encode_ia5_string,
@@ -103,6 +104,24 @@ static int encode_test_ctx(void **out, TALLOC_CTX *ctx)
 	*out = test_ctx;
 
 	return 0;
+}
+
+static inline CC_HINT(always_inline)
+int8_t fr_der_pair_cmp_by_da(void const *a, void const *b)
+{
+	fr_pair_t const *my_a = a;
+	fr_pair_t const *my_b = b;
+
+	int foo = fr_der_flag_subtype(my_a->da);
+	int bar = fr_der_flag_subtype(my_b->da);
+
+	if (foo > bar) return 1;
+
+	if (foo < bar) return -1;
+
+	return 0;
+
+	// return CMP_PREFER_SMALLER(fr_der_flag_subtype(my_a->da), fr_der_flag_subtype(my_b->da));
 }
 
 static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
@@ -576,6 +595,120 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 
 			return slen;
 		case FR_TYPE_GROUP:
+			ref = fr_dict_attr_ref(vp->da);
+
+			if (ref && (ref->dict != dict_der)) {
+				fr_strerror_printf("Group %s is not a DER group", ref->name);
+				return -1;
+			}
+
+			fr_proto_da_stack_build(&da_stack, vp->da);
+
+			FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+			if (!fr_pair_list_empty(&vp->vp_group)) {
+				(void) fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
+
+				while (fr_dcursor_current(&child_cursor)) {
+					ssize_t len_count;
+
+					len_count = fr_pair_cursor_to_network(dbuff, &da_stack, depth, &child_cursor, encode_ctx, encode_pair);
+					if (unlikely(len_count < 0)) {
+						fr_strerror_printf("Failed to encode pair: %s", fr_strerror());
+						return -1;
+					}
+
+					slen += len_count;
+				}
+
+				return slen;
+			}
+	}
+
+	return -1;
+}
+
+static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t		*vp;
+	fr_da_stack_t da_stack;
+	fr_dcursor_t child_cursor;
+	fr_dict_attr_t const *ref = NULL;
+	ssize_t			slen = 0;
+	unsigned int depth = 0;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode sequence");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.11 Encoding of a set value
+	 *		8.11.1 The encoding of a set value shall be constructed.
+	 *		8.11.2 The contents octets shall consist of the complete encoding of one data value from each
+	 *		       of the types listed in the ASN.1 definition of the set type, in an order chosen by the
+	 *		       sender, unless the type was referenced with the keyword OPTIONAL or the keyword DEFAULT.
+	 *		8.11.3 The encoding of a data value may, but need not, be present for a type referenced with the
+	 *		       keyword OPTIONAL or the keyword DEFAULT.
+	 *
+	 *	11.5 Set and sequence components with default value
+	 *		The encoding of a set value or sequence value shall not include an encoding for any component
+	 *		value which is equal to its default value.
+	 */
+
+	switch (vp->vp_type) {
+		default:
+			fr_strerror_printf("Unknown type %d", vp->vp_type);
+			return -1;
+		case FR_TYPE_STRUCT:
+			/*
+			 * 	Note: Structures should be in the correct order in the dictionary.
+			 *	if they are not, the dictionary loader should complain.
+			 */
+
+			fr_proto_da_stack_build(&da_stack, vp->da);
+
+			FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+			slen = fr_struct_to_network(dbuff, &da_stack, depth, cursor, encode_ctx, encode_value, encode_pair);
+
+			if (slen < 0) {
+				fr_strerror_printf("Failed to encode struct: %s", fr_strerror());
+				return -1;
+			}
+
+			return slen;
+		case FR_TYPE_TLV:
+			fr_pair_list_sort(&vp->children, fr_der_pair_cmp_by_da);
+
+			fr_proto_da_stack_build(&da_stack, vp->da);
+
+			FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+			fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
+
+			do {
+				ssize_t len_count;
+
+				len_count = fr_pair_cursor_to_network(dbuff, &da_stack, depth, &child_cursor, encode_ctx, encode_pair);
+				// len_count = der_encode_pair(dbuff, &child_cursor, encode_ctx);
+				if (unlikely(len_count < 0)) {
+					fr_strerror_printf("Failed to encode pair: %s", fr_strerror());
+					return -1;
+				}
+
+				slen += len_count;
+
+			} while (fr_dcursor_next(&child_cursor));
+
+			return slen;
+		case FR_TYPE_GROUP:
+			fr_pair_list_sort(&vp->vp_group, fr_der_pair_cmp_by_da);
+
 			ref = fr_dict_attr_ref(vp->da);
 
 			if (ref && (ref->dict != dict_der)) {
@@ -1402,6 +1535,22 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned
 			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
 			if (slen < 0) goto error;
 			break;
+		case FR_DER_TAG_SET:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SET, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
+			if (slen < 0) goto error;
+
+			/*
+			 *	Mark and reserve space in the buffer for the length field
+			 */
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_set(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+
+			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+			if (slen < 0) goto error;
+			break;
 		case FR_DER_TAG_BITSTRING:
 			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BITSTRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
 			if (slen < 0) goto error;
@@ -1438,6 +1587,22 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned
 				slen = fr_der_encode_len(&our_dbuff, &marker, slen);
 				if (slen < 0) goto error;
 				break;
+			case FR_DER_TAG_SET:
+				slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SET, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
+				if (slen < 0) goto error;
+
+				/*
+				*	Mark and reserve space in the buffer for the length field
+				*/
+				fr_dbuff_marker(&marker, &our_dbuff);
+				fr_dbuff_advance(&our_dbuff, 1);
+
+				slen = fr_der_encode_set(&our_dbuff, cursor, encode_ctx);
+				if (slen < 0) goto error;
+
+				slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+				if (slen < 0) goto error;
+				break;
 		}
 		break;
 	case FR_TYPE_GROUP:
@@ -1453,6 +1618,22 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned
 				fr_dbuff_advance(&our_dbuff, 1);
 
 				slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
+				if (slen < 0) goto error;
+
+				slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+				if (slen < 0) goto error;
+				break;
+			case FR_DER_TAG_SET:
+				slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SET, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
+				if (slen < 0) goto error;
+
+				/*
+				*	Mark and reserve space in the buffer for the length field
+				*/
+				fr_dbuff_marker(&marker, &our_dbuff);
+				fr_dbuff_advance(&our_dbuff, 1);
+
+				slen = fr_der_encode_set(&our_dbuff, cursor, encode_ctx);
 				if (slen < 0) goto error;
 
 				slen = fr_der_encode_len(&our_dbuff, &marker, slen);

@@ -102,11 +102,28 @@ END-TLV Test-Sequence-TLV
 
 DEFINE Test-TLV                 tlv
 BEGIN-TLV Test-TLV
-DEFINE Test-Integer             int64
-DEFINE Test-Boolean             bool
+DEFINE Test-Integer             int64 subtype=integer
+DEFINE Test-Boolean             bool subtype=boolean
 END-TLV Test-TLV
 
 DEFINE Test-Sequence-GROUP      group subtype=sequence,ref=Test-TLV
+
+DEFINE Test-Set-Struct          struct subtype=set
+
+MEMBER Test-Boolean             bool subtype=boolean
+MEMBER Test-Integer             int64 subtype=integer
+
+DEFINE Test-Set-Bad-Struct      struct subtype=set
+MEMBER Test-Integer             int64 subtype=integer
+MEMBER Test-Boolean             bool subtype=boolean
+
+DEFINE Test-Set-TLV             tlv subtype=set
+BEGIN-TLV Test-Set-TLV
+DEFINE Test-Integer             int64 subtype=integer
+DEFINE Test-Boolean             bool subtype=boolean
+END-TLV Test-Set-TLV
+
+DEFINE Test-Set-GROUP      group subtype=set,ref=Test-TLV
 
 # CSR
 DEFINE subjectAltName           tlv

@@ -793,3 +793,21 @@ match 30 03 02 01 09
 
 encode-pair Test-Sequence-Group = { Test-Integer = 9, Test-Boolean = yes }
 match 30 06 02 01 09 01 01 ff
+
+encode-pair Test-Set-Struct = { Test-Integer = 9, Test-Boolean = no }
+match 31 06 01 01 00 02 01 09
+
+encode-pair Test-Set-Struct = { Test-Integer = 9, Test-Boolean = yes }
+match 31 06 01 01 ff 02 01 09
+
+encode-pair Test-Set-TLV  = { Test-Integer = 9, Test-Boolean = no }
+match 31 06 01 01 00 02 01 09
+
+encode-pair Test-Set-TLV  = { Test-Integer = 9, Test-Boolean = yes }
+match 31 06 01 01 ff 02 01 09
+
+encode-pair Test-Set-GROUP = { Test-Integer = 9 }
+match 31 03 02 01 09
+
+encode-pair Test-Set-GROUP = { Test-Integer = 9, Test-Boolean = yes }
+match 31 06 01 01 ff 02 01 09
