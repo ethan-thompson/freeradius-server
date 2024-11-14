@@ -81,6 +81,8 @@ DEFINE Test-Date                date
 
 DEFINE Test-UTC                 date subtype=utctime
 
+DEFINE Test-Generalized-Time    date subtype=generalizedtime
+
 DEFINE Seq-Date                 struct
 
 MEMBER Test-Date                date
