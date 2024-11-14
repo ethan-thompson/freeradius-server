@@ -508,6 +508,7 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 	fr_pair_t const		*vp;
 	fr_da_stack_t da_stack;
 	fr_dcursor_t child_cursor;
+	fr_dict_attr_t const *ref = NULL;
 	ssize_t			slen = 0;
 	unsigned int depth = 0;
 
@@ -554,7 +555,6 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 
 			return slen;
 		case FR_TYPE_TLV:
-		case FR_TYPE_GROUP:
 			fr_proto_da_stack_build(&da_stack, vp->da);
 
 			FR_PROTO_STACK_PRINT(&da_stack, depth);
@@ -575,6 +575,35 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 			} while (fr_dcursor_next(&child_cursor));
 
 			return slen;
+		case FR_TYPE_GROUP:
+			ref = fr_dict_attr_ref(vp->da);
+
+			if (ref && (ref->dict != dict_der)) {
+				fr_strerror_printf("Group %s is not a DER group", ref->name);
+				return -1;
+			}
+
+			fr_proto_da_stack_build(&da_stack, vp->da);
+
+			FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+			if (!fr_pair_list_empty(&vp->vp_group)) {
+				(void) fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
+
+				while (fr_dcursor_current(&child_cursor)) {
+					ssize_t len_count;
+
+					len_count = fr_pair_cursor_to_network(dbuff, &da_stack, depth, &child_cursor, encode_ctx, encode_pair);
+					if (unlikely(len_count < 0)) {
+						fr_strerror_printf("Failed to encode pair: %s", fr_strerror());
+						return -1;
+					}
+
+					slen += len_count;
+				}
+
+				return slen;
+			}
 	}
 
 	return -1;
