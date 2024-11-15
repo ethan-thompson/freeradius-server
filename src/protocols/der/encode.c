@@ -50,7 +50,7 @@ static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr
 static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_null(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
-// static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -77,7 +77,7 @@ static fr_der_encode_t tag_funcs[] = {
 	[FR_DER_TAG_BITSTRING]	      = fr_der_encode_bitstring,
 	[FR_DER_TAG_OCTETSTRING]      = fr_der_encode_octetstring,
 	[FR_DER_TAG_NULL]	      = fr_der_encode_null,
-	// [FR_DER_TAG_OID]	      = fr_der_encode_oid,
+	[FR_DER_TAG_OID]	      = fr_der_encode_oid,
 	[FR_DER_TAG_ENUMERATED]	      = fr_der_encode_enumerated,
 	[FR_DER_TAG_UTF8_STRING]      = fr_der_encode_utf8_string,
 	[FR_DER_TAG_SEQUENCE]	      = fr_der_encode_sequence,
@@ -427,6 +427,142 @@ static ssize_t fr_der_encode_null(UNUSED fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	}
 
 	return 0;
+}
+
+static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const		*vp;
+	char const		*value;
+	char 			buffer[21];
+	uint64_t		subidentifier = 0;
+	uint8_t			first_component = 0;
+	size_t			len = 0, buffer_len = 0;
+	size_t			index = 0, bit_index;
+	bool			started_subidentifier = false, subsequent = false;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode OID");
+		return -1;
+	}
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.19 Encoding of an object identifier value
+	 *	8.19.1 The encoding of an object identifier value shall be primitive.
+	 *	8.19.2 The contents octets shall be an (ordered) list of encodings of subidentifiers (see 8.19.3
+	 *	       and 8.19.4) concatenated together. Each subidentifier is represented as a series of
+	 *	       (one or more) octets. Bit 8 of each octet indicates whether it is the last in the series: bit 8
+	 *	       of the last octet is zero; bit 8 of each preceding octet is one. Bits 7 to 1 of the octets in
+	 *	       the series collectively encode the subidentifier. Conceptually, these groups of bits are
+	 *	       concatenated to form an unsigned binary number whose most significant bit is bit 7 of the first
+	 *	       octet and whose least significant bit is bit 1 of the last octet. The subidentifier shall be
+	 *	       encoded in the fewest possible octets, that is, the leading octet of the subidentifier shall not
+	 *	       have the value 8016.
+	 *	8.19.3 The number of subidentifiers (N) shall be one less than the number of object identifier
+	 *		components in the object identifier value being encoded. 8.19.4 The numerical value of the
+	 *		first subidentifier is derived from the values of the first two object identifier components in
+	 *		the object identifier value being encoded, using the formula: (X*40) + Y where X is the value
+	 *		of the first object identifier component and Y is the value of the second object identifier
+	 *		component. NOTE – This packing of the first two object identifier components recognizes that
+	 *		only three values are allocated from the root node, and at most 39 subsequent values from nodes
+	 *		reached by X = 0 and X = 1. 8.19.5 The numerical value of the ith subidentifier, (2 ≤ i ≤ N) is
+	 *		that of the (i + 1)th object identifier component.
+	 */
+
+	/*
+	 *	The first subidentifier is the encoding of the first two object identifier components, encoded as:
+	 *		(X * 40) + Y
+	 *	where X is the first number and Y is the second number.
+	 *	The first number is 0, 1, or 2.
+	 */
+
+	PAIR_VERIFY(vp);
+
+	value = vp->vp_strvalue;
+
+	first_component = (uint8_t)(strtol(&value[0], NULL, 10));
+
+	value += 2;
+
+	for (; index < strlen(value) + 1; index++) {
+		uint8_t byte = 0;
+		if (value[index] == '.' || value[index] == '\0') {
+			/*
+			 *	We have a subidentifier
+			 */
+			started_subidentifier = false;
+			bit_index = sizeof(subidentifier) * 8;
+
+			if (buffer_len == 0) {
+				fr_strerror_const("Empty buffer for final subidentifier");
+				return -1;
+			}
+
+			if (!subsequent){
+				subidentifier = (first_component * 40) + (uint64_t)strtol(buffer, NULL, 10);
+				subsequent = true;
+			} else {
+				subidentifier = (uint64_t)strtol(buffer, NULL, 10);
+			}
+
+			/*
+			 *	We will be reading the subidentifier 7 bits at a time
+			 */
+			while (bit_index > 7) {
+				if (!started_subidentifier && ((uint8_t)(subidentifier >> (bit_index - 8)) == 0)) {
+					bit_index -= 8;
+					continue;
+				}
+
+				byte = 0;
+
+				if (!started_subidentifier) {
+					started_subidentifier = true;
+					byte = (uint8_t)(subidentifier >> (bit_index -= (bit_index % 7)));
+
+					if (byte == 0) {
+						if (bit_index <= 7){
+							break;
+						}
+
+						byte = (uint8_t)(subidentifier >> (bit_index -= 7));
+
+						if (byte == 0){
+							byte = (uint8_t)(subidentifier >> (bit_index -= 7));
+						}
+					}
+
+				} else {
+					byte = (uint8_t)(subidentifier >> (bit_index -= 7));
+				}
+
+				byte = byte | 0x80;
+
+				fr_dbuff_in(dbuff, byte);
+				started_subidentifier = true;
+				len++;
+			}
+
+			/*
+			 *	Tack on the last byte
+			 */
+			byte = (uint8_t)(subidentifier);
+
+			byte = byte & 0x7f;
+
+			fr_dbuff_in(dbuff, byte);
+			memset(buffer, 0, sizeof(buffer));
+			buffer_len = 0;
+			len++;
+
+			continue;
+		}
+
+		buffer[buffer_len++] = value[index];
+	}
+
+	return len;
 }
 
 static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
@@ -1509,6 +1645,19 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned
 			fr_dbuff_advance(&our_dbuff, 1);
 
 			slen = fr_der_encode_universal_string(&our_dbuff, cursor, encode_ctx);
+			if (slen < 0) goto error;
+			break;
+		case FR_DER_TAG_OID:
+			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_OID, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) goto error;
+
+			/*
+			* Mark and reserve space in the buffer for the length field
+			*/
+			fr_dbuff_marker(&marker, &our_dbuff);
+			fr_dbuff_advance(&our_dbuff, 1);
+
+			slen = fr_der_encode_oid(&our_dbuff, cursor, encode_ctx);
 			if (slen < 0) goto error;
 			break;
 		}

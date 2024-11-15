@@ -50,10 +50,10 @@ DEFINE Seq-Integer-Null         struct
 MEMBER Test-Integer             int64
 MEMBER Test-Null                bool subtype=null
 
-DEFINE Test-Oid                 string
+DEFINE Test-Oid                 string subtype=oid
 
-DEFINE Seq-Oid                  struct
-MEMBER Test-Oid                 string
+DEFINE Seq-Oid                  struct subtype=sequence
+MEMBER Test-Oid                 string subtype=oid
 
 DEFINE Test-Enumerated          int64 subtype=enumerated
 
