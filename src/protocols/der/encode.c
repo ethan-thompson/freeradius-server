@@ -111,16 +111,7 @@ int8_t fr_der_pair_cmp_by_da(void const *a, void const *b)
 	fr_pair_t const *my_a = a;
 	fr_pair_t const *my_b = b;
 
-	int foo = fr_der_flag_subtype(my_a->da);
-	int bar = fr_der_flag_subtype(my_b->da);
-
-	if (foo > bar) return 1;
-
-	if (foo < bar) return -1;
-
-	return 0;
-
-	// return CMP_PREFER_SMALLER(fr_der_flag_subtype(my_a->da), fr_der_flag_subtype(my_b->da));
+	return CMP_PREFER_SMALLER(fr_der_flag_subtype(my_a->da), fr_der_flag_subtype(my_b->da));
 }
 
 static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
