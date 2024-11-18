@@ -156,10 +156,9 @@ static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UN
 	ssize_t			slen = 0;
 	size_t			i = 0;
 
-	// Get the current pair
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("No pair to encode");
+		fr_strerror_const("No pair to encode integer");
 		return -1;
 	}
 
@@ -184,7 +183,6 @@ static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UN
 
 	for (; i < sizeof(value); i++) {
 		uint8_t byte = (uint8_t)(value >> (((sizeof(value) * 8) - 8) - (i * 8)));
-		// uint8_t byte = (uint8_t)(value << ((i) * 8));
 
 		if (slen == 0) {
 			first_octet = byte;
