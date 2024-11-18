@@ -1078,6 +1078,42 @@ static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 
 	PAIR_VERIFY(vp);
 
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.25 Encoding for values of the useful types
+	 *		The following "useful types" shall be encoded as if they had been replaced by their definitions
+	 *		given in clauses 46-48 of Rec. ITU-T X.680 | ISO/IEC 8824-1:
+	 *			– generalized time;
+	 *			– universal time;
+	 *			– object descriptor.
+	 *
+	 *	8.26 Encoding for values of the TIME type and the useful time types
+	 *		8.26 Encoding for values of the TIME type and the useful time types 8.26.1 Encoding for values
+	 *		of the TIME type NOTE – The defined time types are subtypes of the TIME type, with the same
+	 *		tag, and have the same encoding as the TIME type. 8.26.1.1 The encoding of the TIME type shall
+	 *		be primitive. 8.26.1.2 The contents octets shall be the UTF-8 encoding of the value notation,
+	 *		after the removal of initial and final QUOTATION MARK (34) characters.
+	 *
+	 *	11.8 UTCTime
+	 *		11.8.1 The encoding shall terminate with "Z", as described in the ITU-T X.680 | ISO/IEC 8824-1
+	 *		       clause on UTCTime.
+	 *		11.8.2 The seconds element shall always be present.
+	 *		11.8.3 Midnight (GMT) shall be represented as "YYMMDD000000Z", where "YYMMDD" represents the
+	 *		       day following the midnight in question.
+	 */
+
+	/*
+	 *	The format of a UTC time is "YYMMDDhhmmssZ"
+	 *	Where:
+	 *	1. YY is the year
+	 *	2. MM is the month
+	 *	3. DD is the day
+	 *	4. hh is the hour
+	 *	5. mm is the minute
+	 *	6. ss is the second (not optional in DER)
+	 *	7. Z is the timezone (UTC)
+	 */
 	fr_unix_time_to_str(&time_sbuff, vp->vp_date, FR_TIME_RES_SEC, true);
 
 	memmove(fmt_time, &fmt_time[2], sizeof(fmt_time) - 1);
