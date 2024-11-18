@@ -1350,7 +1350,7 @@ ssize_t fr_der_encode_tag(fr_dbuff_t *dbuff, fr_der_tag_num_t tag_num, fr_der_ta
 
 /** Encode a DER structure
  */
-static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned int depth, fr_dcursor_t *cursor, void *encode_ctx)
+static ssize_t encode_value(UNUSED fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, UNUSED unsigned int depth, fr_dcursor_t *cursor, void *encode_ctx)
 {
 	fr_pair_t const		*vp;
 	ssize_t			slen = 0;
