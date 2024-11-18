@@ -6,7 +6,6 @@
 #include "der.h"
 #include "lib/util/dcursor.h"
 #include "lib/util/dict_ext.h"
-#include "lib/util/dict_priv.h"
 #include "lib/util/sbuff.h"
 
 #include <freeradius-devel/io/test_point.h>
