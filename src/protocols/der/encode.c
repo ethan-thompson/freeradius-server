@@ -787,7 +787,7 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("No pair to encode sequence");
+		fr_strerror_const("No pair to encode set");
 		return -1;
 	}
 
@@ -844,7 +844,6 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 
 			len_count = fr_pair_cursor_to_network(dbuff, &da_stack, depth, &child_cursor, encode_ctx,
 							      encode_pair);
-			// len_count = der_encode_pair(dbuff, &child_cursor, encode_ctx);
 			if (unlikely(len_count < 0)) {
 				fr_strerror_printf("Failed to encode pair: %s", fr_strerror());
 				return -1;
