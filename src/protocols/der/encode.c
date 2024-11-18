@@ -121,12 +121,26 @@ static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UN
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
-		fr_strerror_const("No pair to encode");
+		fr_strerror_const("No pair to encode boolean");
 		return -1;
 	}
 
 	PAIR_VERIFY(vp);
 
+
+	/*
+	 * 	ISO/IEC 8825-1:2021
+	 * 	8.2 Encoding of a boolean value
+	 * 	8.2.1 The encoding of a boolean value shall be primitive.
+	 *       	The contents octets shall consist of a single octet.
+	 * 	8.2.2 If the boolean value is:
+	 *       	FALSE the octet shall be zero [0x00].
+	 *       	If the boolean value is TRUE the octet shall have any non-zero value, as a sender's option.
+	 *
+	 * 	11.1 Boolean values
+	 * 		If the encoding represents the boolean value TRUE, its single contents octet shall have all
+	 *		eight bits set to one [0xFF]. (Contrast with 8.2.2.)
+	 */
 	value = vp->vp_bool;
 
 	fr_dbuff_in(dbuff, (uint8_t)(value ? 0xff : 0x00));
