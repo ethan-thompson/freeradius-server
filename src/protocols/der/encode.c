@@ -421,7 +421,8 @@ static ssize_t fr_der_encode_null(UNUSED fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	 *	ISO/IEC 8825-1:2021
 	 *	8.8 Encoding of a null value
 	 *	8.8.1 The encoding of a null value shall be primitive.
-	 *	8.8.2 The contents octets shall be zero.
+	 *	8.8.2 The contents octets shall not contain any octets.
+	 * 		NOTE – The length octet is zero.
 	 */
 	if (vp->vp_length != 0) {
 		fr_strerror_printf("Null has non-zero length %zu", vp->vp_length);
