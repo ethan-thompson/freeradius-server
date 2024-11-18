@@ -996,6 +996,15 @@ static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 
 	PAIR_VERIFY(vp);
 
+	/*
+	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
+	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
+	 *	     shall be encoded independently of other data values of the same type.
+	 *
+	 *	10.2 String encoding forms
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of encoding shall
+	 *		not be used. (Contrast with 8.23.6.)
+	 */
 	value = vp->vp_strvalue;
 	len   = vp->vp_length;
 
