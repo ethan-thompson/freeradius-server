@@ -576,7 +576,6 @@ static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 	ssize_t			slen = 0;
 	size_t			i = 0;
 
-	// Get the current pair
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("No pair to encode enumerated");
@@ -629,7 +628,6 @@ static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 
 		fr_dbuff_in(dbuff, byte);
 		slen++;
-
 	}
 
 	return slen;
