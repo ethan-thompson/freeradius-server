@@ -1508,19 +1508,14 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	return fr_dbuff_set(in, &our_in);
 }
 
-static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
-					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, uint64_t *tag, size_t *len)
 {
 	fr_dbuff_t		 our_in = FR_DBUFF(in);
-	ssize_t			 slen;
 	uint8_t			 tag_byte;
-	uint64_t		 tag;
+	uint8_t			 len_byte;
+	fr_der_tag_decode_t	*func;
 	fr_der_tag_class_t	 tag_flags;
 	fr_der_tag_constructed_t constructed;
-
-	uint8_t		     len_byte;
-	size_t		     len = 0;
-	fr_der_tag_decode_t *func;
 
 	if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) return 0;
 
@@ -1540,7 +1535,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		fr_strerror_const("Multi-byte tags are not supported");
 		return -1;
 	} else {
-		tag = tag_byte & DER_TAG_CONTINUATION;
+		*tag = tag_byte & DER_TAG_CONTINUATION;
 	}
 
 	/*
@@ -1551,32 +1546,33 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		 *	The data type will need to be resolved using the dictionary and the tag value
 		 */
 
-		if (tag_flags == fr_der_flag_class(parent)){
-			if (tag == fr_der_flag_tagnum(parent)){
-				tag = fr_der_flag_subtype(parent);
-			} else{
+		if (tag_flags == fr_der_flag_class(parent)) {
+			if (*tag == fr_der_flag_tagnum(parent)) {
+				*tag = fr_der_flag_subtype(parent);
+			} else {
 				goto bad_tag;
 			}
 		} else {
 		bad_tag:
-			fr_strerror_printf("Invalid tag %llu for attribute %s. Expected %u", tag, parent->name, fr_der_flag_tagnum(parent));
+			fr_strerror_printf("Invalid tag %llu for attribute %s. Expected %u", *tag, parent->name,
+					   fr_der_flag_tagnum(parent));
 			return -1;
 		}
 	}
 
-	if ((tag > NUM_ELEMENTS(tag_funcs)) || (tag == 0)) {
-		fr_strerror_printf("Unknown tag %" PRIu64, tag);
+	if ((*tag > NUM_ELEMENTS(tag_funcs)) || (tag == 0)) {
+		fr_strerror_printf("Unknown tag %" PRIu64, *tag);
 		return -1;
 	}
 
-	func = &tag_funcs[tag];
+	func = &tag_funcs[*tag];
 	if (unlikely(func->decode == NULL)) {
-		fr_strerror_printf("No decode function for tag %" PRIu64, tag);
+		fr_strerror_printf("No decode function for tag %" PRIu64, *tag);
 		return -1;
 	}
 
 	if (IS_DER_TAG_CONSTRUCTED(func->constructed) != constructed) {
-		fr_strerror_printf("Constructed flag mismatch for tag %" PRIu64, tag);
+		fr_strerror_printf("Constructed flag mismatch for tag %" PRIu64, *tag);
 		return -1;
 	}
 
@@ -1587,13 +1583,14 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	if (len_byte & 0x80) {
 		uint8_t len_len = len_byte & 0x7f;
+		*len		= 0;
 
 		/*
 		 *	Length bits of zero is an indeterminate length field where
 		 *	the length is encoded in the data instead.
 		 */
 		if (len_len > 0) {
-			if (unlikely(len_len > sizeof(len))) {
+			if (unlikely(len_len > sizeof(*len))) {
 				fr_strerror_printf("Length field too large (%u)", len_len);
 				return -1;
 			}
@@ -1603,7 +1600,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 					fr_strerror_const("Insufficient data to satisfy multi-byte length field");
 					return -1;
 				}
-				len = (len << 8) | len_byte;
+				*len = (*len << 8) | len_byte;
 			}
 		}
 
@@ -1612,16 +1609,32 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 			return DECODE_FAIL_INVALID_ATTRIBUTE;
 		}
 	} else {
-		len = len_byte;
+		*len = len_byte;
 	}
 
 	/*
 	 *	Check if the length is valid for our buffer
 	 */
-	if (unlikely(len > fr_dbuff_remaining(&our_in))) {
-		fr_strerror_printf("Insufficient data for length field (%zu)", len);
+	if (unlikely(*len > fr_dbuff_remaining(&our_in))) {
+		fr_strerror_printf("Insufficient data for length field (%zu)", *len);
 		return -1;
 	}
+
+	return fr_dbuff_set(in, &our_in);
+}
+
+static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_dbuff_t	     our_in = FR_DBUFF(in);
+	fr_der_tag_decode_t *func;
+	ssize_t		     slen;
+	uint64_t	     tag;
+	size_t		     len;
+
+	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) return -1;
+
+	func = &tag_funcs[tag];
 
 	/*
 	 *	Make sure the data length is less than the maximum allowed
