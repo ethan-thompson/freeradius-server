@@ -55,6 +55,21 @@ typedef struct {
 #define IS_DER_TAG_CONTINUATION(_tag) (((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
 #define IS_DER_TAG_CONSTRUCTED(_tag) (((_tag) & 0x20) == 0x20)
 
+typedef ssize_t (*fr_der_decode_oid_t)(uint64_t subidentifier, void *uctx, bool is_last);
+
+static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx);
+
+// static ssize_t fr_der_decode_pair(fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
+// 				  fr_der_decode_ctx_t *decode_ctx);
+
+typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
+				   fr_der_decode_ctx_t *decode_ctx);
+
+typedef struct {
+	fr_der_tag_constructed_t constructed;
+	fr_der_decode_t		 decode;
+} fr_der_tag_decode_t;
+
 /** Function signature for DER decode functions
  *
  * @param[in] ctx		Allocation context
@@ -68,21 +83,6 @@ typedef struct {
  *	- 0 no bytes decoded.
  *	- < 0 on error.  May be the offset (as a negative value) where the error occurred.
  */
-typedef ssize_t (*fr_der_decode_oid_t)(uint64_t subidentifier, void *uctx, bool is_last);
-
-static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx);
-
-static ssize_t fr_der_decode_pair(fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
-				  fr_der_decode_ctx_t *decode_ctx);
-
-typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
-				   fr_der_decode_ctx_t *decode_ctx);
-
-typedef struct {
-	fr_der_tag_constructed_t constructed;
-	fr_der_decode_t		 decode;
-} fr_der_tag_decode_t;
-
 static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
@@ -651,7 +651,7 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 		return -1;
 	}
 
-	fr_pair_append(decode_ctx->parent_list, vp);
+	//fr_pair_append(decode_ctx->parent_list, vp);
 
 	decode_ctx->ctx		= vp;
 	decode_ctx->parent_da	= vp->da;
@@ -660,13 +660,11 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 	return 1;
 }
 
-static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx)
+static ssize_t fr_der_decode_oid(UNUSED fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx)
 {
-	fr_pair_t *vp;
 	fr_dbuff_t our_in  = FR_DBUFF(in);
 	uint64_t   oid_a   = 0;
 	uint64_t   oid_b   = 0;
-	char	  *oid	   = NULL;
 	bool	   is_last = false;
 
 	size_t index = 1, magnitude = 1;
@@ -819,9 +817,9 @@ static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_dec
 	return fr_dbuff_set(in, &our_in);
 }
 
-static ssize_t fr_der_decode_pair(fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
-				  fr_der_decode_ctx_t *decode_ctx)
-{
+// static ssize_t fr_der_decode_pair(fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
+// 				  fr_der_decode_ctx_t *decode_ctx)
+// {
 	// fr_pair_t *vp;
 	// fr_dbuff_t our_in = FR_DBUFF(in);
 
@@ -838,7 +836,7 @@ static ssize_t fr_der_decode_pair(fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_a
 	// fr_pair_append(out, vp);
 
 	// return fr_dbuff_set(in, &our_in);
-}
+// }
 
 static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
@@ -1650,7 +1648,7 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	fr_der_tag_class_t	 tag_flags;
 	fr_der_tag_constructed_t constructed;
 
-	if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) return 0;
+	if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) return -1;
 
 	/*
 	 *	Decode the tag flags
@@ -1769,6 +1767,8 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) return -1;
 
+	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
+
 	func = &tag_funcs[tag];
 
 	/*
@@ -1786,25 +1786,49 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		break;
 	}
 
-	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
-
 	if (tag != FR_DER_TAG_OID){
+		fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 		slen = func->decode(ctx, out, parent, &our_in, decode_ctx);
 	} else {
 		if (fr_der_flag_is_pair(parent)) {
+			fr_dbuff_t work_dbuff = FR_DBUFF(&our_in);
 			fr_der_decode_oid_to_da_ctx_t uctx = {
 				.ctx = ctx,
 				.parent_da = fr_dict_attr_ref(parent),
 				.parent_list = out,
 			};
 
-			slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_da,  &uctx);
+			fr_dbuff_set_end(&work_dbuff, fr_dbuff_current(&our_in) + len);
+
+			slen = fr_der_decode_oid(out, &work_dbuff, fr_der_decode_oid_to_da,  &uctx);
+
+			if (unlikely(slen < 0)) return slen;
+
+			fr_dbuff_set(&our_in, &work_dbuff);
+
+			work_dbuff = FR_DBUFF(&our_in);
+
+			if (unlikely(fr_der_decode_hdr(parent, &work_dbuff, &tag, &len) < 0)) return -1;
+
+			if (unlikely(tag != FR_DER_TAG_OCTETSTRING)) {
+				fr_strerror_const("Expected octets type after OID");
+				return -1;
+			}
+
+			fr_dbuff_set_end(&work_dbuff, fr_dbuff_current(&work_dbuff) + len);
+
+			slen = fr_der_decode_sequence(ctx, out, uctx.parent_da, &work_dbuff, decode_ctx);
+
+			fr_dbuff_set(&our_in, &work_dbuff);
 		} else {
 			fr_der_decode_oid_to_str_ctx_t uctx = {
 				.ctx = ctx,
 				.parent_da = parent,
 				.parent_list = out,
 			};
+
+			fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
+
 			slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_str,  &uctx);
 		}
 	}
