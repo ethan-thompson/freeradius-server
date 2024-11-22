@@ -1,3 +1,16 @@
+DEFINE Test-Extensions  tlv
+BEGIN-TLV Test-Extensions
+ATTRIBUTE Root 0 tlv
+BEGIN-TLV Root
+ATTRIBUTE Branch 1 tlv
+BEGIN-TLV Branch
+ATTRIBUTE Leaf 2 bool subtype=boolean
+END-TLV Branch
+END-TLV Root
+END-TLV Test-Extensions
+
+DEFINE Test-Extension-Group     group ref=Test-Extensions
+
 DEFINE Test-Boolean             bool
 
 DEFINE Test-Integer             int64

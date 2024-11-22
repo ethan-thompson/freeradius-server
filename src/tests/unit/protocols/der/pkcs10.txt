@@ -2,6 +2,11 @@ proto der
 proto-dictionary der
 fuzzer-out der
 
+proto-dictionary-root Test-Extension-Group
+
+decode-pair 06 02 01 02
+match
+
 proto-dictionary-root Foo
 
 # Test the fuzzer with a dictionary of DER-encoded PKCS#10 requests
