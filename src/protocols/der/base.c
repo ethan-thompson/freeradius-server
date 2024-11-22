@@ -222,8 +222,60 @@ static int dict_flag_subtype(fr_dict_attr_t **da_p, char const *value, UNUSED fr
 	return 0;
 }
 
+static int dict_flag_sequence_of(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+{
+	static fr_table_num_sorted_t const table[] = {
+		{ L("bitstring"), FR_DER_TAG_BITSTRING },
+		{ L("boolean"), FR_DER_TAG_BOOLEAN },
+		{ L("bmpstring"), FR_DER_TAG_BMP_STRING },
+		{ L("enumerated"), FR_DER_TAG_ENUMERATED },
+		{ L("generalizedtime"), FR_DER_TAG_GENERALIZED_TIME },
+		{ L("generalstring"), FR_DER_TAG_GENERAL_STRING },
+		{ L("ia5string"), FR_DER_TAG_IA5_STRING },
+		{ L("integer"), FR_DER_TAG_INTEGER },
+		{ L("null"), FR_DER_TAG_NULL },
+		{ L("oid"), FR_DER_TAG_OID },
+		{ L("octetstring"), FR_DER_TAG_OCTETSTRING },
+		{ L("printablestring"), FR_DER_TAG_PRINTABLE_STRING },
+		{ L("sequence"), FR_DER_TAG_SEQUENCE },
+		{ L("set"), FR_DER_TAG_SET },
+		{ L("t61string"), FR_DER_TAG_T61_STRING },
+		{ L("universalstring"), FR_DER_TAG_UNIVERSAL_STRING },
+		{ L("utctime"), FR_DER_TAG_UTC_TIME },
+		{ L("utf8string"), FR_DER_TAG_UTF8_STRING },
+		{ L("visiblestring"), FR_DER_TAG_VISIBLE_STRING },
+	};
+
+	static size_t table_len = NUM_ELEMENTS(table);
+
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+	fr_der_tag_num_t     type;
+
+	type = fr_table_value_by_str(table, value, UINT8_MAX);
+
+	if (type == UINT8_MAX) {
+		fr_strerror_printf("Invalid tag type '%s'", value);
+		return -1;
+	}
+
+	flags->sequence_of = type;
+
+	return 0;
+}
+
+static int dict_flag_is_pair(fr_dict_attr_t **da_p, UNUSED char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+{
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+
+	flags->is_pair = true;
+
+	return 0;
+}
+
 static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("class"), { .func = dict_flag_class } },
+						   { L("is_pair"), { .func = dict_flag_is_pair } },
+						   { L("sequence_of"), { .func = dict_flag_sequence_of } },
 						   { L("subtype"), { .func = dict_flag_subtype } },
 						    { L("tagnum"), { .func = dict_flag_tagnum } } };
 
