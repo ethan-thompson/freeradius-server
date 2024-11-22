@@ -32,6 +32,8 @@
 #include <stddef.h>
 
 #include "der.h"
+#include "lib/util/dict_ext.h"
+#include "talloc.h"
 
 #include <freeradius-devel/io/test_point.h>
 
@@ -66,6 +68,13 @@ typedef struct {
  *	- 0 no bytes decoded.
  *	- < 0 on error.  May be the offset (as a negative value) where the error occurred.
  */
+typedef ssize_t (*fr_der_decode_oid_t)(uint64_t subidentifier, void *uctx, bool is_last);
+
+static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx);
+
+static ssize_t fr_der_decode_pair(fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
+				  fr_der_decode_ctx_t *decode_ctx);
+
 typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
 				   fr_der_decode_ctx_t *decode_ctx);
 
@@ -91,9 +100,6 @@ static ssize_t fr_der_decode_octetstring(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 
 static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
 				  fr_der_decode_ctx_t *decode_ctx);
-
-static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
-				 fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
@@ -132,12 +138,12 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static fr_der_tag_decode_t tag_funcs[] = {
-	[FR_DER_TAG_BOOLEAN]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_boolean },
-	[FR_DER_TAG_INTEGER]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_integer },
-	[FR_DER_TAG_BITSTRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_bitstring },
-	[FR_DER_TAG_OCTETSTRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_octetstring },
-	[FR_DER_TAG_NULL]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_null },
-	[FR_DER_TAG_OID]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_oid },
+	[FR_DER_TAG_BOOLEAN]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_boolean },
+	[FR_DER_TAG_INTEGER]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_integer },
+	[FR_DER_TAG_BITSTRING]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_bitstring },
+	[FR_DER_TAG_OCTETSTRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_octetstring },
+	[FR_DER_TAG_NULL]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_null },
+	// [FR_DER_TAG_OID]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_oid },
 	[FR_DER_TAG_ENUMERATED]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_enumerated },
 	[FR_DER_TAG_UTF8_STRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utf8_string },
 	[FR_DER_TAG_SEQUENCE]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_sequence },
@@ -560,22 +566,97 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 	return fr_dbuff_set(in, &our_in);
 }
 
-static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
-				 UNUSED fr_der_decode_ctx_t *decode_ctx)
+// - utc could contain buffer or stuct to store the decoded string
+// - resovling version, pass in pointer to start resolving things (such as root) and then the last thing resolved
+
+// static ssize_t fr_der_decode_oid_to_str(uint8_t subidentifier, void *uctx)
+// {
+// 	char **oid = uctx;
+
+// 	if (unlikely(*oid == NULL)) {
+// 		*oid = talloc_zero(NULL, char);
+// 		if (unlikely(*oid == NULL)) {
+// 			fr_strerror_const("Out of memory for OID");
+// 			return -1;
+// 		}
+// 	}
+
+// 	if (unlikely(asprintf(oid, "%s%u", *oid, subidentifier) < 0)) {
+// 		fr_strerror_const("Out of memory for OID");
+// 		return -1;
+// 	}
+
+// 	return 0;
+// }
+
+typedef struct {
+	TALLOC_CTX	     *ctx;
+	fr_dict_attr_t const *parent_da;
+	fr_pair_list_t	     *parent_list;
+} fr_der_decode_oid_to_da_ctx_t;
+
+static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool is_last)
+{
+	fr_der_decode_oid_to_da_ctx_t *decode_ctx = uctx;
+	fr_pair_t		      *vp;
+	fr_dict_attr_t const	      *da;
+
+	fr_dict_attr_t const *parent_da = fr_type_is_group(decode_ctx->parent_da->type) ?
+						  fr_dict_attr_ref(decode_ctx->parent_da) :
+						  decode_ctx->parent_da;
+
+	FR_PROTO_TRACE("decode context - Parent Name: %s Sub-Identifier %llu", parent_da->name, subidentifier);
+	FR_PROTO_TRACE("decode context - Parent Address: %p", parent_da);
+
+	da = fr_dict_attr_child_by_num(parent_da, subidentifier);
+
+	if (unlikely(da == NULL)) {
+		fr_dict_attr_t *unknown_da = fr_dict_attr_unknown_typed_afrom_num(
+			NULL, parent_da, subidentifier, is_last ? FR_TYPE_OCTETS : FR_TYPE_TLV);
+
+		if (unlikely(unknown_da == NULL)) {
+			fr_strerror_const("Out of memory for unknown attribute");
+			return -1;
+		}
+
+		vp = fr_pair_afrom_da(decode_ctx->ctx, unknown_da);
+
+		talloc_free(unknown_da);
+	} else {
+		vp = fr_pair_afrom_da(decode_ctx->ctx, da);
+	}
+
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory for OID pair");
+		return -1;
+	}
+
+	fr_pair_append(decode_ctx->parent_list, vp);
+
+	decode_ctx->ctx		= vp;
+	decode_ctx->parent_da	= vp->da;
+	decode_ctx->parent_list = &vp->vp_group;
+
+	return 1;
+}
+
+static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx)
 {
 	fr_pair_t *vp;
-	fr_dbuff_t our_in	 = FR_DBUFF(in);
-	uint64_t   subidentifier = 0;
-	char	  *oid		 = NULL;
+	fr_dbuff_t our_in  = FR_DBUFF(in);
+	uint64_t   oid_a   = 0;
+	uint64_t   oid_b   = 0;
+	char	  *oid	   = NULL;
+	bool	   is_last = false;
 
 	size_t index = 1, magnitude = 1;
 	size_t len = fr_dbuff_remaining(&our_in);
 
-	if (!fr_type_is_string(parent->type)) {
-		fr_strerror_printf("OID found in non-string attribute %s of type %s", parent->name,
-				   fr_type_to_str(parent->type));
-		return -1;
-	}
+	// if (!fr_type_is_string(parent->type)) {
+	// 	fr_strerror_printf("OID found in non-string attribute %s of type %s", parent->name,
+	// 			   fr_type_to_str(parent->type));
+	// 	return -1;
+	// }
 
 	/*
 	 *	ISO/IEC 8825-1:2021
@@ -615,30 +696,29 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 			return -1;
 		}
 
-		subidentifier = (subidentifier << 7) | (byte & 0x7f);
+		oid_b = (oid_b << 7) | (byte & 0x7f);
 
 		if (!(byte & 0x80)) {
 			/*
 			 *	If the high bit is not set, this is the last byte of the subidentifier
 			 */
-			if (subidentifier < 40) {
-				oid = talloc_asprintf(ctx, "%u", 0);
-				oid = talloc_asprintf_append(oid, ".%llu", subidentifier);
-			} else if (subidentifier < 80) {
-				oid = talloc_asprintf(ctx, "%u", 1);
-				oid = talloc_asprintf_append(oid, ".%llu", subidentifier - 40);
+			if (oid_b < 40) {
+				oid_a = 0;
+			} else if (oid_b < 80) {
+				oid_a = 1;
+				oid_b = oid_b - 40;
 			} else {
-				oid = talloc_asprintf(ctx, "%u", 2);
-				oid = talloc_asprintf_append(oid, ".%llu", subidentifier - 80);
+				oid_a = 2;
+				oid_b = oid_b - 80;
 			}
 
-			if (unlikely(oid == NULL)) {
-				fr_strerror_const("Out of memory for OID");
-				return -1;
-			}
+			// if (unlikely(oid == NULL)) {
+			// 	fr_strerror_const("Out of memory for OID");
+			// 	return -1;
+			// }
 
-			subidentifier = 0;
-			magnitude     = 1;
+			// oid_b = 0;
+			magnitude = 1;
 			break;
 		}
 
@@ -655,9 +735,27 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		}
 	}
 
+	// vp = fr_pair_afrom_da(ctx, parent);
+
+	// FR_PROTO_TRACE("decode context - Address: %p", vp);
+
+	// if (unlikely(vp == NULL)) {
+	// 	fr_strerror_const("Out of memory for OID pair");
+	// 	return -1;
+	// }
+
+	// ((fr_der_decode_oid_to_da_ctx_t *)uctx)->parent_vp= vp;
+
+	if (unlikely(func(oid_a, uctx, is_last) < 0)) return -1;
+
+	if (index == len) is_last = true;
+
+	if (unlikely(func(oid_b, uctx, is_last) < 0)) return -1;
+
 	/*
 	 *	The remaining subidentifiers are encoded individually
 	 */
+	oid_b = 0;
 	for (; index < len; index++) {
 		uint8_t byte;
 
@@ -666,18 +764,20 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 			return -1;
 		}
 
-		subidentifier = (subidentifier << 7) | (byte & 0x7f);
+		oid_b = (oid_b << 7) | (byte & 0x7f);
 
 		if (!(byte & 0x80)) {
-			oid = talloc_asprintf_append(oid, ".%llu", subidentifier);
+			if (index == len - 1) is_last = true;
 
-			if (unlikely(oid == NULL)) {
-				fr_strerror_const("Out of memory for OID subidentifier");
-				return -1;
-			}
+			if (unlikely(func(oid_b, uctx, is_last) < 0)) return -1;
 
-			subidentifier = 0;
-			magnitude     = 1;
+			// if (unlikely(oid == NULL)) {
+			// 	fr_strerror_const("Out of memory for OID subidentifier");
+			// 	return -1;
+			// }
+
+			oid_b	  = 0;
+			magnitude = 1;
 			continue;
 		}
 
@@ -694,17 +794,30 @@ static ssize_t fr_der_decode_oid(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		}
 	}
 
-	vp = fr_pair_afrom_da(ctx, parent);
-	if (unlikely(vp == NULL)) {
-		fr_strerror_const("Out of memory for OID pair");
-		return -1;
-	}
-
-	fr_pair_value_strdup(vp, oid, false);
-
-	fr_pair_append(out, vp);
+	// fr_pair_append(out, vp);
 
 	return fr_dbuff_set(in, &our_in);
+}
+
+static ssize_t fr_der_decode_pair(fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
+				  fr_der_decode_ctx_t *decode_ctx)
+{
+	// fr_pair_t *vp;
+	// fr_dbuff_t our_in = FR_DBUFF(in);
+
+	// if (unlikely(fr_pair_afrom_da(&vp, decode_ctx->ctx, parent) == NULL)) {
+	// 	fr_strerror_const("Out of memory for pair");
+	// 	return -1;
+	// }
+
+	// if (unlikely(fr_pair_decode_value(vp, &our_in, decode_ctx) < 0)) {
+	// 	fr_strerror_const("Failed to decode pair value");
+	// 	return -1;
+	// }
+
+	// fr_pair_append(out, vp);
+
+	// return fr_dbuff_set(in, &our_in);
 }
 
 static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
@@ -1566,14 +1679,16 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	}
 
 	func = &tag_funcs[*tag];
-	if (unlikely(func->decode == NULL)) {
-		fr_strerror_printf("No decode function for tag %" PRIu64, *tag);
-		return -1;
-	}
+	if (*tag != FR_DER_TAG_OID){
+		if (unlikely(func->decode == NULL)) {
+			fr_strerror_printf("No decode function for tag %" PRIu64, *tag);
+			return -1;
+		}
 
-	if (IS_DER_TAG_CONSTRUCTED(func->constructed) != constructed) {
-		fr_strerror_printf("Constructed flag mismatch for tag %" PRIu64, *tag);
-		return -1;
+		if (IS_DER_TAG_CONSTRUCTED(func->constructed) != constructed) {
+			fr_strerror_printf("Constructed flag mismatch for tag %" PRIu64, *tag);
+			return -1;
+		}
 	}
 
 	if (unlikely(fr_dbuff_out(&len_byte, &our_in) < 0)) {
@@ -1653,7 +1768,22 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 
-	slen = func->decode(ctx, out, parent, &our_in, decode_ctx);
+	if (tag != FR_DER_TAG_OID){
+		slen = func->decode(ctx, out, parent, &our_in, decode_ctx);
+	} else {
+		// typedef struct {
+		// 	TALLOC_CTX	     *ctx;
+		// 	fr_dict_attr_t const *parent_da;
+		// 	fr_pair_list_t	     *parent_list;
+		// } fr_der_decode_oid_to_da_ctx_t;
+		fr_der_decode_oid_to_da_ctx_t uctx = {
+			.ctx = ctx,
+			.parent_da = fr_dict_attr_ref(parent),
+			.parent_list = out,
+		};
+
+		slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_da,  &uctx);
+	}
 
 	if (unlikely(slen < 0)) return slen;
 
