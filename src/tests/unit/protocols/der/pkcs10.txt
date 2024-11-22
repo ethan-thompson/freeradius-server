@@ -5,7 +5,7 @@ fuzzer-out der
 proto-dictionary-root Test-Extension-Group
 
 decode-pair 06 02 01 02
-match
+match Test-Extensions.Root = { Branch = { Leaf = no } }
 
 proto-dictionary-root Foo
 

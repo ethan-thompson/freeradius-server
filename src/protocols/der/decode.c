@@ -569,25 +569,45 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 // - utc could contain buffer or stuct to store the decoded string
 // - resovling version, pass in pointer to start resolving things (such as root) and then the last thing resolved
 
-// static ssize_t fr_der_decode_oid_to_str(uint8_t subidentifier, void *uctx)
-// {
-// 	char **oid = uctx;
+typedef struct {
+	TALLOC_CTX	     *ctx;
+	fr_dict_attr_t const *parent_da;
+	fr_pair_list_t	     *parent_list;
+	char 		     *oid;
+} fr_der_decode_oid_to_str_ctx_t;
 
-// 	if (unlikely(*oid == NULL)) {
-// 		*oid = talloc_zero(NULL, char);
-// 		if (unlikely(*oid == NULL)) {
-// 			fr_strerror_const("Out of memory for OID");
-// 			return -1;
-// 		}
-// 	}
+static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool is_last)
+{
+	fr_der_decode_oid_to_str_ctx_t *decode_ctx = uctx;
+	char *oid = decode_ctx->oid;
 
-// 	if (unlikely(asprintf(oid, "%s%u", *oid, subidentifier) < 0)) {
-// 		fr_strerror_const("Out of memory for OID");
-// 		return -1;
-// 	}
+	// Update the OID string
+	if (oid == NULL) {
+		oid = talloc_asprintf(decode_ctx->ctx, "%llu", subidentifier);
+		decode_ctx->oid = oid;
+		return 1;
+	}
 
-// 	return 0;
-// }
+	oid = talloc_asprintf_append(oid, ".%llu", subidentifier);
+
+	if (is_last) {
+		fr_pair_t *vp;
+
+		vp = fr_pair_afrom_da(decode_ctx->ctx, decode_ctx->parent_da);
+		if (unlikely(vp == NULL)) {
+			fr_strerror_const("Out of memory for OID pair value");
+			return -1;
+		}
+
+		fr_pair_value_strdup(vp, oid, false);
+
+		fr_pair_append(decode_ctx->parent_list, vp);
+
+		decode_ctx->ctx		= vp;
+	}
+
+	return 1;
+}
 
 typedef struct {
 	TALLOC_CTX	     *ctx;
@@ -1771,18 +1791,22 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	if (tag != FR_DER_TAG_OID){
 		slen = func->decode(ctx, out, parent, &our_in, decode_ctx);
 	} else {
-		// typedef struct {
-		// 	TALLOC_CTX	     *ctx;
-		// 	fr_dict_attr_t const *parent_da;
-		// 	fr_pair_list_t	     *parent_list;
-		// } fr_der_decode_oid_to_da_ctx_t;
-		fr_der_decode_oid_to_da_ctx_t uctx = {
-			.ctx = ctx,
-			.parent_da = fr_dict_attr_ref(parent),
-			.parent_list = out,
-		};
+		if (fr_der_flag_is_pair(parent)) {
+			fr_der_decode_oid_to_da_ctx_t uctx = {
+				.ctx = ctx,
+				.parent_da = fr_dict_attr_ref(parent),
+				.parent_list = out,
+			};
 
-		slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_da,  &uctx);
+			slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_da,  &uctx);
+		} else {
+			fr_der_decode_oid_to_str_ctx_t uctx = {
+				.ctx = ctx,
+				.parent_da = parent,
+				.parent_list = out,
+			};
+			slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_str,  &uctx);
+		}
 	}
 
 	if (unlikely(slen < 0)) return slen;

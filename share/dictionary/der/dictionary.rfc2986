@@ -9,7 +9,7 @@ END-TLV Branch
 END-TLV Root
 END-TLV Test-Extensions
 
-DEFINE Test-Extension-Group     group ref=Test-Extensions
+DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,is_pair
 
 DEFINE Test-Boolean             bool
 
