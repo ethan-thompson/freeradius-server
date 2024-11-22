@@ -4,7 +4,11 @@ ATTRIBUTE Root 0 tlv
 BEGIN-TLV Root
 ATTRIBUTE Branch 1 tlv
 BEGIN-TLV Branch
-ATTRIBUTE Leaf 2 bool subtype=boolean
+ATTRIBUTE Leaf 2 tlv subtype=sequence
+BEGIN-TLV Leaf
+DEFINE Name string
+DEFINE Version int64
+END-TLV Leaf
 END-TLV Branch
 END-TLV Root
 END-TLV Test-Extensions
