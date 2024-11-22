@@ -630,9 +630,26 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 
 	da = fr_dict_attr_child_by_num(parent_da, subidentifier);
 
+	if (is_last) {
+		if (unlikely(da == NULL)) {
+			decode_ctx->parent_da = fr_dict_attr_unknown_typed_afrom_num(
+			decode_ctx->ctx, parent_da, subidentifier, FR_TYPE_OCTETS);
+
+			if (unlikely(decode_ctx->parent_da == NULL)) {
+				return -1;
+			}
+
+			return 1;
+		}
+
+		decode_ctx->parent_da = da;
+
+		return 1;
+	}
+
 	if (unlikely(da == NULL)) {
 		fr_dict_attr_t *unknown_da = fr_dict_attr_unknown_typed_afrom_num(
-			NULL, parent_da, subidentifier, is_last ? FR_TYPE_OCTETS : FR_TYPE_TLV);
+			NULL, parent_da, subidentifier, FR_TYPE_TLV);
 
 		if (unlikely(unknown_da == NULL)) {
 			fr_strerror_const("Out of memory for unknown attribute");
@@ -651,7 +668,7 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 		return -1;
 	}
 
-	//fr_pair_append(decode_ctx->parent_list, vp);
+	fr_pair_append(decode_ctx->parent_list, vp);
 
 	decode_ctx->ctx		= vp;
 	decode_ctx->parent_da	= vp->da;
@@ -1817,7 +1834,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 			fr_dbuff_set_end(&work_dbuff, fr_dbuff_current(&work_dbuff) + len);
 
-			slen = fr_der_decode_sequence(ctx, out, uctx.parent_da, &work_dbuff, decode_ctx);
+			slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &work_dbuff, decode_ctx);
 
 			fr_dbuff_set(&our_in, &work_dbuff);
 		} else {
