@@ -1760,14 +1760,37 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 {
 	fr_dbuff_t our_in = FR_DBUFF(in);
 	fr_dbuff_marker_t marker;
+	fr_pair_t *vp;
+	fr_pair_t *vp2;
+
 	uint64_t	   tag;
 	size_t	   len;
 	ssize_t	   slen;
 
+	vp = fr_pair_afrom_da(ctx, parent);
+
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory for pair");
+		return -1;
+	}
+
+	vp2 = fr_pair_afrom_da(vp, fr_dict_attr_ref(parent));
+
+	if (unlikely(vp2 == NULL)) {
+		fr_strerror_const("Out of memory for pair");
+		return -1;
+	}
+
 	fr_der_decode_oid_to_da_ctx_t uctx = {
-		.ctx = ctx,
-		.parent_da = fr_dict_attr_ref(parent),
-		.parent_list = out,
+		// .ctx = ctx,
+		// .ctx = vp,
+		.ctx = vp2,
+		// .parent_da = fr_dict_attr_ref(parent),
+		// .parent_da = vp->da,
+		.parent_da = vp2->da,
+		// .parent_list = &vp->vp_group,
+		.parent_list = &vp2->vp_group,
+		// .parent_list = out,
 	};
 
 	fr_dbuff_marker(&marker, in);
@@ -1817,6 +1840,9 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	fr_dbuff_set(in, &our_in);
 
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value");
+
+	fr_pair_append(&vp->vp_group, vp2);
+	fr_pair_append(out, vp);
 
 	return fr_dbuff_marker_release_behind(&marker);
 }
