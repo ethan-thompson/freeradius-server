@@ -1,4 +1,4 @@
-DEFINE Test-Extensions  tlv
+DEFINE Test-Extensions tlv
 BEGIN-TLV Test-Extensions
 ATTRIBUTE Root 0 tlv
 BEGIN-TLV Root
