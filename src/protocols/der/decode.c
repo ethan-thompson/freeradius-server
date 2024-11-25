@@ -1860,7 +1860,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
-	if (fr_der_flag_is_pair(parent)) {
+	if (fr_der_flag_is_pair(parent) || fr_der_flag_is_extension(parent)) {
 		slen = fr_der_decode_pair(ctx, out, &our_in, parent, decode_ctx);
 
 		if (unlikely(slen < 0)) return slen;
