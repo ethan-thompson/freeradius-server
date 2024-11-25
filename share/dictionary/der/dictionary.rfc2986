@@ -21,11 +21,11 @@ DEFINE Test-First-Integer       int64
 DEFINE Test-Second-Integer      int64
 END-TLV Test-Seq-Of
 
-DEFINE Test-Seq-Of-Bad          tlv sequence_of=integer
-BEGIN-TLV Test-Seq-Of-Bad
-DEFINE Test-First-Integer       int64
-DEFINE Test-Bad                 bool
-END-TLV Test-Seq-Of-Bad
+# DEFINE Test-Seq-Of-Bad          tlv sequence_of=integer
+# BEGIN-TLV Test-Seq-Of-Bad
+# DEFINE Test-First-Integer       int64
+# DEFINE Test-Bad                 bool
+# END-TLV Test-Seq-Of-Bad
 
 DEFINE Test-Set-Of              tlv set_of=integer
 BEGIN-TLV Test-Set-Of
@@ -33,11 +33,11 @@ DEFINE Test-First-Integer       int64
 DEFINE Test-Second-Integer      int64
 END-TLV Test-Set-Of
 
-DEFINE Test-Set-Of-Bad          tlv set_of=integer
-BEGIN-TLV Test-Set-Of-Bad
-DEFINE Test-First-Integer       int64
-DEFINE Test-Bad                 bool
-END-TLV Test-Set-Of-Bad
+# DEFINE Test-Set-Of-Bad          tlv set_of=integer
+# BEGIN-TLV Test-Set-Of-Bad
+# DEFINE Test-First-Integer       int64
+# DEFINE Test-Bad                 bool
+# END-TLV Test-Set-Of-Bad
 
 DEFINE Test-Boolean             bool
 
