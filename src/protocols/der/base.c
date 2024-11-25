@@ -339,6 +339,39 @@ static bool attr_valid(fr_dict_attr_t *da)
 		return false;
 	}
 
+	if (fr_der_flag_is_sequence_of(da->parent) || fr_der_flag_is_set_of(da->parent)) {
+		static fr_table_num_sorted_t const table[] = {
+			{ L("bitstring"), FR_DER_TAG_BITSTRING },
+			{ L("boolean"), FR_DER_TAG_BOOLEAN },
+			{ L("bmpstring"), FR_DER_TAG_BMP_STRING },
+			{ L("enumerated"), FR_DER_TAG_ENUMERATED },
+			{ L("generalizedtime"), FR_DER_TAG_GENERALIZED_TIME },
+			{ L("generalstring"), FR_DER_TAG_GENERAL_STRING },
+			{ L("ia5string"), FR_DER_TAG_IA5_STRING },
+			{ L("integer"), FR_DER_TAG_INTEGER },
+			{ L("null"), FR_DER_TAG_NULL },
+			{ L("oid"), FR_DER_TAG_OID },
+			{ L("octetstring"), FR_DER_TAG_OCTETSTRING },
+			{ L("printablestring"), FR_DER_TAG_PRINTABLE_STRING },
+			{ L("sequence"), FR_DER_TAG_SEQUENCE },
+			{ L("set"), FR_DER_TAG_SET },
+			{ L("t61string"), FR_DER_TAG_T61_STRING },
+			{ L("universalstring"), FR_DER_TAG_UNIVERSAL_STRING },
+			{ L("utctime"), FR_DER_TAG_UTC_TIME },
+			{ L("utf8string"), FR_DER_TAG_UTF8_STRING },
+			{ L("visiblestring"), FR_DER_TAG_VISIBLE_STRING },
+		};
+
+		static size_t table_len = NUM_ELEMENTS(table);
+
+		uint8_t of_type = fr_der_flag_is_sequence_of(da->parent) ? fr_der_flag_sequence_of(da->parent) : fr_der_flag_set_of(da->parent);
+
+		if (unlikely(fr_type_to_der_tags[da->type][of_type] == false)) {
+			fr_strerror_printf("Attribute %s of type %s is not allowed in a sequence/set-of %s",da->name, fr_type_to_str(da->type), fr_table_str_by_value(table, of_type, "<INVALID>"));
+			return false;
+		}
+	}
+
 	// if ((fr_der_flag_class(da) && !fr_der_flag_tagnum(da)) && unlikely(da->type != FR_TYPE_BOOL)) {
 	// 	fr_strerror_printf("Attribute %s Non-Universal tag %u must have a tagnum.",da->name, fr_der_flag_tagnum(da));
 	// 	return false;
