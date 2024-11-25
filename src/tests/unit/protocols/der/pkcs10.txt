@@ -7,6 +7,26 @@ proto-dictionary-root Test-Extension-Group
 decode-pair 30 0d 06 02 01 02 04 08 0c 03 66 6f 6f 02 01 09
 match Test-Extension-Group = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
 
+proto-dictionary-root Test-Seq-Of
+
+decode-pair 30 06 02 01 01 02 01 02
+match Test-Seq-Of = { Test-First-Integer = 1, Test-Second-Integer = 2 }
+
+proto-dictionary-root Test-Seq-Of-Bad
+
+decode-pair 30 06 02 01 01 01 01 FF
+match Attribute Test-Seq-Of-Bad is a sequence-of type 2, but found type 1
+
+proto-dictionary-root Test-Set-Of
+
+decode-pair 31 06 02 01 01 02 01 02
+match Test-Set-Of = { Test-First-Integer = 1, Test-Second-Integer = 2 }
+
+proto-dictionary-root Test-Set-Of-Bad
+
+decode-pair 31 06 02 01 01 01 01 FF
+match Attribute Test-Set-Of-Bad is a set-of type 2, but found type 1
+
 proto-dictionary-root Foo
 
 # Test the fuzzer with a dictionary of DER-encoded PKCS#10 requests

@@ -4,7 +4,7 @@ ATTRIBUTE Root 0 tlv
 BEGIN-TLV Root
 ATTRIBUTE Branch 1 tlv
 BEGIN-TLV Branch
-ATTRIBUTE Leaf 2 tlv subtype=sequence
+ATTRIBUTE Leaf 2 tlv subtype=sequence,is_extension
 BEGIN-TLV Leaf
 DEFINE Name string
 DEFINE Version int64
@@ -14,6 +14,30 @@ END-TLV Root
 END-TLV Test-Extensions
 
 DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,is_pair
+
+DEFINE Test-Seq-Of              tlv sequence_of=integer
+BEGIN-TLV Test-Seq-Of
+DEFINE Test-First-Integer       int64
+DEFINE Test-Second-Integer      int64
+END-TLV Test-Seq-Of
+
+DEFINE Test-Seq-Of-Bad          tlv sequence_of=integer
+BEGIN-TLV Test-Seq-Of-Bad
+DEFINE Test-First-Integer       int64
+DEFINE Test-Bad                 bool
+END-TLV Test-Seq-Of-Bad
+
+DEFINE Test-Set-Of              tlv set_of=integer
+BEGIN-TLV Test-Set-Of
+DEFINE Test-First-Integer       int64
+DEFINE Test-Second-Integer      int64
+END-TLV Test-Set-Of
+
+DEFINE Test-Set-Of-Bad          tlv set_of=integer
+BEGIN-TLV Test-Set-Of-Bad
+DEFINE Test-First-Integer       int64
+DEFINE Test-Bad                 bool
+END-TLV Test-Set-Of-Bad
 
 DEFINE Test-Boolean             bool
 
