@@ -834,27 +834,6 @@ static ssize_t fr_der_decode_oid(UNUSED fr_pair_list_t *out, fr_dbuff_t *in, fr_
 	return fr_dbuff_set(in, &our_in);
 }
 
-// static ssize_t fr_der_decode_pair(fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
-// 				  fr_der_decode_ctx_t *decode_ctx)
-// {
-	// fr_pair_t *vp;
-	// fr_dbuff_t our_in = FR_DBUFF(in);
-
-	// if (unlikely(fr_pair_afrom_da(&vp, decode_ctx->ctx, parent) == NULL)) {
-	// 	fr_strerror_const("Out of memory for pair");
-	// 	return -1;
-	// }
-
-	// if (unlikely(fr_pair_decode_value(vp, &our_in, decode_ctx) < 0)) {
-	// 	fr_strerror_const("Failed to decode pair value");
-	// 	return -1;
-	// }
-
-	// fr_pair_append(out, vp);
-
-	// return fr_dbuff_set(in, &our_in);
-// }
-
 static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					fr_dbuff_t *in, UNUSED fr_der_decode_ctx_t *decode_ctx)
 {
@@ -1665,7 +1644,10 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	fr_der_tag_class_t	 tag_flags;
 	fr_der_tag_constructed_t constructed;
 
-	if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) return -1;
+	if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) {
+		fr_strerror_const("Insufficient data for tag field");
+		return -1;
+	}
 
 	/*
 	 *	Decode the tag flags
@@ -1773,6 +1755,72 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	return fr_dbuff_set(in, &our_in);
 }
 
+static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
+				  fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	fr_dbuff_marker_t marker;
+	uint64_t	   tag;
+	size_t	   len;
+	ssize_t	   slen;
+
+	fr_der_decode_oid_to_da_ctx_t uctx = {
+		.ctx = ctx,
+		.parent_da = fr_dict_attr_ref(parent),
+		.parent_list = out,
+	};
+
+	fr_dbuff_marker(&marker, in);
+
+	if (unlikely((slen = fr_der_decode_hdr(parent, &our_in, &tag, &len)) < 0)) {
+		fr_strerror_const_push("Failed decoding oid header");
+	error:
+		fr_dbuff_marker_release(&marker);
+		return slen;
+	}
+
+	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
+
+	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
+
+	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value");
+
+	slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_da,  &uctx);
+	if (unlikely(slen < 0)) goto error;
+
+	fr_dbuff_set(in, &our_in);
+
+	our_in = FR_DBUFF(in);
+
+	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value");
+
+	if (unlikely(fr_der_decode_hdr(NULL, &our_in, &tag, &len) < 0)) {
+		fr_strerror_const_push("Failed decoding value header");
+		slen = -1;
+		goto error;
+	}
+
+	if (unlikely(tag != FR_DER_TAG_OCTETSTRING)) {
+		fr_strerror_printf("Expected octets type after OID. Got tag: %llu", tag);
+		slen = -1;
+		goto error;
+	}
+
+	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
+
+	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value for sequence");
+
+	slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx);
+	// slen = fr_der_decode_pair_dbuff(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx);
+	if (unlikely(slen < 0)) goto error;
+
+	fr_dbuff_set(in, &our_in);
+
+	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value");
+
+	return fr_dbuff_marker_release_behind(&marker);
+}
+
 static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
 					fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
 {
@@ -1785,6 +1833,14 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) return -1;
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
+
+	if (fr_der_flag_is_pair(parent)) {
+		slen = fr_der_decode_pair(ctx, out, &our_in, parent, decode_ctx);
+
+		if (unlikely(slen < 0)) return slen;
+
+		return fr_dbuff_set(in, &our_in);
+	}
 
 	func = &tag_funcs[tag];
 
@@ -1807,47 +1863,15 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 		slen = func->decode(ctx, out, parent, &our_in, decode_ctx);
 	} else {
-		if (fr_der_flag_is_pair(parent)) {
-			fr_dbuff_t work_dbuff = FR_DBUFF(&our_in);
-			fr_der_decode_oid_to_da_ctx_t uctx = {
-				.ctx = ctx,
-				.parent_da = fr_dict_attr_ref(parent),
-				.parent_list = out,
-			};
+		fr_der_decode_oid_to_str_ctx_t uctx = {
+			.ctx = ctx,
+			.parent_da = parent,
+			.parent_list = out,
+		};
 
-			fr_dbuff_set_end(&work_dbuff, fr_dbuff_current(&our_in) + len);
+		fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 
-			slen = fr_der_decode_oid(out, &work_dbuff, fr_der_decode_oid_to_da,  &uctx);
-
-			if (unlikely(slen < 0)) return slen;
-
-			fr_dbuff_set(&our_in, &work_dbuff);
-
-			work_dbuff = FR_DBUFF(&our_in);
-
-			if (unlikely(fr_der_decode_hdr(parent, &work_dbuff, &tag, &len) < 0)) return -1;
-
-			if (unlikely(tag != FR_DER_TAG_OCTETSTRING)) {
-				fr_strerror_const("Expected octets type after OID");
-				return -1;
-			}
-
-			fr_dbuff_set_end(&work_dbuff, fr_dbuff_current(&work_dbuff) + len);
-
-			slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &work_dbuff, decode_ctx);
-
-			fr_dbuff_set(&our_in, &work_dbuff);
-		} else {
-			fr_der_decode_oid_to_str_ctx_t uctx = {
-				.ctx = ctx,
-				.parent_da = parent,
-				.parent_list = out,
-			};
-
-			fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
-
-			slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_str,  &uctx);
-		}
+		slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_str,  &uctx);
 	}
 
 	if (unlikely(slen < 0)) return slen;

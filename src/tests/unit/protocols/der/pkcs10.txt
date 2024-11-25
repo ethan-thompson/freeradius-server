@@ -4,8 +4,8 @@ fuzzer-out der
 
 proto-dictionary-root Test-Extension-Group
 
-decode-pair 06 02 01 02 04 08 0c 03 66 6f 6f 02 01 09
-match Test-Extensions.Root.Branch.Leaf = { Name = "foo", Version = 9 }
+decode-pair 30 0d 06 02 01 02 04 08 0c 03 66 6f 6f 02 01 09
+match Test-Extensions.Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } }
 
 proto-dictionary-root Foo
 
