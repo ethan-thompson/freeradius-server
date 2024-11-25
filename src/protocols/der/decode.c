@@ -996,6 +996,43 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		return -1;
 	}
 
+	if (fr_der_flag_is_sequence_of(parent)) {
+		fr_der_tag_num_t restriction_type = fr_der_flag_sequence_of(parent);
+
+		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
+			ssize_t ret;
+			uint8_t current_tag;
+			uint8_t *current_marker = fr_dbuff_current(&our_in);
+
+			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
+
+			if (unlikely(fr_dbuff_out(&current_tag, &our_in) < 0)) {
+				fr_strerror_const("Insufficient data for sequence. Missing tag");
+				talloc_free(vp);
+				return -1;
+			}
+
+			if (unlikely(current_tag != restriction_type)) {
+				fr_strerror_printf("Attribute %s is a sequence-of type %u, but found type %u", parent->name,
+						   restriction_type, current_tag);
+				talloc_free(vp);
+				return -1;
+			}
+
+			fr_dbuff_set(&our_in, current_marker);
+
+			ret = fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx);
+			if (unlikely(ret < 0)) {
+				talloc_free(vp);
+				return ret;
+			}
+		}
+
+		fr_pair_append(out, vp);
+
+		return fr_dbuff_set(in, &our_in);
+	}
+
 	while ((child = fr_dict_attr_iterate_children(parent, &child))) {
 		ssize_t ret;
 
@@ -1046,6 +1083,43 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("Out of memory for set pair");
 		return -1;
+	}
+
+	if (fr_der_flag_is_set_of(parent)) {
+		fr_der_tag_num_t restriction_type = fr_der_flag_set_of(parent);
+
+		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
+			ssize_t ret;
+			uint8_t current_tag;
+			uint8_t *current_marker = fr_dbuff_current(&our_in);
+
+			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
+
+			if (unlikely(fr_dbuff_out(&current_tag, &our_in) < 0)) {
+				fr_strerror_const("Insufficient data for set. Missing tag");
+				talloc_free(vp);
+				return -1;
+			}
+
+			if (unlikely(current_tag != restriction_type)) {
+				fr_strerror_printf("Attribute %s is a set-of type %u, but found type %u", parent->name,
+						   restriction_type, current_tag);
+				talloc_free(vp);
+				return -1;
+			}
+
+			fr_dbuff_set(&our_in, current_marker);
+
+			ret = fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx);
+			if (unlikely(ret < 0)) {
+				talloc_free(vp);
+				return ret;
+			}
+		}
+
+		fr_pair_append(out, vp);
+
+		return fr_dbuff_set(in, &our_in);
 	}
 
 	while ((child = fr_dict_attr_iterate_children(parent, &child))) {
