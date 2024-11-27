@@ -33,6 +33,7 @@
 
 #include "der.h"
 #include "lib/util/dict_ext.h"
+#include "lib/util/sbuff.h"
 #include "talloc.h"
 
 #include <freeradius-devel/io/test_point.h>
@@ -47,6 +48,7 @@
 #include <freeradius-devel/util/proto.h>
 #include <freeradius-devel/util/struct.h>
 #include <freeradius-devel/util/time.h>
+#include <stdlib.h>
 
 typedef struct {
 	uint8_t *tmp_ctx;
@@ -573,22 +575,34 @@ typedef struct {
 	TALLOC_CTX	     *ctx;
 	fr_dict_attr_t const *parent_da;
 	fr_pair_list_t	     *parent_list;
-	char 		     *oid;
+	char 		     oid_buff[1024];
+	fr_sbuff_marker_t     marker;
 } fr_der_decode_oid_to_str_ctx_t;
 
 static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool is_last)
 {
 	fr_der_decode_oid_to_str_ctx_t *decode_ctx = uctx;
-	char *oid = decode_ctx->oid;
+	fr_sbuff_marker_t marker = decode_ctx->marker;
+	fr_sbuff_t sb = FR_SBUFF_OUT(decode_ctx->oid_buff, sizeof(decode_ctx->oid_buff));
 
-	// Update the OID string
-	if (oid == NULL) {
-		oid = talloc_asprintf(decode_ctx->ctx, "%llu", subidentifier);
-		decode_ctx->oid = oid;
+	if (decode_ctx->oid_buff[0] == '\0') {
+		if (unlikely(fr_sbuff_in_sprintf(&sb, "%llu", subidentifier) < 0)) {
+			fr_strerror_const("Out of memory for OID string");
+			return -1;
+		}
+
+		fr_sbuff_marker(&marker, &sb);
+
+		decode_ctx->marker = marker;
 		return 1;
 	}
 
-	oid = talloc_asprintf_append(oid, ".%llu", subidentifier);
+	fr_sbuff_set(&sb, &marker);
+
+	fr_sbuff_in_sprintf(&sb, ".%llu", subidentifier);
+	fr_sbuff_marker(&marker, &sb);
+
+	decode_ctx->marker = marker;
 
 	if (is_last) {
 		fr_pair_t *vp;
@@ -599,7 +613,15 @@ static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool
 			return -1;
 		}
 
-		fr_pair_value_strdup(vp, oid, false);
+		if (unlikely(!fr_type_is_string(vp->da->type))){
+			fr_strerror_printf("OID found in non-string attribute %s of type %s", vp->da->name,
+					   fr_type_to_str(vp->da->type));
+			return -1;
+		}
+
+		fr_sbuff_terminate(&sb);
+
+		fr_pair_value_strdup(vp, decode_ctx->oid_buff, false);
 
 		fr_pair_append(decode_ctx->parent_list, vp);
 
@@ -780,6 +802,9 @@ static ssize_t fr_der_decode_oid(UNUSED fr_pair_list_t *out, fr_dbuff_t *in, fr_
 	// }
 
 	// ((fr_der_decode_oid_to_da_ctx_t *)uctx)->parent_vp= vp;
+
+	FR_PROTO_TRACE("decode context - OID A: %llu", oid_a);
+	FR_PROTO_TRACE("decode context - OID B: %llu", oid_b);
 
 	if (unlikely(func(oid_a, uctx, is_last) < 0)) return -1;
 
@@ -1750,6 +1775,11 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 		 *	The data type will need to be resolved using the dictionary and the tag value
 		 */
 
+		if (parent == NULL) {
+			fr_strerror_const("No parent attribute to resolve tag");
+			return -1;
+		}
+
 		if (tag_flags == fr_der_flag_class(parent)) {
 			if (*tag == fr_der_flag_tagnum(parent)) {
 				*tag = fr_der_flag_subtype(parent);
@@ -1840,6 +1870,12 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	uint64_t	   tag;
 	size_t	   len;
 	ssize_t	   slen;
+
+	if (unlikely(!fr_type_is_group(parent->type))) {
+		fr_strerror_printf("Pair found in non-group attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
+		return -1;
+	}
 
 	vp = fr_pair_afrom_da(ctx, parent);
 
