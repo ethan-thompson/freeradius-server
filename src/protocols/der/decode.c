@@ -1866,7 +1866,6 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 				  fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_dbuff_t our_in = FR_DBUFF(in);
-	fr_dbuff_marker_t marker;
 	fr_pair_t *vp, *extensions_vp, *vp2, *critical_extensions_vp;
 
 	uint64_t	   tag;
@@ -1907,12 +1906,9 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		return -1;
 	}
 
-	fr_dbuff_marker(&marker, in);
-
 	if (unlikely((slen = fr_der_decode_hdr(parent, &our_in, &tag, &len)) < 0)) {
 		fr_strerror_const_push("Failed decoding extensions list header");
 	error:
-		fr_dbuff_marker_release(&marker);
 		return slen;
 	}
 
@@ -2041,7 +2037,12 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 
 		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "Before decoding extension value");
 
-		if (unlikely((slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &sub_in, decode_ctx)) < 0)) {
+		if (fr_type_is_octets(uctx.parent_da->type)) {
+			if (unlikely((slen = fr_der_decode_octetstring(uctx.ctx, uctx.parent_list, uctx.parent_da, &sub_in, decode_ctx)) < 0)) {
+				fr_strerror_const_push("Failed decoding extension value");
+				goto error;
+			}
+		} else if (unlikely((slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &sub_in, decode_ctx)) < 0)) {
 			fr_strerror_const_push("Failed decoding extension value");
 			goto error;
 		}
@@ -2148,8 +2149,15 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value for sequence");
 
-	slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx);
-	if (unlikely(slen < 0)) goto error;
+	if (fr_type_is_octets(uctx.parent_da->type)) {
+		if (unlikely((slen = fr_der_decode_octetstring(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx)) < 0)) {
+			fr_strerror_const_push("Failed decoding extension value");
+			goto error;
+		}
+	} else if (unlikely((slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx) < 0))) {
+		fr_strerror_const_push("Failed decoding extension value");
+		goto error;
+	}
 
 	fr_dbuff_set(in, &our_in);
 
