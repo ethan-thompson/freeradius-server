@@ -1,17 +1,30 @@
-DEFINE Test-Extensions tlv
+DEFINE Test-Extensions tlv is_extension,is_pair
 BEGIN-TLV Test-Extensions
+DEFINE Critical         group ref=Test-Extensions
 ATTRIBUTE Root 0 tlv
 BEGIN-TLV Root
 ATTRIBUTE Branch 1 tlv
 BEGIN-TLV Branch
-ATTRIBUTE Leaf 2 tlv subtype=sequence,is_extension
+ATTRIBUTE Leaf 2 tlv subtype=sequence
 BEGIN-TLV Leaf
 DEFINE Name string
 DEFINE Version int64
 END-TLV Leaf
+
+ATTRIBUTE Leaf-2 3 tlv subtype=sequence
+BEGIN-TLV Leaf-2
+DEFINE Name string
+DEFINE Version int64
+END-TLV Leaf-2
+
 END-TLV Branch
 END-TLV Root
 END-TLV Test-Extensions
+
+DEFINE Test-Skelly-Cert         tlv
+BEGIN-TLV Test-Skelly-Cert
+DEFINE Extensions               group ref=Test-Extensions
+END-TLV Test-Skelly-Cert
 
 DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,is_pair
 
