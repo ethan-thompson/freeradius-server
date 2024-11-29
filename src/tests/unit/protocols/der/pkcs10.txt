@@ -4,13 +4,13 @@ fuzzer-out der
 
 proto-dictionary-root Test-Extension-Group
 
-decode-pair 30 0e 06 02 01 02 04 08 0c 03 66 6f 6f 02 01 09
+decode-pair 30 12 30 10 30 0e 06 02 01 02 04 08 0c 03 66 6f 6f 02 01 09
 match Test-Extension-Group = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
 
-decode-pair 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
+decode-pair 30 12 30 10 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
 match Test-Extension-Group = { Test-Extensions = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } } } }
 
-decode-pair 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09
+decode-pair 30 15 30 13 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09
 match Test-Extension-Group = { Test-Extensions = { Critical = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } } } }
 
 # decode-pair 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0d 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
@@ -19,12 +19,18 @@ match Test-Extension-Group = { Test-Extensions = { Critical = { Test-Extensions 
 # decode-pair 30 10 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 02 04 08 0c 03 66 6f 6f 02 01 09
 # match
 
-proto-dictionary-root Test-Skelly-Cert
+proto-dictionary-root Test-Other-Extensions-Group
 
 # decode-pair 30 13 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09
 
-# decode-pair 30 23 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
-# match
+decode-pair 30 25 30 23 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
+match Test-Other-Extensions-Group = { Test-Extensions = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } } } }
+
+decode-pair 30 35 30 32 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
+match Test-Other-Extensions-Group = { Test-Extensions = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } } } }
+
+decode-pair 30 47 30 45 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09
+match Test-Other-Extensions-Group = { Test-Extensions = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } } } }
 
 proto-dictionary-root Test-Seq-Of
 

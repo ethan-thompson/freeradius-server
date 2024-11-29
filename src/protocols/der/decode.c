@@ -62,8 +62,8 @@ typedef ssize_t (*fr_der_decode_oid_t)(uint64_t subidentifier, void *uctx, bool 
 
 static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx);
 
-// static ssize_t fr_der_decode_pair(fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
-// 				  fr_der_decode_ctx_t *decode_ctx);
+static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
+				  fr_der_decode_ctx_t *decode_ctx);
 
 typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
 				   fr_der_decode_ctx_t *decode_ctx);
@@ -1862,35 +1862,205 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 
 
 
-// static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
-// 				  fr_der_decode_ctx_t *decode_ctx)
-// {
-// 	fr_dbuff_t our_in = FR_DBUFF(in);
-// 	fr_dbuff_marker_t marker;
-// 	fr_pair_t *vp;
-// 	fr_pair_t *critical_pair;
-// 	fr_pair_t *noncritical_pair;
-// 	fr_dict_attr_t const *child = NULL;
+static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
+				  fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_dbuff_t our_in = FR_DBUFF(in);
+	fr_dbuff_marker_t marker;
+	fr_pair_t *vp, *extensions_vp, *vp2, *critical_extensions_vp;
 
-// 	uint64_t	   tag;
-// 	size_t	   len;
-// 	ssize_t	   slen;
+	uint64_t	   tag;
+	size_t	   len;
+	ssize_t	   slen;
 
-// 	if (unlikely(!fr_type_is_tlv(parent->type))) {
-// 		fr_strerror_printf("Extensions found in non-tlv attribute %s of type %s", parent->name,
-// 				   fr_type_to_str(parent->type));
-// 		return -1;
-// 	}
+	if (unlikely(!fr_type_is_group(parent->type))) {
+		fr_strerror_printf("Pair found in non-group attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
+		return -1;
+	}
 
-// 	vp = fr_pair_afrom_da(ctx, parent);
+	vp = fr_pair_afrom_da(ctx, parent);
 
-// 	if (unlikely(vp == NULL)) {
-// 		fr_strerror_const("Out of memory for pair");
-// 		return -1;
-// 	}
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory for pair");
+		return -1;
+	}
 
+	extensions_vp = fr_pair_afrom_da(vp, fr_dict_attr_ref(parent));
 
-// }
+	if (unlikely(extensions_vp == NULL)) {
+		fr_strerror_const("Out of memory for extensions pair");
+		return -1;
+	}
+
+	vp2 = fr_pair_afrom_da(extensions_vp, fr_dict_attr_by_name(NULL, extensions_vp->da, "critical"));
+
+	if (unlikely(vp2 == NULL)) {
+		fr_strerror_const("Out of memory for critical extensions pair parent");
+		return -1;
+	}
+
+	critical_extensions_vp = fr_pair_afrom_da(vp2, fr_dict_attr_ref(vp2->da));
+
+	if (unlikely(critical_extensions_vp == NULL)) {
+		fr_strerror_const("Out of memory for critical extensions pair");
+		return -1;
+	}
+
+	fr_dbuff_marker(&marker, in);
+
+	if (unlikely((slen = fr_der_decode_hdr(parent, &our_in, &tag, &len)) < 0)) {
+		fr_strerror_const_push("Failed decoding extensions list header");
+	error:
+		fr_dbuff_marker_release(&marker);
+		return slen;
+	}
+
+	if (tag != FR_DER_TAG_SEQUENCE) {
+		fr_strerror_printf("Expected SEQUENCE tag as the first item in an extensions list. Got tag: %llu", tag);
+		slen = -1;
+		goto error;
+	}
+
+	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
+
+	while (fr_dbuff_remaining(&our_in) > 0) {
+		fr_dbuff_t sub_in = FR_DBUFF(&our_in);
+		fr_dbuff_marker_t sub_marker;
+
+		size_t sub_len, len_peek;
+		uint8_t isCritical = false;
+
+		fr_dbuff_set_end(&sub_in, fr_dbuff_current(&sub_in) + len);
+
+		if (unlikely((slen = fr_der_decode_hdr(parent, &sub_in, &tag, &sub_len)) < 0)) {
+			fr_strerror_const_push("Failed decoding extension sequence header");
+			goto error;
+		}
+
+		if (tag != FR_DER_TAG_SEQUENCE) {
+			fr_strerror_printf("Expected SEQUENCE tag as the first tag in an extension. Got tag: %llu", tag);
+			slen = -1;
+			goto error;
+		}
+
+		FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
+
+		if (unlikely((slen = fr_der_decode_hdr(NULL, &sub_in, &tag, &sub_len)) < 0)) {
+			fr_strerror_const_push("Failed decoding oid header");
+			goto error;
+		}
+
+		if (tag != FR_DER_TAG_OID) {
+			fr_strerror_printf("Expected OID tag as the first item in an extension. Got tag: %llu", tag);
+			slen = -1;
+			goto error;
+		}
+
+		FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
+
+		fr_der_decode_oid_to_da_ctx_t uctx = {
+			.ctx = extensions_vp,
+			.parent_da = extensions_vp->da,
+			.parent_list = &extensions_vp->vp_group,
+		};
+
+		fr_dbuff_marker(&sub_marker, &sub_in);
+
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "Before moving buffer in extension");
+
+		fr_dbuff_advance(&sub_in, sub_len);
+
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "After moving buffer in extension");
+
+		if (unlikely(fr_der_decode_hdr(NULL, &sub_in, &tag, &len_peek) < 0)) {
+			fr_strerror_const_push("Failed decoding value header for extension ");
+			slen = -1;
+			fr_dbuff_marker_release(&sub_marker);
+			goto error;
+		}
+
+		if (tag == FR_DER_TAG_BOOLEAN) {
+			/*
+			 *	This Extension has the isCritical field.
+			 * 	If this value is true, we will be storing the pair in the critical list
+			 */
+			if (unlikely(fr_dbuff_out(&isCritical, &sub_in) < 0)) {
+				fr_strerror_const("Insufficient data for isCritical field");
+				slen = -1;
+				fr_dbuff_marker_release(&sub_marker);
+				goto error;
+			}
+
+			if (isCritical) {
+				uctx.ctx = critical_extensions_vp;
+				uctx.parent_da = critical_extensions_vp->da;
+				uctx.parent_list = &critical_extensions_vp->vp_group;
+			}
+		}
+
+		/*
+		 *	Restore the marker and rewind the buffer
+		 */
+		fr_dbuff_set(&sub_in, &sub_marker);
+		fr_dbuff_marker_release(&sub_marker);
+
+		fr_dbuff_set_end(&sub_in, fr_dbuff_current(&sub_in) + sub_len);
+
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "Before decoding extension oid");
+
+		if (unlikely((slen = fr_der_decode_oid(NULL, &sub_in, fr_der_decode_oid_to_da, &uctx)) < 0)) {
+			fr_strerror_const_push("Failed decoding extension");
+			goto error;
+		}
+
+		fr_dbuff_set(&our_in, &sub_in);
+
+		sub_in = FR_DBUFF(&our_in);
+
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "After decoding extension oid");
+
+		if (isCritical) {
+			fr_dbuff_advance(&sub_in, 3);
+		}
+
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "After advancing buffer in extension");
+
+		if (unlikely((slen = fr_der_decode_hdr(NULL, &sub_in, &tag, &sub_len)) < 0)) {
+			fr_strerror_const_push("Failed decoding value header for extension value");
+			goto error;
+		}
+
+		if (unlikely(tag != FR_DER_TAG_OCTETSTRING)) {
+			fr_strerror_printf("Expected OCTETSTRING tag as the second item in an extension. Got tag: %llu", tag);
+			slen = -1;
+			goto error;
+		}
+
+		fr_dbuff_set_end(&sub_in, fr_dbuff_current(&sub_in) + sub_len);
+
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "Before decoding extension value");
+
+		if (unlikely((slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &sub_in, decode_ctx)) < 0)) {
+			fr_strerror_const_push("Failed decoding extension value");
+			goto error;
+		}
+
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "After decoding extension value");
+
+		fr_dbuff_set(&our_in, &sub_in);
+	}
+
+	if (critical_extensions_vp->children.order.head.dlist_head.num_elements > 0) {
+		fr_pair_append(&vp2->vp_group, critical_extensions_vp);
+		fr_pair_append(&extensions_vp->vp_group, vp2);
+	}
+
+	fr_pair_append(&vp->vp_group, extensions_vp);
+	fr_pair_append(out, vp);
+
+	return fr_dbuff_set(in, &our_in);
+}
 
 static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
 				  fr_der_decode_ctx_t *decode_ctx)
@@ -1899,11 +2069,8 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	fr_dbuff_marker_t marker;
 	fr_pair_t *vp;
 	fr_pair_t *vp2;
-	fr_pair_t *critical_pair = NULL;
-	fr_pair_t *critical_extensions = NULL;
 
 	uint64_t	   tag;
-	uint8_t isCritical = false;
 	size_t	   len;
 	ssize_t	   slen;
 
@@ -1945,84 +2112,10 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
 	fr_der_decode_oid_to_da_ctx_t uctx = {
-		// .ctx = ctx,
-		// .ctx = vp,
 		.ctx = vp2,
-		// .parent_da = fr_dict_attr_ref(parent),
-		// .parent_da = vp->da,
 		.parent_da = vp2->da,
-		// .parent_list = &vp->vp_group,
 		.parent_list = &vp2->vp_group,
-		// .parent_list = out,
 	};
-
-	if (fr_der_flag_is_extension(vp2->da)) {
-	// if (false) {
-		/*
-		 *	We are working with extensions.
-		 *	They may have the isCritical field, which is a boolean we need to check for now
-		 */
-		fr_dbuff_marker_t marker2;
-		size_t		   len_peek;
-
-		fr_dbuff_marker(&marker2, &our_in);
-
-		FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "Before moving buffer in extension");
-
-		fr_dbuff_advance(&our_in, len);
-
-		FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "After moving buffer in extension");
-
-		if (unlikely(fr_der_decode_hdr(NULL, &our_in, &tag, &len_peek) < 0)) {
-			fr_strerror_const_push("Failed decoding value header for extension");
-			slen = -1;
-			fr_dbuff_marker_release(&marker2);
-			goto error;
-		}
-
-		if (tag == FR_DER_TAG_BOOLEAN) {
-			/*
-			 *	This Extension has the isCritical field.
-			 * 	If this value is true, we will be storing the pair in the critical list
-			 */
-			if (unlikely(fr_dbuff_out(&isCritical, &our_in) < 0)) {
-				fr_strerror_const("Insufficient data for isCritical field");
-				slen = -1;
-				fr_dbuff_marker_release(&marker2);
-				goto error;
-			}
-
-			if (isCritical) {
-				critical_pair = fr_pair_afrom_da(vp2, fr_dict_attr_by_name(NULL, vp2->da, "critical"));
-
-				if (unlikely(critical_pair == NULL)) {
-					fr_strerror_const("Out of memory for critical pair");
-					slen = -1;
-					fr_dbuff_marker_release(&marker2);
-					goto error;
-				}
-
-				critical_extensions = fr_pair_afrom_da(critical_pair, fr_dict_attr_ref(critical_pair->da));
-
-				if (unlikely(critical_extensions == NULL)) {
-					fr_strerror_const("Out of memory for critical extensions pair");
-					slen = -1;
-					fr_dbuff_marker_release(&marker2);
-					goto error;
-				}
-
-				uctx.ctx = critical_extensions;
-				uctx.parent_da = critical_extensions->da;
-				uctx.parent_list = &critical_extensions->vp_group;
-			}
-		}
-
-		/*
-		 *	Restore the marker and rewind the buffer
-		 */
-		fr_dbuff_set(&our_in, &marker2);
-		fr_dbuff_marker_release(&marker2);
-	}
 
 	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 
@@ -2036,10 +2129,6 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	our_in = FR_DBUFF(in);
 
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value");
-
-	if (isCritical) {
-		fr_dbuff_advance(&our_in, 3);
-	}
 
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value after skipping critical");
 
@@ -2060,17 +2149,11 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value for sequence");
 
 	slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx);
-	// slen = fr_der_decode_pair_dbuff(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx);
 	if (unlikely(slen < 0)) goto error;
 
 	fr_dbuff_set(in, &our_in);
 
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value");
-
-	if (isCritical) {
-		fr_pair_append(&critical_pair->vp_group, critical_extensions);
-		fr_pair_append(&vp2->vp_group, critical_pair);
-	}
 
 	fr_pair_append(&vp->vp_group, vp2);
 	fr_pair_append(out, vp);
@@ -2099,13 +2182,13 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		return fr_dbuff_set(in, &our_in);
 	}
 
-	// if (fr_der_flag_is_extension(parent)) {
-	// 	slen = fr_der_decode_x509_extensions(ctx, out, &our_in, parent, decode_ctx);
+	if (fr_der_flag_is_extension(parent)) {
+		slen = fr_der_decode_x509_extensions(ctx, out, &our_in, parent, decode_ctx);
 
-	// 	if (unlikely(slen < 0)) return slen;
+		if (unlikely(slen < 0)) return slen;
 
-	// 	return fr_dbuff_set(in, &our_in);
-	// }
+		return fr_dbuff_set(in, &our_in);
+	}
 
 	func = &tag_funcs[tag];
 

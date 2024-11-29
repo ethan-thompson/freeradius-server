@@ -1,4 +1,4 @@
-DEFINE Test-Extensions tlv is_extension,is_pair
+DEFINE Test-Extensions tlv
 BEGIN-TLV Test-Extensions
 DEFINE Critical         group ref=Test-Extensions
 ATTRIBUTE Root 0 tlv
@@ -26,7 +26,9 @@ BEGIN-TLV Test-Skelly-Cert
 DEFINE Extensions               group ref=Test-Extensions
 END-TLV Test-Skelly-Cert
 
-DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,is_pair
+DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,is_extension
+
+DEFINE Test-Other-Extensions-Group      group ref=Test-Extensions,sequence_of=sequence,is_extension
 
 DEFINE Test-Seq-Of              tlv sequence_of=integer
 BEGIN-TLV Test-Seq-Of
