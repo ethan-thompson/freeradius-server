@@ -30,6 +30,8 @@ DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,i
 
 DEFINE Test-Other-Extensions-Group      group ref=Test-Extensions,sequence_of=sequence,is_extension
 
+DEFINE Test-Pair-Group          group ref=Test-Extensions,is_pair
+
 DEFINE Test-Seq-Of              tlv sequence_of=integer
 BEGIN-TLV Test-Seq-Of
 DEFINE Test-First-Integer       int64
