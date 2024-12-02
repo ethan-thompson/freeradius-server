@@ -35,6 +35,15 @@ match Test-Other-Extensions-Group = { Test-Extensions = { Root = { Branch = { Le
 decode-pair 30 47 30 45 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09
 match Test-Other-Extensions-Group = { Test-Extensions = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } } } }
 
+
+proto-dictionary-root Test-Extensions-Group-Max
+
+decode-pair 30 25 30 23 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
+match Test-Extensions-Group-Max = { Test-Extensions = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } } } }
+
+decode-pair 30 35 30 32 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
+match Too many extensions
+
 proto-dictionary-root Test-Pair-Group
 
 decode-pair 30 0e 06 02 01 02 04 08 0c 03 66 6f 6f 02 01 09
@@ -62,6 +71,24 @@ proto-dictionary-root Test-Set-Of
 
 decode-pair 31 06 02 01 01 01 01 FF
 match Attribute Test-Set-Of is a set-of type 2, but found type 1
+
+
+proto-dictionary-root Test-Sequence-GROUP
+
+# decode-pair 30 06 02 01 09 01 01 ff
+# match
+
+# encode-pair Test-Sequence-Group = { Test-Integer = 9, Test-Boolean = yes }
+# match 30 06 02 01 09 01 01 ff
+
+proto-dictionary-root Test-String-Max
+
+decode-pair 16 02 68 69
+match Test-String-Max = "hi"
+
+decode-pair 1681f7496e206120686f6c6520696e207468652067726f756e64207468657265206c69766564206120686f626269742e204e6f742061206e617374792c2064697274792c2077657420686f6c652c2066696c6c656420776974682074686520656e6473206f6620776f726d7320616e6420616e206f6f7a7920736d656c6c2c206e6f72207965742061206472792c20626172652c2073616e647920686f6c652077697468206e6f7468696e6720696e20697420746f2073697420646f776e206f6e206f7220746f206561743a20697420776173206120686f626269742d686f6c652c20616e642074686174206d65616e7320636f6d666f72742e
+match Data length (247) exceeds max size (5)
+
 
 proto-dictionary-root Foo
 
