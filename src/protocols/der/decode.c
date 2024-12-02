@@ -68,6 +68,8 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
 				   fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, uint64_t *tag, size_t *len);
+
 typedef struct {
 	fr_der_tag_constructed_t constructed;
 	fr_der_decode_t		 decode;
@@ -1082,7 +1084,9 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	fr_pair_t	     *vp;
 	fr_dict_attr_t const *child	   = NULL;
 	fr_dbuff_t	      our_in	   = FR_DBUFF(in);
+	fr_dbuff_marker_t 	previous_marker;
 	uint8_t		      previous_tag = 0x00;
+	size_t			previous_len = 0;
 
 	if (!fr_type_is_struct(parent->type) && !fr_type_is_tlv(parent->type) && !fr_type_is_group(parent->type)) {
 		fr_strerror_printf("Set found in incompatible attribute %s of type %s", parent->name,
@@ -1115,24 +1119,70 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		fr_der_tag_num_t restriction_type = fr_der_flag_set_of(parent);
 
 		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
+			fr_dbuff_marker_t current_value_marker;
 			ssize_t ret;
-			uint8_t current_tag;
+			uint64_t current_tag;
 			uint8_t *current_marker = fr_dbuff_current(&our_in);
+			size_t len;
 
 			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
 
-			if (unlikely(fr_dbuff_out(&current_tag, &our_in) < 0)) {
+			// if (unlikely(fr_dbuff_out(&current_tag, &our_in) < 0)) {
+			if (unlikely(fr_der_decode_hdr(NULL, &our_in, &current_tag, &len) < 0)) {
 				fr_strerror_const("Insufficient data for set. Missing tag");
+				ret = -1;
+			error:
 				talloc_free(vp);
-				return -1;
+				return ret;
 			}
 
 			if (unlikely(current_tag != restriction_type)) {
-				fr_strerror_printf("Attribute %s is a set-of type %u, but found type %u", parent->name,
+				fr_strerror_printf("Attribute %s is a set-of type %u, but found type %llu", parent->name,
 						   restriction_type, current_tag);
 				talloc_free(vp);
 				return -1;
 			}
+
+			fr_dbuff_marker(&current_value_marker, &our_in);
+
+			if (previous_tag != 0x00) {
+				uint8_t prev_char = 0, curr_char = 0;
+				fr_dbuff_t previous_item = FR_DBUFF(&previous_marker);
+
+				fr_dbuff_set_end(&previous_item, fr_dbuff_current(&previous_marker) + previous_len);
+
+				do {
+					if(unlikely(fr_dbuff_out(&prev_char, &previous_item) < 0)) {
+						fr_strerror_const("Insufficient data for set. Missing tag for previous marker");
+						talloc_free(vp);
+						return -1;
+					}
+
+					if(unlikely(fr_dbuff_out(&curr_char, &our_in) < 0)) {
+						fr_strerror_const("Insufficient data for set. Missing tag for current marker");
+						talloc_free(vp);
+						return -1;
+					}
+
+					if (prev_char > curr_char) {
+						fr_strerror_const("Set tags are not in ascending order");
+						talloc_free(vp);
+						return -1;
+					}
+
+				}while (fr_dbuff_remaining(&our_in) > 0 && fr_dbuff_remaining(&previous_item) > 0);
+
+				if (fr_dbuff_remaining(&previous_item) > 0) {
+					fr_strerror_const("Set tags are not in ascending order. Previous item has more data");
+					talloc_free(vp);
+					return -1;
+				}
+			}
+
+			previous_tag = current_tag;
+			previous_len = len;
+
+			previous_marker = current_value_marker;
 
 			fr_dbuff_set(&our_in, current_marker);
 
