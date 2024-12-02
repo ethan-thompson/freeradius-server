@@ -2,6 +2,7 @@
 #include "lib/util/types.h"
 #include <freeradius-devel/util/dict.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 extern HIDDEN fr_dict_t const *dict_der;
 
@@ -103,6 +104,8 @@ typedef struct {
 	fr_der_tag_num_t sequence_of;
 	fr_der_tag_num_t set_of;
 
+	uint64_t max;
+
 	bool is_sequence_of;
 	bool is_set_of;
 	bool is_pair;
@@ -121,6 +124,7 @@ static inline fr_der_attr_flags_t const *fr_der_attr_flags(fr_dict_attr_t const 
 #define fr_der_flag_is_sequence_of(_da) 	(fr_der_attr_flags(_da)->is_sequence_of)
 #define fr_der_flag_set_of(_da) 	(fr_der_attr_flags(_da)->set_of)
 #define fr_der_flag_is_set_of(_da) 	(fr_der_attr_flags(_da)->is_set_of)
+#define fr_der_flag_max(_da) 	(fr_der_attr_flags(_da)->max)
 #define fr_der_flag_is_pair(_da) 	(fr_der_attr_flags(_da)->is_pair)
 #define fr_der_flag_is_extension(_da) 	(fr_der_attr_flags(_da)->is_extension)
 

@@ -30,6 +30,8 @@ DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,i
 
 DEFINE Test-Other-Extensions-Group      group ref=Test-Extensions,sequence_of=sequence,is_extension
 
+DEFINE Test-Extensions-Group-Max     group ref=Test-Extensions,sequence_of=sequence,is_extension,max=2
+
 DEFINE Test-Pair-Group          group ref=Test-Extensions,is_pair
 
 DEFINE Test-Seq-Of              tlv sequence_of=integer
@@ -38,23 +40,11 @@ DEFINE Test-First-Integer       int64
 DEFINE Test-Second-Integer      int64
 END-TLV Test-Seq-Of
 
-# DEFINE Test-Seq-Of-Bad          tlv sequence_of=integer
-# BEGIN-TLV Test-Seq-Of-Bad
-# DEFINE Test-First-Integer       int64
-# DEFINE Test-Bad                 bool
-# END-TLV Test-Seq-Of-Bad
-
 DEFINE Test-Set-Of              tlv set_of=integer
 BEGIN-TLV Test-Set-Of
 DEFINE Test-First-Integer       int64
 DEFINE Test-Second-Integer      int64
 END-TLV Test-Set-Of
-
-# DEFINE Test-Set-Of-Bad          tlv set_of=integer
-# BEGIN-TLV Test-Set-Of-Bad
-# DEFINE Test-First-Integer       int64
-# DEFINE Test-Bad                 bool
-# END-TLV Test-Set-Of-Bad
 
 DEFINE Test-Boolean             bool
 
@@ -116,6 +106,8 @@ MEMBER Test-Oid                 string subtype=oid
 DEFINE Test-Enumerated          int64 subtype=enumerated
 
 DEFINE Test-String              string
+
+DEFINE Test-String-Max          string max=5
 
 DEFINE Test-String-UTF8         string subtype=utf8string
 

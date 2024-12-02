@@ -324,10 +324,20 @@ static int dict_flag_is_extension(fr_dict_attr_t **da_p, UNUSED char const *valu
 	return 0;
 }
 
+static int dict_flag_max(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+{
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+
+	flags->max = (uint64_t)atoll(value);
+
+	return 0;
+}
+
 static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("class"), { .func = dict_flag_class } },
 						   { L("is_extension"), { .func = dict_flag_is_extension } },
 						   { L("is_pair"), { .func = dict_flag_is_pair } },
+						   { L("max"), { .func = dict_flag_max } },
 						   { L("sequence_of"), { .func = dict_flag_sequence_of } },
 						   { L("set_of"), { .func = dict_flag_set_of } },
 						   { L("subtype"), { .func = dict_flag_subtype } },

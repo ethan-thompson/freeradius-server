@@ -1868,7 +1868,7 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 	fr_dbuff_t our_in = FR_DBUFF(in);
 	fr_pair_t *vp, *extensions_vp, *vp2, *critical_extensions_vp;
 
-	uint64_t	   tag;
+	uint64_t	   tag, max;
 	size_t	   len;
 	ssize_t	   slen;
 
@@ -1919,6 +1919,8 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 	}
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
+
+	max = fr_der_flag_max(parent);
 
 	while (fr_dbuff_remaining(&our_in) > 0) {
 		fr_dbuff_t sub_in = FR_DBUFF(&our_in);
@@ -2050,6 +2052,11 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "After decoding extension value");
 
 		fr_dbuff_set(&our_in, &sub_in);
+
+		if (--max == 0 && fr_dbuff_remaining(&our_in) > 0) {
+			fr_strerror_const("Too many extensions");
+			return -1;
+		}
 	}
 
 	if (critical_extensions_vp->children.order.head.dlist_head.num_elements > 0) {
@@ -2175,7 +2182,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	fr_dbuff_t	     our_in = FR_DBUFF(in);
 	fr_der_tag_decode_t *func;
 	ssize_t		     slen;
-	uint64_t	     tag;
+	uint64_t	     tag, max;
 	size_t		     len;
 
 	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) return -1;
@@ -2208,8 +2215,10 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	case FR_DER_TAG_SET:
 		break;
 	default:
-		if (unlikely(len > DER_MAX_STR)) {
-			fr_strerror_printf("Data length too large (%zu)", len);
+		max = fr_der_flag_max(parent) ? fr_der_flag_max(parent) : DER_MAX_STR;
+
+		if (unlikely(len > max)) {
+			fr_strerror_printf("Data length (%zu) exceeds max size (%llu)", len, max);
 			return -1;
 		}
 		break;
