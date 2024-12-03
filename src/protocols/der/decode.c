@@ -2250,6 +2250,11 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	uint64_t	     tag, max;
 	size_t		     len;
 
+	if (unlikely(parent == NULL)) {
+		fr_strerror_const("No parent attribute to decode");
+		return -1;
+	}
+
 	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) return -1;
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
