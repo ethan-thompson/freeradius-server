@@ -1116,7 +1116,10 @@ static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 	 */
 	fr_unix_time_to_str(&time_sbuff, vp->vp_date, FR_TIME_RES_SEC, true);
 
-	memmove(fmt_time, &fmt_time[2], sizeof(fmt_time) - 1);
+	/*
+	 *	Remove the century from the year
+	 */
+	fr_sbuff_shift(&time_sbuff, 2);
 
 	/*
 	 *	Trim the time string of any unwanted characters
