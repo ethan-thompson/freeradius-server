@@ -34,6 +34,7 @@
 #include "der.h"
 #include "lib/util/dict_ext.h"
 #include "lib/util/sbuff.h"
+#include "lib/util/value.h"
 #include "talloc.h"
 
 #include <freeradius-devel/io/test_point.h>
@@ -2238,6 +2239,35 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) return -1;
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
+
+	if (!fr_type_to_der_tag_valid(parent->type, tag)) {
+		if (fr_der_flag_has_default(parent)) {
+			fr_pair_t *vp = fr_pair_afrom_da(ctx, parent);
+			fr_dict_enum_value_t *ev;
+
+			if (unlikely(vp == NULL)) {
+				fr_strerror_const("Out of memory for pair");
+				return -1;
+			}
+
+			ev = fr_dict_enum_by_name(parent, "DEFAULT", strlen("DEFAULT"));
+			if (unlikely(ev == NULL)) {
+				fr_strerror_printf("No DEFAULT value for attribute %s", parent->name);
+				return -1;
+			}
+
+			if (fr_value_box_copy(vp, &vp->data, ev->value) < 0) return -1;
+
+			vp->data.enumv = vp->da;
+
+			fr_pair_append(out, vp);
+
+			return 0;
+		}
+
+		fr_strerror_printf("Attribute %s of type %s cannot store type %llu",parent->name, fr_type_to_str(parent->type), tag);
+		return -1;
+	}
 
 	if (fr_der_flag_is_pair(parent)) {
 		slen = fr_der_decode_pair(ctx, out, &our_in, parent, decode_ctx);

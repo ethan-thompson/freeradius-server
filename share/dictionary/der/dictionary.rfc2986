@@ -60,7 +60,8 @@ MEMBER Test-Boolean             bool
 
 DEFINE Foo-Bar                  struct subtype=sequence
 
-MEMBER Test-Integer             int64
+MEMBER Test-Integer             int64 has_default
+VALUE Test-Integer DEFAULT 1
 MEMBER Test-Boolean             bool
 
 DEFINE Test-Bitstring           octets subtype=bitstring

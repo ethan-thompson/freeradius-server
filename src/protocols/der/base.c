@@ -181,6 +181,15 @@ static int dict_flag_class(fr_dict_attr_t **da_p, char const *value, UNUSED fr_d
 	return 0;
 }
 
+static int dict_flag_has_default(fr_dict_attr_t **da_p, UNUSED char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+{
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+
+	flags->has_default = true;
+
+	return 0;
+}
+
 static int dict_flag_subtype(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	static fr_table_num_sorted_t const table[] = {
@@ -335,6 +344,7 @@ static int dict_flag_max(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dic
 
 static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("class"), { .func = dict_flag_class } },
+						   { L("has_default"), { .func = dict_flag_has_default } },
 						   { L("is_extension"), { .func = dict_flag_is_extension } },
 						   { L("is_pair"), { .func = dict_flag_is_pair } },
 						   { L("max"), { .func = dict_flag_max } },
