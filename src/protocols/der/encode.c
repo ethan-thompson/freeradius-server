@@ -1423,7 +1423,8 @@ static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *le
 		return -1;
 	}
 
-	value_field = FR_DBUFF(length_start + 1);
+	value_field = FR_DBUFF(length_start);
+
 	fr_dbuff_set(&value_field, fr_dbuff_current(length_start));
 
 	fr_dbuff_marker(&value_start, &value_field);
