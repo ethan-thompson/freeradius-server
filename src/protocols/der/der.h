@@ -52,21 +52,21 @@ extern fr_der_tag_constructed_t tag_labels[];
  */
 static bool *fr_type_to_der_tags[] = {
 	[FR_TYPE_MAX] = NULL,
-	[FR_TYPE_BOOL] = (bool []){[FR_DER_TAG_BOOLEAN] = true, [FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_NULL] = true},
-	[FR_TYPE_UINT8] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
-	[FR_TYPE_UINT16] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
-	[FR_TYPE_UINT32] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
-	[FR_TYPE_UINT64] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
-	[FR_TYPE_INT8] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
-	[FR_TYPE_INT16] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
-	[FR_TYPE_INT32] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
-	[FR_TYPE_INT64] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
-	[FR_TYPE_OCTETS] = (bool []){[FR_DER_TAG_BITSTRING] = true, [FR_DER_TAG_OCTETSTRING] = true},
-	[FR_TYPE_STRING] = (bool []){[FR_DER_TAG_OID] = true, [FR_DER_TAG_UTF8_STRING] = true, [FR_DER_TAG_PRINTABLE_STRING] = true, [FR_DER_TAG_T61_STRING] = true, [FR_DER_TAG_IA5_STRING] = true, [FR_DER_TAG_VISIBLE_STRING] = true, [FR_DER_TAG_GENERAL_STRING] = true, [FR_DER_TAG_UNIVERSAL_STRING] = true},
-	[FR_TYPE_DATE] = (bool []){[FR_DER_TAG_UTC_TIME] = true, [FR_DER_TAG_GENERALIZED_TIME] = true},
-	[FR_TYPE_TLV] = (bool []){[FR_DER_TAG_SEQUENCE] = true, [FR_DER_TAG_SET] = true},
-	[FR_TYPE_STRUCT] = (bool []){[FR_DER_TAG_BITSTRING] = true, [FR_DER_TAG_SEQUENCE] = true, [FR_DER_TAG_SET] = true},
-	[FR_TYPE_GROUP] = (bool []){[FR_DER_TAG_SEQUENCE] = true, [FR_DER_TAG_SET] = true}
+	[FR_TYPE_BOOL] = (bool []){[FR_DER_TAG_BOOLEAN] = true, [FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_NULL] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_UINT8] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_UINT16] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_UINT32] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_UINT64] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_INT8] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_INT16] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_INT32] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_INT64] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_OCTETS] = (bool []){[FR_DER_TAG_BITSTRING] = true, [FR_DER_TAG_OCTETSTRING] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_STRING] = (bool []){[FR_DER_TAG_OID] = true, [FR_DER_TAG_UTF8_STRING] = true, [FR_DER_TAG_PRINTABLE_STRING] = true, [FR_DER_TAG_T61_STRING] = true, [FR_DER_TAG_IA5_STRING] = true, [FR_DER_TAG_VISIBLE_STRING] = true, [FR_DER_TAG_GENERAL_STRING] = true, [FR_DER_TAG_UNIVERSAL_STRING] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_DATE] = (bool []){[FR_DER_TAG_UTC_TIME] = true, [FR_DER_TAG_GENERALIZED_TIME] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_TLV] = (bool []){[FR_DER_TAG_SEQUENCE] = true, [FR_DER_TAG_SET] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_STRUCT] = (bool []){[FR_DER_TAG_BITSTRING] = true, [FR_DER_TAG_SEQUENCE] = true, [FR_DER_TAG_SET] = true, [FR_DER_TAG_MAX] = false},
+	[FR_TYPE_GROUP] = (bool []){[FR_DER_TAG_SEQUENCE] = true, [FR_DER_TAG_SET] = true, [FR_DER_TAG_MAX] = false}
 };
 
 /*
