@@ -579,15 +579,15 @@ typedef struct {
 	TALLOC_CTX	     *ctx;
 	fr_dict_attr_t const *parent_da;
 	fr_pair_list_t	     *parent_list;
-	char 		     oid_buff[1024];
+	char		      oid_buff[1024];
 	fr_sbuff_marker_t     marker;
 } fr_der_decode_oid_to_str_ctx_t;
 
 static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool is_last)
 {
 	fr_der_decode_oid_to_str_ctx_t *decode_ctx = uctx;
-	fr_sbuff_marker_t marker = decode_ctx->marker;
-	fr_sbuff_t sb = FR_SBUFF_OUT(decode_ctx->oid_buff, sizeof(decode_ctx->oid_buff));
+	fr_sbuff_marker_t		marker	   = decode_ctx->marker;
+	fr_sbuff_t			sb	   = FR_SBUFF_OUT(decode_ctx->oid_buff, sizeof(decode_ctx->oid_buff));
 
 	if (decode_ctx->oid_buff[0] == '\0') {
 		if (unlikely(fr_sbuff_in_sprintf(&sb, "%llu", subidentifier) < 0)) {
@@ -617,7 +617,7 @@ static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool
 			return -1;
 		}
 
-		if (unlikely(!fr_type_is_string(vp->da->type))){
+		if (unlikely(!fr_type_is_string(vp->da->type))) {
 			fr_strerror_printf("OID found in non-string attribute %s of type %s", vp->da->name,
 					   fr_type_to_str(vp->da->type));
 			return -1;
@@ -629,7 +629,7 @@ static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool
 
 		fr_pair_append(decode_ctx->parent_list, vp);
 
-		decode_ctx->ctx		= vp;
+		decode_ctx->ctx = vp;
 	}
 
 	return 1;
@@ -658,8 +658,8 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 
 	if (is_last) {
 		if (unlikely(da == NULL)) {
-			decode_ctx->parent_da = fr_dict_attr_unknown_typed_afrom_num(
-			decode_ctx->ctx, parent_da, subidentifier, FR_TYPE_OCTETS);
+			decode_ctx->parent_da = fr_dict_attr_unknown_typed_afrom_num(decode_ctx->ctx, parent_da,
+										     subidentifier, FR_TYPE_OCTETS);
 
 			if (unlikely(decode_ctx->parent_da == NULL)) {
 				return -1;
@@ -674,8 +674,8 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 	}
 
 	if (unlikely(da == NULL)) {
-		fr_dict_attr_t *unknown_da = fr_dict_attr_unknown_typed_afrom_num(
-			NULL, parent_da, subidentifier, FR_TYPE_TLV);
+		fr_dict_attr_t *unknown_da =
+			fr_dict_attr_unknown_typed_afrom_num(NULL, parent_da, subidentifier, FR_TYPE_TLV);
 
 		if (unlikely(unknown_da == NULL)) {
 			fr_strerror_const("Out of memory for unknown attribute");
@@ -1029,8 +1029,8 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		fr_der_tag_num_t restriction_type = fr_der_flag_sequence_of(parent);
 
 		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
-			ssize_t ret;
-			uint8_t current_tag;
+			ssize_t	 ret;
+			uint8_t	 current_tag;
 			uint8_t *current_marker = fr_dbuff_current(&our_in);
 
 			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
@@ -1042,8 +1042,8 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 			}
 
 			if (unlikely(current_tag != restriction_type)) {
-				fr_strerror_printf("Attribute %s is a sequence-of type %u, but found type %u", parent->name,
-						   restriction_type, current_tag);
+				fr_strerror_printf("Attribute %s is a sequence-of type %u, but found type %u",
+						   parent->name, restriction_type, current_tag);
 				talloc_free(vp);
 				return -1;
 			}
@@ -1083,11 +1083,11 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 				 fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_pair_t	     *vp;
-	fr_dict_attr_t const *child	   = NULL;
-	fr_dbuff_t	      our_in	   = FR_DBUFF(in);
-	fr_dbuff_marker_t 	previous_marker;
+	fr_dict_attr_t const *child  = NULL;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
+	fr_dbuff_marker_t     previous_marker;
 	uint8_t		      previous_tag = 0x00;
-	size_t			previous_len = 0;
+	size_t		      previous_len = 0;
 
 	if (!fr_type_is_struct(parent->type) && !fr_type_is_tlv(parent->type) && !fr_type_is_group(parent->type)) {
 		fr_strerror_printf("Set found in incompatible attribute %s of type %s", parent->name,
@@ -1121,10 +1121,10 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
 			fr_dbuff_marker_t current_value_marker;
-			ssize_t ret;
-			uint64_t current_tag;
-			uint8_t *current_marker = fr_dbuff_current(&our_in);
-			size_t len;
+			ssize_t		  ret;
+			uint64_t	  current_tag;
+			uint8_t		 *current_marker = fr_dbuff_current(&our_in);
+			size_t		  len;
 
 			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
 
@@ -1138,45 +1138,48 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 			}
 
 			if (unlikely(current_tag != restriction_type)) {
-				fr_strerror_printf("Attribute %s is a set-of type %u, but found type %llu", parent->name,
-						   restriction_type, current_tag);
-				talloc_free(vp);
-				return -1;
+				fr_strerror_printf("Attribute %s is a set-of type %u, but found type %llu",
+						   parent->name, restriction_type, current_tag);
+				ret = -1;
+				goto error;
 			}
 
 			fr_dbuff_marker(&current_value_marker, &our_in);
 
 			if (previous_tag != 0x00) {
-				uint8_t prev_char = 0, curr_char = 0;
+				uint8_t	   prev_char = 0, curr_char = 0;
 				fr_dbuff_t previous_item = FR_DBUFF(&previous_marker);
 
 				fr_dbuff_set_end(&previous_item, fr_dbuff_current(&previous_marker) + previous_len);
 
 				do {
-					if(unlikely(fr_dbuff_out(&prev_char, &previous_item) < 0)) {
-						fr_strerror_const("Insufficient data for set. Missing tag for previous marker");
-						talloc_free(vp);
-						return -1;
+					if (unlikely(fr_dbuff_out(&prev_char, &previous_item) < 0)) {
+						fr_strerror_const(
+							"Insufficient data for set. Missing tag for previous marker");
+						ret = -1;
+						goto error;
 					}
 
-					if(unlikely(fr_dbuff_out(&curr_char, &our_in) < 0)) {
-						fr_strerror_const("Insufficient data for set. Missing tag for current marker");
-						talloc_free(vp);
-						return -1;
+					if (unlikely(fr_dbuff_out(&curr_char, &our_in) < 0)) {
+						fr_strerror_const(
+							"Insufficient data for set. Missing tag for current marker");
+						ret = -1;
+						goto error;
 					}
 
 					if (prev_char > curr_char) {
 						fr_strerror_const("Set tags are not in ascending order");
-						talloc_free(vp);
-						return -1;
+						ret = -1;
+						goto error;
 					}
 
-				}while (fr_dbuff_remaining(&our_in) > 0 && fr_dbuff_remaining(&previous_item) > 0);
+				} while (fr_dbuff_remaining(&our_in) > 0 && fr_dbuff_remaining(&previous_item) > 0);
 
 				if (fr_dbuff_remaining(&previous_item) > 0) {
-					fr_strerror_const("Set tags are not in ascending order. Previous item has more data");
-					talloc_free(vp);
-					return -1;
+					fr_strerror_const(
+						"Set tags are not in ascending order. Previous item has more data");
+					ret = -1;
+					goto error;
 				}
 			}
 
@@ -1189,8 +1192,7 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 			ret = fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx);
 			if (unlikely(ret < 0)) {
-				talloc_free(vp);
-				return ret;
+				goto error;
 			}
 		}
 
@@ -1852,7 +1854,7 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	}
 
 	func = &tag_funcs[*tag];
-	if (*tag != FR_DER_TAG_OID){
+	if (*tag != FR_DER_TAG_OID) {
 		if (unlikely(func->decode == NULL)) {
 			fr_strerror_printf("No decode function for tag %" PRIu64, *tag);
 			return -1;
@@ -1911,17 +1913,15 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	return fr_dbuff_set(in, &our_in);
 }
 
-
-
-static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
-				  fr_der_decode_ctx_t *decode_ctx)
+static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in,
+					     fr_dict_attr_t const *parent, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_dbuff_t our_in = FR_DBUFF(in);
 	fr_pair_t *vp, *extensions_vp, *vp2, *critical_extensions_vp;
 
-	uint64_t	   tag, max;
-	size_t	   len;
-	ssize_t	   slen;
+	uint64_t tag, max;
+	size_t	 len;
+	ssize_t	 slen;
 
 	if (unlikely(!fr_type_is_group(parent->type))) {
 		fr_strerror_printf("Pair found in non-group attribute %s of type %s", parent->name,
@@ -1974,10 +1974,10 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 	max = fr_der_flag_max(parent);
 
 	while (fr_dbuff_remaining(&our_in) > 0) {
-		fr_dbuff_t sub_in = FR_DBUFF(&our_in);
+		fr_dbuff_t	  sub_in = FR_DBUFF(&our_in);
 		fr_dbuff_marker_t sub_marker;
 
-		size_t sub_len, len_peek;
+		size_t	sub_len, len_peek;
 		uint8_t isCritical = false;
 
 		fr_dbuff_set_end(&sub_in, fr_dbuff_current(&sub_in) + len);
@@ -1988,7 +1988,8 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		}
 
 		if (tag != FR_DER_TAG_SEQUENCE) {
-			fr_strerror_printf("Expected SEQUENCE tag as the first tag in an extension. Got tag: %llu", tag);
+			fr_strerror_printf("Expected SEQUENCE tag as the first tag in an extension. Got tag: %llu",
+					   tag);
 			slen = -1;
 			goto error;
 		}
@@ -2009,18 +2010,20 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
 		fr_der_decode_oid_to_da_ctx_t uctx = {
-			.ctx = extensions_vp,
-			.parent_da = extensions_vp->da,
+			.ctx	     = extensions_vp,
+			.parent_da   = extensions_vp->da,
 			.parent_list = &extensions_vp->vp_group,
 		};
 
 		fr_dbuff_marker(&sub_marker, &sub_in);
 
-		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "Before moving buffer in extension");
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in),
+				  "Before moving buffer in extension");
 
 		fr_dbuff_advance(&sub_in, sub_len);
 
-		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "After moving buffer in extension");
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in),
+				  "After moving buffer in extension");
 
 		if (unlikely(fr_der_decode_hdr(NULL, &sub_in, &tag, &len_peek) < 0)) {
 			fr_strerror_const_push("Failed decoding value header for extension ");
@@ -2042,8 +2045,8 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 			}
 
 			if (isCritical) {
-				uctx.ctx = critical_extensions_vp;
-				uctx.parent_da = critical_extensions_vp->da;
+				uctx.ctx	 = critical_extensions_vp;
+				uctx.parent_da	 = critical_extensions_vp->da;
 				uctx.parent_list = &critical_extensions_vp->vp_group;
 			}
 		}
@@ -2056,7 +2059,8 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 
 		fr_dbuff_set_end(&sub_in, fr_dbuff_current(&sub_in) + sub_len);
 
-		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "Before decoding extension oid");
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in),
+				  "Before decoding extension oid");
 
 		if (unlikely((slen = fr_der_decode_oid(NULL, &sub_in, fr_der_decode_oid_to_da, &uctx)) < 0)) {
 			fr_strerror_const_push("Failed decoding extension");
@@ -2067,13 +2071,15 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 
 		sub_in = FR_DBUFF(&our_in);
 
-		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "After decoding extension oid");
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in),
+				  "After decoding extension oid");
 
 		if (isCritical) {
 			fr_dbuff_advance(&sub_in, 3);
 		}
 
-		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "After advancing buffer in extension");
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in),
+				  "After advancing buffer in extension");
 
 		if (unlikely((slen = fr_der_decode_hdr(NULL, &sub_in, &tag, &sub_len)) < 0)) {
 			fr_strerror_const_push("Failed decoding value header for extension value");
@@ -2081,26 +2087,31 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		}
 
 		if (unlikely(tag != FR_DER_TAG_OCTETSTRING)) {
-			fr_strerror_printf("Expected OCTETSTRING tag as the second item in an extension. Got tag: %llu", tag);
+			fr_strerror_printf("Expected OCTETSTRING tag as the second item in an extension. Got tag: %llu",
+					   tag);
 			slen = -1;
 			goto error;
 		}
 
 		fr_dbuff_set_end(&sub_in, fr_dbuff_current(&sub_in) + sub_len);
 
-		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "Before decoding extension value");
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in),
+				  "Before decoding extension value");
 
 		if (fr_type_is_octets(uctx.parent_da->type)) {
-			if (unlikely((slen = fr_der_decode_octetstring(uctx.ctx, uctx.parent_list, uctx.parent_da, &sub_in, decode_ctx)) < 0)) {
+			if (unlikely((slen = fr_der_decode_octetstring(uctx.ctx, uctx.parent_list, uctx.parent_da,
+								       &sub_in, decode_ctx)) < 0)) {
 				fr_strerror_const_push("Failed decoding extension value");
 				goto error;
 			}
-		} else if (unlikely((slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &sub_in, decode_ctx)) < 0)) {
+		} else if (unlikely((slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &sub_in,
+								   decode_ctx)) < 0)) {
 			fr_strerror_const_push("Failed decoding extension value");
 			goto error;
 		}
 
-		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in), "After decoding extension value");
+		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in),
+				  "After decoding extension value");
 
 		fr_dbuff_set(&our_in, &sub_in);
 
@@ -2124,14 +2135,14 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
 				  fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_dbuff_t our_in = FR_DBUFF(in);
+	fr_dbuff_t	  our_in = FR_DBUFF(in);
 	fr_dbuff_marker_t marker;
-	fr_pair_t *vp;
-	fr_pair_t *vp2;
+	fr_pair_t	 *vp;
+	fr_pair_t	 *vp2;
 
-	uint64_t	   tag;
-	size_t	   len;
-	ssize_t	   slen;
+	uint64_t tag;
+	size_t	 len;
+	ssize_t	 slen;
 
 	if (unlikely(!fr_type_is_group(parent->type))) {
 		fr_strerror_printf("Pair found in non-group attribute %s of type %s", parent->name,
@@ -2171,8 +2182,8 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
 	fr_der_decode_oid_to_da_ctx_t uctx = {
-		.ctx = vp2,
-		.parent_da = vp2->da,
+		.ctx	     = vp2,
+		.parent_da   = vp2->da,
 		.parent_list = &vp2->vp_group,
 	};
 
@@ -2189,7 +2200,8 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value");
 
-	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value after skipping critical");
+	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in),
+			  "DER pair value after skipping critical");
 
 	if (unlikely(fr_der_decode_hdr(NULL, &our_in, &tag, &len) < 0)) {
 		fr_strerror_const_push("Failed decoding value header");
@@ -2208,11 +2220,13 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value for sequence");
 
 	if (fr_type_is_octets(uctx.parent_da->type)) {
-		if (unlikely((slen = fr_der_decode_octetstring(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx)) < 0)) {
+		if (unlikely((slen = fr_der_decode_octetstring(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in,
+							       decode_ctx)) < 0)) {
 			fr_strerror_const_push("Failed decoding extension value");
 			goto error;
 		}
-	} else if (unlikely((slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx) < 0))) {
+	} else if (unlikely((slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in,
+							   decode_ctx) < 0))) {
 		fr_strerror_const_push("Failed decoding extension value");
 		goto error;
 	}
@@ -2242,7 +2256,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	if (!fr_type_to_der_tag_valid(parent->type, tag)) {
 		if (fr_der_flag_has_default(parent)) {
-			fr_pair_t *vp = fr_pair_afrom_da(ctx, parent);
+			fr_pair_t	     *vp = fr_pair_afrom_da(ctx, parent);
 			fr_dict_enum_value_t *ev;
 
 			if (unlikely(vp == NULL)) {
@@ -2265,7 +2279,8 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 			return 0;
 		}
 
-		fr_strerror_printf("Attribute %s of type %s cannot store type %llu",parent->name, fr_type_to_str(parent->type), tag);
+		fr_strerror_printf("Attribute %s of type %s cannot store type %llu", parent->name,
+				   fr_type_to_str(parent->type), tag);
 		return -1;
 	}
 
@@ -2304,19 +2319,19 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		break;
 	}
 
-	if (tag != FR_DER_TAG_OID){
+	if (tag != FR_DER_TAG_OID) {
 		fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 		slen = func->decode(ctx, out, parent, &our_in, decode_ctx);
 	} else {
 		fr_der_decode_oid_to_str_ctx_t uctx = {
-			.ctx = ctx,
-			.parent_da = parent,
+			.ctx	     = ctx,
+			.parent_da   = parent,
 			.parent_list = out,
 		};
 
 		fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 
-		slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_str,  &uctx);
+		slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_str, &uctx);
 	}
 
 	if (unlikely(slen < 0)) return slen;
