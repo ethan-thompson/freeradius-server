@@ -52,7 +52,7 @@ extern fr_der_tag_constructed_t tag_labels[];
  */
 static bool *fr_type_to_der_tags[] = {
 	[FR_TYPE_MAX] = NULL,
-	[FR_TYPE_BOOL] = (bool []){[FR_DER_TAG_BOOLEAN] = true, [FR_DER_TAG_INTEGER] = true},
+	[FR_TYPE_BOOL] = (bool []){[FR_DER_TAG_BOOLEAN] = true, [FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_NULL] = true},
 	[FR_TYPE_UINT8] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
 	[FR_TYPE_UINT16] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
 	[FR_TYPE_UINT32] = (bool []){[FR_DER_TAG_INTEGER] = true, [FR_DER_TAG_ENUMERATED] = true},
