@@ -80,6 +80,30 @@ static inline CC_HINT(always_inline) bool fr_type_to_der_tag_valid(fr_type_t typ
 	return fr_type_to_der_tags[type][tag];
 }
 
+static int fr_type_to_der_tag_defaults[] = {
+	[FR_TYPE_NULL] = FR_DER_TAG_NULL,
+	[FR_TYPE_BOOL] = FR_DER_TAG_BOOLEAN,
+	[FR_TYPE_UINT8] = FR_DER_TAG_INTEGER,
+	[FR_TYPE_UINT16] = FR_DER_TAG_INTEGER,
+	[FR_TYPE_UINT32] = FR_DER_TAG_INTEGER,
+	[FR_TYPE_UINT64] = FR_DER_TAG_INTEGER,
+	[FR_TYPE_INT8] = FR_DER_TAG_INTEGER,
+	[FR_TYPE_INT16] = FR_DER_TAG_INTEGER,
+	[FR_TYPE_INT32] = FR_DER_TAG_INTEGER,
+	[FR_TYPE_INT64] = FR_DER_TAG_INTEGER,
+	[FR_TYPE_OCTETS] = FR_DER_TAG_OCTETSTRING,
+	[FR_TYPE_STRING] = FR_DER_TAG_UTF8_STRING,
+	[FR_TYPE_DATE] = FR_DER_TAG_GENERALIZED_TIME,
+	[FR_TYPE_TLV] = FR_DER_TAG_SEQUENCE,
+	[FR_TYPE_STRUCT] = FR_DER_TAG_SEQUENCE,
+	[FR_TYPE_GROUP] = FR_DER_TAG_SEQUENCE
+};
+
+static inline CC_HINT(always_inline) fr_der_tag_num_t fr_type_to_der_tag_default(fr_type_t type)
+{
+	return fr_type_to_der_tag_defaults[type];
+}
+
 #define DER_MAX_STR 16384
 
 #define DER_UTC_TIME_LEN 13	 //!< Length of the UTC time string.

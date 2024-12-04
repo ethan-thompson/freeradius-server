@@ -795,7 +795,7 @@ encode-pair Test-Generalized-Time = "2015-12-31T23:59:59.1230Z"
 match 18 13 32 30 31 35 31 32 33 31 32 33 35 39 35 39 2e 31 32 33 5a
 
 encode-pair Test-String = "foo"
-match Unknown string sub-type 0
+match 0c 03 66 6f 6f
 
 # Test UTF8 Encoding
 
