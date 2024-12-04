@@ -40,7 +40,7 @@ DEFINE Test-First-Integer       int64
 DEFINE Test-Second-Integer      int64
 END-TLV Test-Seq-Of
 
-DEFINE Test-Set-Of              tlv set_of=integer
+DEFINE Test-Set-Of              tlv subtype=set,set_of=integer
 BEGIN-TLV Test-Set-Of
 DEFINE Test-First-Integer       int64
 DEFINE Test-Second-Integer      int64

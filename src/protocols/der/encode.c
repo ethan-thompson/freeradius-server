@@ -7,6 +7,7 @@
 #include "lib/util/dcursor.h"
 #include "lib/util/dict_ext.h"
 #include "lib/util/sbuff.h"
+#include "talloc.h"
 
 #include <freeradius-devel/io/test_point.h>
 
@@ -24,6 +25,10 @@
 
 typedef struct {
 	uint8_t *tmp_ctx;
+	uint8_t *encoding_start; //!< This is the start of the encoding. It is NOT the same as the start of the encoded value. It is the position of the tag.
+	size_t encoding_length; //!< This is the length of the entire encoding. It is NOT the same as the length of the encoded value. It includes the tag, length, and value.
+	ssize_t	 length_of_encoding;	//!< This is the number of bytes used by the encoded value. It is NOT the same as the encoded length field.
+	uint8_t *encoded_value;		//!< This is a pointer to the start of the encoded value.
 } fr_der_encode_ctx_t;
 
 #define DER_MAX_STR 16384
@@ -99,13 +104,17 @@ static int encode_test_ctx(void **out, TALLOC_CTX *ctx)
 	if (!test_ctx) return -1;
 
 	test_ctx->tmp_ctx = talloc(test_ctx, uint8_t);
+	test_ctx->encoding_start = NULL;
+	test_ctx->encoding_length = 0;
+	test_ctx->length_of_encoding = 0;
+	test_ctx->encoded_value = NULL;
 
 	*out = test_ctx;
 
 	return 0;
 }
 
-static inline CC_HINT(always_inline) int8_t fr_der_pair_cmp_by_da(void const *a, void const *b)
+static inline CC_HINT(always_inline) int8_t fr_der_pair_cmp_by_da_tag(void const *a, void const *b)
 {
 	fr_pair_t const *my_a = a;
 	fr_pair_t const *my_b = b;
@@ -774,6 +783,18 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 	return -1;
 }
 
+typedef struct {
+	uint8_t *item_ptr;	//!< Pointer to the start of the encoded item (beginning of the tag)
+	size_t	 item_len;	//!< Length of the encoded item (tag + length + value)
+	uint8_t *octet_ptr;	//!< Pointer to the current octet
+	size_t  remaining;	//!< Remaining octets
+} fr_der_encode_set_of_ptr_pairs_t;
+
+// takes in a list of fr_der_encode_set_of_ptr_pairs_t and an index
+static ssize_t fr_der_sort_set_of(fr_der_encode_set_of_ptr_pairs_t *ptr_pairs, size_t index, size_t count){
+	return 0;
+}
+
 static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_pair_t	     *vp;
@@ -827,9 +848,79 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 			return -1;
 		}
 
-		return slen;
+		break;
 	case FR_TYPE_TLV:
-		fr_pair_list_sort(&vp->children, fr_der_pair_cmp_by_da);
+		if (fr_der_flag_is_set_of(vp->da)) {
+			fr_dbuff_t	 work_dbuff;
+			fr_der_encode_set_of_ptr_pairs_t *ptr_pairs;
+			size_t				  i = 0, count;
+
+			fr_dbuff_init(&work_dbuff, fr_dbuff_current(dbuff), dbuff->end);
+
+			fr_proto_da_stack_build(&da_stack, vp->da);
+
+			FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+			fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
+
+			count = fr_pair_list_num_elements(&vp->children);
+
+			ptr_pairs = talloc_array(vp, fr_der_encode_set_of_ptr_pairs_t, count);
+			if (unlikely(ptr_pairs == NULL)) {
+				fr_strerror_const("Failed to allocate memory for set of pointers");
+				return -1;
+			}
+
+			for (i = 0; i < count; i++) {
+				ssize_t len_count;
+
+				if (unlikely(fr_dcursor_current(&child_cursor) == NULL)) {
+					fr_strerror_const("No pair to encode set of");
+					return -1;
+				}
+
+				len_count = encode_value(&work_dbuff, NULL, depth, &child_cursor, encode_ctx);
+
+				if (unlikely(len_count < 0)) {
+					fr_strerror_printf("Failed to encode pair: %s", fr_strerror());
+					return -1;
+				}
+
+				ptr_pairs[i].item_ptr = encode_ctx->encoding_start;
+				ptr_pairs[i].item_len = encode_ctx->encoding_length;
+				ptr_pairs[i].octet_ptr = encode_ctx->encoded_value;
+				ptr_pairs[i].remaining = encode_ctx->length_of_encoding;
+
+				slen += len_count;
+			}
+
+			if (unlikely(fr_dcursor_current(&child_cursor) != NULL)) {
+				fr_strerror_const("Failed to encode all pairs");
+				talloc_free(ptr_pairs);
+				return -1;
+			}
+
+			if (fr_der_sort_set_of(ptr_pairs, 0, count) < 0) {
+				fr_strerror_const("Failed to sort set of pairs");
+				talloc_free(ptr_pairs);
+				return -1;
+			}
+
+			for (i = 0; i < count; i++) {
+				fr_dbuff_set(&work_dbuff, ptr_pairs[i].item_ptr);
+
+				if (fr_dbuff_in_memcpy(dbuff, &work_dbuff, ptr_pairs[i].item_len) <= 0) {
+					fr_strerror_const("Failed to copy set of value");
+					talloc_free(ptr_pairs);
+					return -1;
+				}
+			}
+
+			talloc_free(ptr_pairs);
+			return slen;
+		}
+
+		fr_pair_list_sort(&vp->children, fr_der_pair_cmp_by_da_tag);
 
 		fr_proto_da_stack_build(&da_stack, vp->da);
 
@@ -837,7 +928,7 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 
 		fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
 
-		do {
+		while (fr_dcursor_current(&child_cursor)){
 			ssize_t len_count;
 
 			len_count = fr_pair_cursor_to_network(dbuff, &da_stack, depth, &child_cursor, encode_ctx,
@@ -849,11 +940,10 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 
 			slen += len_count;
 
-		} while (fr_dcursor_next(&child_cursor));
-
-		return slen;
+		}
+		break;
 	case FR_TYPE_GROUP:
-		fr_pair_list_sort(&vp->vp_group, fr_der_pair_cmp_by_da);
+		fr_pair_list_sort(&vp->children, fr_der_pair_cmp_by_da_tag);
 
 		ref = fr_dict_attr_ref(vp->da);
 
@@ -867,7 +957,7 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 		FR_PROTO_STACK_PRINT(&da_stack, depth);
 
 		if (!fr_pair_list_empty(&vp->vp_group)) {
-			(void)fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
+			fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
 
 			while (fr_dcursor_current(&child_cursor)) {
 				ssize_t len_count;
@@ -881,12 +971,10 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 
 				slen += len_count;
 			}
-
-			return slen;
 		}
 	}
 
-	return -1;
+	return slen;
 }
 
 static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
@@ -1462,7 +1550,7 @@ static inline CC_HINT(always_inline) ssize_t
 
 /** Encode a DER structure
  */
-static ssize_t encode_value(UNUSED fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, UNUSED unsigned int depth,
+static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, UNUSED unsigned int depth,
 			    fr_dcursor_t *cursor, void *encode_ctx)
 {
 	fr_pair_t const	 *vp;
@@ -1472,6 +1560,7 @@ static ssize_t encode_value(UNUSED fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_s
 	fr_der_tag_encode_t *tag_encode;
 	fr_der_tag_num_t tag_num;
 	fr_der_tag_class_t tag_class;
+	fr_der_encode_ctx_t *uctx = encode_ctx;
 
 	if (unlikely(cursor == NULL)) {
 		fr_strerror_const("No cursor to encode");
@@ -1498,8 +1587,12 @@ static ssize_t encode_value(UNUSED fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_s
 
 	tag_class = fr_der_flag_class(vp->da) ? fr_der_flag_class(vp->da) : FR_DER_CLASS_UNIVERSAL;
 
+	uctx->encoding_start = fr_dbuff_current(&our_dbuff);
+
 	slen = fr_der_encode_tag(&our_dbuff, tag_num, tag_class, tag_encode->constructed);
 	if (slen < 0) return slen;
+
+	uctx->encoding_length = slen;
 
 	/*
 	 * Mark and reserve space in the buffer for the length field
@@ -1507,11 +1600,17 @@ static ssize_t encode_value(UNUSED fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_s
 	fr_dbuff_marker(&marker, &our_dbuff);
 	fr_dbuff_advance(&our_dbuff, 1);
 
-	slen = tag_encode->encode(&our_dbuff, cursor, encode_ctx);
+	slen = tag_encode->encode(&our_dbuff, cursor, uctx);
 	if (slen < 0) return slen;
+
+	uctx->encoding_length += slen;
+	uctx->length_of_encoding = slen;
 
 	slen = fr_der_encode_len(&our_dbuff, &marker, slen);
 	if (slen < 0) return slen;
+
+	uctx->encoded_value = fr_dbuff_start(&marker) + slen + 1;
+	uctx->encoding_length += slen;
 
 	fr_dcursor_next(cursor);
 
