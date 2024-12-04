@@ -790,9 +790,19 @@ typedef struct {
 	size_t  remaining;	//!< Remaining octets
 } fr_der_encode_set_of_ptr_pairs_t;
 
-// takes in a list of fr_der_encode_set_of_ptr_pairs_t and an index
-static ssize_t fr_der_sort_set_of(fr_der_encode_set_of_ptr_pairs_t *ptr_pairs, size_t index, size_t count){
-	return 0;
+/*
+ *	Lexicographically sort the set of pairs
+ */
+static int fr_der_encode_set_of_cmp(void const *a, void const *b)
+{
+	fr_der_encode_set_of_ptr_pairs_t const *my_a = a;
+	fr_der_encode_set_of_ptr_pairs_t const *my_b = b;
+
+	if (my_a->item_len > my_b->item_len) {
+		return memcmp(my_a->item_ptr, my_b->item_ptr, my_a->item_len);
+	}
+
+	return memcmp(my_a->item_ptr, my_b->item_ptr, my_b->item_len);
 }
 
 static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
@@ -852,10 +862,13 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 	case FR_TYPE_TLV:
 		if (fr_der_flag_is_set_of(vp->da)) {
 			fr_dbuff_t	 work_dbuff;
+			uint8_t *buff;
 			fr_der_encode_set_of_ptr_pairs_t *ptr_pairs;
 			size_t				  i = 0, count;
 
-			fr_dbuff_init(&work_dbuff, fr_dbuff_current(dbuff), dbuff->end);
+			buff = talloc_array(vp, uint8_t, fr_dbuff_remaining(dbuff));
+
+			fr_dbuff_init(&work_dbuff, buff, fr_dbuff_remaining(dbuff));
 
 			fr_proto_da_stack_build(&da_stack, vp->da);
 
@@ -900,23 +913,24 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 				return -1;
 			}
 
-			if (fr_der_sort_set_of(ptr_pairs, 0, count) < 0) {
-				fr_strerror_const("Failed to sort set of pairs");
-				talloc_free(ptr_pairs);
-				return -1;
-			}
+			qsort(ptr_pairs, count, sizeof(fr_der_encode_set_of_ptr_pairs_t), fr_der_encode_set_of_cmp);
 
 			for (i = 0; i < count; i++) {
 				fr_dbuff_set(&work_dbuff, ptr_pairs[i].item_ptr);
 
-				if (fr_dbuff_in_memcpy(dbuff, &work_dbuff, ptr_pairs[i].item_len) <= 0) {
+				FR_PROTO_TRACE("Copying %zu bytes from %p to %p", ptr_pairs[i].item_len, ptr_pairs[i].item_ptr,
+					       fr_dbuff_current(dbuff));
+
+				if (fr_dbuff_in_memcpy(dbuff, fr_dbuff_current(&work_dbuff), ptr_pairs[i].item_len) <= 0) {
 					fr_strerror_const("Failed to copy set of value");
 					talloc_free(ptr_pairs);
+					talloc_free(buff);
 					return -1;
 				}
 			}
 
 			talloc_free(ptr_pairs);
+			talloc_free(buff);
 			return slen;
 		}
 
