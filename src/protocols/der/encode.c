@@ -41,6 +41,7 @@ typedef struct {
 typedef ssize_t (*fr_der_encode_t)(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 
 typedef struct {
+	fr_der_tag_constructed_t constructed;
 	fr_der_encode_t encode;
 } fr_der_tag_encode_t;
 
@@ -69,28 +70,25 @@ static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned 
 			   void *encode_ctx);
 static ssize_t der_encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, void *encode_ctx);
 
-/*
- *	TODO: Use this to simplify the code
- */
-static fr_der_encode_t tag_funcs[] = {
-	[FR_DER_TAG_BOOLEAN]	      = fr_der_encode_boolean,
-	[FR_DER_TAG_INTEGER]	      = fr_der_encode_integer,
-	[FR_DER_TAG_BITSTRING]	      = fr_der_encode_bitstring,
-	[FR_DER_TAG_OCTETSTRING]      = fr_der_encode_octetstring,
-	[FR_DER_TAG_NULL]	      = fr_der_encode_null,
-	[FR_DER_TAG_OID]	      = fr_der_encode_oid,
-	[FR_DER_TAG_ENUMERATED]	      = fr_der_encode_enumerated,
-	[FR_DER_TAG_UTF8_STRING]      = fr_der_encode_utf8_string,
-	[FR_DER_TAG_SEQUENCE]	      = fr_der_encode_sequence,
-	[FR_DER_TAG_SET]	      = fr_der_encode_set,
-	[FR_DER_TAG_PRINTABLE_STRING] = fr_der_encode_printable_string,
-	[FR_DER_TAG_T61_STRING]	      = fr_der_encode_t61_string,
-	[FR_DER_TAG_IA5_STRING]	      = fr_der_encode_ia5_string,
-	[FR_DER_TAG_UTC_TIME]	      = fr_der_encode_utc_time,
-	[FR_DER_TAG_GENERALIZED_TIME] = fr_der_encode_generalized_time,
-	[FR_DER_TAG_VISIBLE_STRING]   = fr_der_encode_visible_string,
-	[FR_DER_TAG_GENERAL_STRING]   = fr_der_encode_general_string,
-	[FR_DER_TAG_UNIVERSAL_STRING] = fr_der_encode_universal_string,
+static fr_der_tag_encode_t tag_funcs[] = {
+	[FR_DER_TAG_BOOLEAN]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_boolean },
+	[FR_DER_TAG_INTEGER]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_integer },
+	[FR_DER_TAG_BITSTRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_bitstring },
+	[FR_DER_TAG_OCTETSTRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_octetstring },
+	[FR_DER_TAG_NULL]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_null },
+	[FR_DER_TAG_OID]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_oid },
+	[FR_DER_TAG_ENUMERATED]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_enumerated },
+	[FR_DER_TAG_UTF8_STRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_utf8_string },
+	[FR_DER_TAG_SEQUENCE]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .encode = fr_der_encode_sequence },
+	[FR_DER_TAG_SET]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .encode = fr_der_encode_set },
+	[FR_DER_TAG_PRINTABLE_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_printable_string },
+	[FR_DER_TAG_T61_STRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_t61_string },
+	[FR_DER_TAG_IA5_STRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_ia5_string },
+	[FR_DER_TAG_UTC_TIME]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_utc_time },
+	[FR_DER_TAG_GENERALIZED_TIME] = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_generalized_time },
+	[FR_DER_TAG_VISIBLE_STRING]   = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_visible_string },
+	[FR_DER_TAG_GENERAL_STRING]   = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_general_string },
+	[FR_DER_TAG_UNIVERSAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_universal_string },
 };
 
 static int encode_test_ctx(void **out, TALLOC_CTX *ctx)
@@ -1471,6 +1469,9 @@ static ssize_t encode_value(UNUSED fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_s
 	ssize_t		  slen	    = 0;
 	fr_dbuff_t	  our_dbuff = FR_DBUFF(dbuff);
 	fr_dbuff_marker_t marker;
+	fr_der_tag_encode_t *tag_encode;
+	fr_der_tag_num_t tag_num;
+	fr_der_tag_class_t tag_class;
 
 	if (unlikely(cursor == NULL)) {
 		fr_strerror_const("No cursor to encode");
@@ -1487,449 +1488,30 @@ static ssize_t encode_value(UNUSED fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_s
 
 	PAIR_VERIFY(vp);
 
-	switch (vp->vp_type) {
-	default:
-		fr_strerror_printf("Unknown type %d", vp->vp_type);
-		break;
-	case FR_TYPE_BOOL:
-		switch (fr_der_flag_subtype(vp->da)) {
-		default:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BOOLEAN, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-		error:
-			if (slen < 0) return slen;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_boolean(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, 1);
-			if (slen < 0) goto error;
-
-			break;
-		case FR_DER_TAG_NULL:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_NULL, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_null(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, 0);
-			if (slen < 0) goto error;
-
-			break;
-		}
-
-		break;
-
-	case FR_TYPE_INTEGER_EXCEPT_BOOL:
-		switch (fr_der_flag_subtype(vp->da)) {
-		default:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_INTEGER, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_integer(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-
-			break;
-
-		case FR_DER_TAG_ENUMERATED:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_ENUMERATED, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_enumerated(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		case FR_DER_TAG_UTC_TIME:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UTC_TIME, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_utc_time(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		case FR_DER_TAG_GENERALIZED_TIME:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_GENERALIZED_TIME, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_generalized_time(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		}
-
-		break;
-
-	case FR_TYPE_OCTETS:
-		switch (fr_der_flag_subtype(vp->da)) {
-		default:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_OCTETSTRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_octetstring(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		case FR_DER_TAG_BITSTRING:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BITSTRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_bitstring(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		}
-
-		break;
-
-	case FR_TYPE_NULL:
-		slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_NULL, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
-		if (slen < 0) goto error;
-
-		/*
-		 * Mark and reserve space in the buffer for the length field
-		 */
-		fr_dbuff_marker(&marker, &our_dbuff);
-		fr_dbuff_advance(&our_dbuff, 1);
-
-		slen = fr_der_encode_null(&our_dbuff, cursor, encode_ctx);
-		if (slen < 0) goto error;
-
-		slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-		if (slen < 0) goto error;
-
-		break;
-
-	case FR_TYPE_STRING:
-		switch (fr_der_flag_subtype(vp->da)) {
-		default:
-			fr_strerror_printf("Unknown string sub-type %d", fr_der_flag_subtype(vp->da));
-			return -1;
-		case FR_DER_TAG_UTF8_STRING:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UTF8_STRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_utf8_string(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-			break;
-
-		case FR_DER_TAG_PRINTABLE_STRING:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_PRINTABLE_STRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_printable_string(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-			break;
-
-		case FR_DER_TAG_T61_STRING:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_T61_STRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_t61_string(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-			break;
-
-		case FR_DER_TAG_IA5_STRING:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_IA5_STRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_ia5_string(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-			break;
-
-		case FR_DER_TAG_VISIBLE_STRING:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_VISIBLE_STRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_visible_string(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-			break;
-
-		case FR_DER_TAG_GENERAL_STRING:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_GENERAL_STRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_general_string(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-			break;
-
-		case FR_DER_TAG_UNIVERSAL_STRING:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_UNIVERSAL_STRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_universal_string(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-			break;
-		case FR_DER_TAG_OID:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_OID, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_oid(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-			break;
-		}
-
-		slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-		if (slen < 0) goto error;
-
-		break;
-	case FR_TYPE_STRUCT:
-		switch (fr_der_flag_subtype(vp->da)) {
-		default:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_CONSTRUCTED);
-			if (slen < 0) goto error;
-
-			/*
-			 *	Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		case FR_DER_TAG_SET:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SET, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_CONSTRUCTED);
-			if (slen < 0) goto error;
-
-			/*
-			 *	Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_set(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		case FR_DER_TAG_BITSTRING:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_BITSTRING, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_PRIMATIVE);
-			if (slen < 0) goto error;
-
-			/*
-			 * Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_bitstring(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		}
-		break;
-	case FR_TYPE_TLV:
-		switch (fr_der_flag_subtype(vp->da)) {
-		default:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_CONSTRUCTED);
-			if (slen < 0) goto error;
-
-			/*
-			 *	Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		case FR_DER_TAG_SET:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SET, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_CONSTRUCTED);
-			if (slen < 0) goto error;
-
-			/*
-			 *	Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_set(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		}
-		break;
-	case FR_TYPE_GROUP:
-		switch (fr_der_flag_subtype(vp->da)) {
-		default:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_CONSTRUCTED);
-			if (slen < 0) goto error;
-
-			/*
-			 *	Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_sequence(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		case FR_DER_TAG_SET:
-			slen = fr_der_encode_tag(&our_dbuff, FR_DER_TAG_SET, FR_DER_CLASS_UNIVERSAL,
-						 FR_DER_TAG_CONSTRUCTED);
-			if (slen < 0) goto error;
-
-			/*
-			 *	Mark and reserve space in the buffer for the length field
-			 */
-			fr_dbuff_marker(&marker, &our_dbuff);
-			fr_dbuff_advance(&our_dbuff, 1);
-
-			slen = fr_der_encode_set(&our_dbuff, cursor, encode_ctx);
-			if (slen < 0) goto error;
-
-			slen = fr_der_encode_len(&our_dbuff, &marker, slen);
-			if (slen < 0) goto error;
-			break;
-		}
+	tag_num   = fr_der_flag_subtype(vp->da) ? fr_der_flag_subtype(vp->da) : fr_type_to_der_tag_default(vp->vp_type);
+
+	tag_encode = &tag_funcs[tag_num];
+	if (tag_encode->encode == NULL) {
+		fr_strerror_printf("No encoding function for type %d", vp->vp_type);
+		return -1;
 	}
 
-	if (slen < 0) goto error;
+	tag_class = fr_der_flag_class(vp->da) ? fr_der_flag_class(vp->da) : FR_DER_CLASS_UNIVERSAL;
+
+	slen = fr_der_encode_tag(&our_dbuff, tag_num, tag_class, tag_encode->constructed);
+	if (slen < 0) return slen;
+
+	/*
+	 * Mark and reserve space in the buffer for the length field
+	 */
+	fr_dbuff_marker(&marker, &our_dbuff);
+	fr_dbuff_advance(&our_dbuff, 1);
+
+	slen = tag_encode->encode(&our_dbuff, cursor, encode_ctx);
+	if (slen < 0) return slen;
+
+	slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+	if (slen < 0) return slen;
 
 	fr_dcursor_next(cursor);
 
