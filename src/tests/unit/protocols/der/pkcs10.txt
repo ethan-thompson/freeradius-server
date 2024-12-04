@@ -966,3 +966,9 @@ match 30 11 06 0f 2a 86 48 ff ff ff ff ff ff ff 7f 0d 01 01 0b
 
 encode-pair Seq-Oid = { Test-Oid = "1.2.840.9223372036854775807.13.1.1.11" }
 match 30 12 06 10 2a 86 48 ff ff ff ff ff ff ff ff 7f 0d 01 01 0b
+
+encode-pair Test-Set-Of = { Test-First-Integer = 1, Test-Second-Integer = 2580 }
+match 31 07 02 01 01 02 02 0a 14
+
+encode-pair Test-Set-Of = { Test-First-Integer = 2, Test-Second-Integer = 1 }
+match 31 06 02 01 01 02 01 02
