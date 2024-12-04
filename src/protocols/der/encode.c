@@ -957,6 +957,89 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 		}
 		break;
 	case FR_TYPE_GROUP:
+		if (fr_der_flag_is_set_of(vp->da)) {
+			fr_dbuff_t	 work_dbuff;
+			uint8_t *buff;
+			fr_der_encode_set_of_ptr_pairs_t *ptr_pairs;
+			size_t				  i = 0, count;
+
+			buff = talloc_array(vp, uint8_t, fr_dbuff_remaining(dbuff));
+
+			fr_dbuff_init(&work_dbuff, buff, fr_dbuff_remaining(dbuff));
+
+			ref = fr_dict_attr_ref(vp->da);
+
+			if (ref && (ref->dict != dict_der)) {
+				fr_strerror_printf("Group %s is not a DER group", ref->name);
+				return -1;
+			}
+
+			fr_proto_da_stack_build(&da_stack, vp->da);
+
+			FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+			if (!fr_pair_list_empty(&vp->vp_group)) {
+				fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
+
+				count = fr_pair_list_num_elements(&vp->children);
+
+				ptr_pairs = talloc_array(vp, fr_der_encode_set_of_ptr_pairs_t, count);
+				if (unlikely(ptr_pairs == NULL)) {
+					fr_strerror_const("Failed to allocate memory for set of pointers");
+					return -1;
+				}
+
+				for (i = 0; i < count; i++) {
+					ssize_t len_count;
+
+					if (unlikely(fr_dcursor_current(&child_cursor) == NULL)) {
+						fr_strerror_const("No pair to encode set of");
+						return -1;
+					}
+
+					len_count = encode_value(&work_dbuff, NULL, depth, &child_cursor, encode_ctx);
+
+					if (unlikely(len_count < 0)) {
+						fr_strerror_printf("Failed to encode pair: %s", fr_strerror());
+						return -1;
+					}
+
+					ptr_pairs[i].item_ptr = encode_ctx->encoding_start;
+					ptr_pairs[i].item_len = encode_ctx->encoding_length;
+					ptr_pairs[i].octet_ptr = encode_ctx->encoded_value;
+					ptr_pairs[i].remaining = encode_ctx->length_of_encoding;
+
+					slen += len_count;
+				}
+
+				if (unlikely(fr_dcursor_current(&child_cursor) != NULL)) {
+					fr_strerror_const("Failed to encode all pairs");
+					talloc_free(ptr_pairs);
+					return -1;
+				}
+
+				qsort(ptr_pairs, count, sizeof(fr_der_encode_set_of_ptr_pairs_t), fr_der_encode_set_of_cmp);
+
+				for (i = 0; i < count; i++) {
+					fr_dbuff_set(&work_dbuff, ptr_pairs[i].item_ptr);
+
+					FR_PROTO_TRACE("Copying %zu bytes from %p to %p", ptr_pairs[i].item_len, ptr_pairs[i].item_ptr,
+						fr_dbuff_current(dbuff));
+
+					if (fr_dbuff_in_memcpy(dbuff, fr_dbuff_current(&work_dbuff), ptr_pairs[i].item_len) <= 0) {
+						fr_strerror_const("Failed to copy set of value");
+						talloc_free(ptr_pairs);
+						talloc_free(buff);
+						return -1;
+					}
+				}
+
+				talloc_free(ptr_pairs);
+				talloc_free(buff);
+				return slen;
+			}
+		}
+
 		fr_pair_list_sort(&vp->children, fr_der_pair_cmp_by_da_tag);
 
 		ref = fr_dict_attr_ref(vp->da);
