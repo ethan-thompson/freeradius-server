@@ -572,9 +572,6 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 	return fr_dbuff_set(in, &our_in);
 }
 
-// - utc could contain buffer or stuct to store the decoded string
-// - resovling version, pass in pointer to start resolving things (such as root) and then the last thing resolved
-
 typedef struct {
 	TALLOC_CTX	     *ctx;
 	fr_dict_attr_t const *parent_da;
@@ -713,12 +710,6 @@ static ssize_t fr_der_decode_oid(UNUSED fr_pair_list_t *out, fr_dbuff_t *in, fr_
 	size_t index = 1, magnitude = 1;
 	size_t len = fr_dbuff_remaining(&our_in);
 
-	// if (!fr_type_is_string(parent->type)) {
-	// 	fr_strerror_printf("OID found in non-string attribute %s of type %s", parent->name,
-	// 			   fr_type_to_str(parent->type));
-	// 	return -1;
-	// }
-
 	/*
 	 *	ISO/IEC 8825-1:2021
 	 *	8.19 Encoding of an object identifier value
@@ -773,12 +764,6 @@ static ssize_t fr_der_decode_oid(UNUSED fr_pair_list_t *out, fr_dbuff_t *in, fr_
 				oid_b = oid_b - 80;
 			}
 
-			// if (unlikely(oid == NULL)) {
-			// 	fr_strerror_const("Out of memory for OID");
-			// 	return -1;
-			// }
-
-			// oid_b = 0;
 			magnitude = 1;
 			break;
 		}
@@ -795,17 +780,6 @@ static ssize_t fr_der_decode_oid(UNUSED fr_pair_list_t *out, fr_dbuff_t *in, fr_
 			return -1;
 		}
 	}
-
-	// vp = fr_pair_afrom_da(ctx, parent);
-
-	// FR_PROTO_TRACE("decode context - Address: %p", vp);
-
-	// if (unlikely(vp == NULL)) {
-	// 	fr_strerror_const("Out of memory for OID pair");
-	// 	return -1;
-	// }
-
-	// ((fr_der_decode_oid_to_da_ctx_t *)uctx)->parent_vp= vp;
 
 	FR_PROTO_TRACE("decode context - OID A: %llu", oid_a);
 	FR_PROTO_TRACE("decode context - OID B: %llu", oid_b);
@@ -835,11 +809,6 @@ static ssize_t fr_der_decode_oid(UNUSED fr_pair_list_t *out, fr_dbuff_t *in, fr_
 
 			if (unlikely(func(oid_b, uctx, is_last) < 0)) return -1;
 
-			// if (unlikely(oid == NULL)) {
-			// 	fr_strerror_const("Out of memory for OID subidentifier");
-			// 	return -1;
-			// }
-
 			oid_b	  = 0;
 			magnitude = 1;
 			continue;
@@ -857,8 +826,6 @@ static ssize_t fr_der_decode_oid(UNUSED fr_pair_list_t *out, fr_dbuff_t *in, fr_
 			return -1;
 		}
 	}
-
-	// fr_pair_append(out, vp);
 
 	return fr_dbuff_set(in, &our_in);
 }
