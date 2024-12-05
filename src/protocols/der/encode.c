@@ -7,6 +7,7 @@
 #include "lib/util/dcursor.h"
 #include "lib/util/dict_ext.h"
 #include "lib/util/sbuff.h"
+#include "lib/util/value.h"
 #include "talloc.h"
 
 #include <freeradius-devel/io/test_point.h>
@@ -1673,6 +1674,22 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 	FR_PROTO_TRACE("Encoding %s", vp->da->name);
 
 	PAIR_VERIFY(vp);
+
+	if (fr_der_flag_has_default(vp->da)) {
+		fr_dict_enum_value_t const *evp;
+
+		evp = fr_dict_enum_by_name(vp->da, "DEFAULT", strlen("DEFAULT"));
+		if (unlikely(evp == NULL)) {
+			fr_strerror_printf("No default value for %s", vp->da->name);
+			return -1;
+		}
+
+		if (fr_value_box_cmp(&vp->data, evp->value) == 0) {
+			FR_PROTO_TRACE("Skipping default value");
+			fr_dcursor_next(cursor);
+			return 0;
+		}
+	}
 
 	tag_num   = fr_der_flag_subtype(vp->da) ? fr_der_flag_subtype(vp->da) : fr_type_to_der_tag_default(vp->vp_type);
 
