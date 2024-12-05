@@ -46,6 +46,8 @@ DEFINE Test-First-Integer       int64
 DEFINE Test-Second-Integer      int64
 END-TLV Test-Set-Of
 
+DEFINE Test-Set-Of-Group        group ref=Test-Set-Of,subtype=set,set_of=integer
+
 DEFINE Test-Boolean             bool
 
 DEFINE Test-Integer             int64
