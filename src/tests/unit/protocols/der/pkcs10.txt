@@ -16,15 +16,7 @@ match Test-Extension-Group = { Test-Extensions = { Root = { Branch = { raw.4 = 0
 decode-pair 30 15 30 13 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09
 match Test-Extension-Group = { Test-Extensions = { Critical = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } } } }
 
-# decode-pair 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0d 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
-# match
-
-# decode-pair 30 10 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 02 04 08 0c 03 66 6f 6f 02 01 09
-# match
-
 proto-dictionary-root Test-Other-Extensions-Group
-
-# decode-pair 30 13 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09
 
 decode-pair 30 25 30 23 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
 match Test-Other-Extensions-Group = { Test-Extensions = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Test-Extensions = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } } } }
@@ -978,3 +970,6 @@ match 31 06 02 01 01 02 01 02
 
 encode-pair Test-Set-Of-Group = { Test-First-Integer = 2, Test-Second-Integer = 1 }
 match 31 06 02 01 01 02 01 02
+
+encode-pair Foo-Bar = { Test-Integer = 1, Test-Boolean = yes }
+match 30 03 01 01 ff
