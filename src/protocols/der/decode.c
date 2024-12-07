@@ -684,6 +684,8 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 		talloc_free(unknown_da);
 	} else {
 		vp = fr_pair_afrom_da(decode_ctx->ctx, da);
+
+		// vp = fr_pair_afrom_da_nested(decode_ctx->ctx, decode_ctx->parent_list, da);
 	}
 
 	if (unlikely(vp == NULL)) {
@@ -1884,7 +1886,7 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 					     fr_dict_attr_t const *parent, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_dbuff_t our_in = FR_DBUFF(in);
-	fr_pair_t *vp, *extensions_vp, *vp2, *critical_extensions_vp;
+	fr_pair_t *vp, *vp2, *critical_extensions_vp;
 
 	uint64_t tag, max;
 	size_t	 len;
@@ -1903,14 +1905,14 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		return -1;
 	}
 
-	extensions_vp = fr_pair_afrom_da(vp, fr_dict_attr_ref(parent));
+	// extensions_vp = fr_pair_afrom_da(vp, fr_dict_attr_ref(parent));
 
-	if (unlikely(extensions_vp == NULL)) {
-		fr_strerror_const("Out of memory for extensions pair");
-		return -1;
-	}
+	// if (unlikely(extensions_vp == NULL)) {
+	// 	fr_strerror_const("Out of memory for extensions pair");
+	// 	return -1;
+	// }
 
-	vp2 = fr_pair_afrom_da(extensions_vp, fr_dict_attr_by_name(NULL, extensions_vp->da, "critical"));
+	vp2 = fr_pair_afrom_da(vp, fr_dict_attr_by_name(NULL, fr_dict_attr_ref(parent), "critical"));
 
 	if (unlikely(vp2 == NULL)) {
 		fr_strerror_const("Out of memory for critical extensions pair parent");
@@ -1977,9 +1979,12 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
 		fr_der_decode_oid_to_da_ctx_t uctx = {
-			.ctx	     = extensions_vp,
-			.parent_da   = extensions_vp->da,
-			.parent_list = &extensions_vp->vp_group,
+			// .ctx	     = extensions_vp,
+			// .parent_da   = extensions_vp->da,
+			// .parent_list = &extensions_vp->vp_group,
+			.ctx = vp,
+			.parent_da = vp->da,
+			.parent_list = &vp->vp_group,
 		};
 
 		fr_dbuff_marker(&sub_marker, &sub_in);
@@ -2012,9 +2017,12 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 			}
 
 			if (isCritical) {
-				uctx.ctx	 = critical_extensions_vp;
-				uctx.parent_da	 = critical_extensions_vp->da;
-				uctx.parent_list = &critical_extensions_vp->vp_group;
+				// uctx.ctx	 = critical_extensions_vp;
+				// uctx.parent_da	 = critical_extensions_vp->da;
+				// uctx.parent_list = &critical_extensions_vp->vp_group;
+				uctx.ctx	 = vp2;
+				uctx.parent_da	 = vp2->da;
+				uctx.parent_list = &vp2->vp_group;
 			}
 		}
 
@@ -2088,12 +2096,14 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		}
 	}
 
-	if (critical_extensions_vp->children.order.head.dlist_head.num_elements > 0) {
-		fr_pair_append(&vp2->vp_group, critical_extensions_vp);
-		fr_pair_append(&extensions_vp->vp_group, vp2);
+	// if (critical_extensions_vp->children.order.head.dlist_head.num_elements > 0) {
+	if (vp2->children.order.head.dlist_head.num_elements > 0) {
+		// fr_pair_append(&vp2->vp_group, critical_extensions_vp);
+		// fr_pair_append(&extensions_vp->vp_group, vp2);
+		fr_pair_append(&vp->vp_group, vp2);
 	}
 
-	fr_pair_append(&vp->vp_group, extensions_vp);
+	// fr_pair_append(&vp->vp_group, extensions_vp);
 	fr_pair_append(out, vp);
 
 	return fr_dbuff_set(in, &our_in);
@@ -2105,7 +2115,7 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	fr_dbuff_t	  our_in = FR_DBUFF(in);
 	fr_dbuff_marker_t marker;
 	fr_pair_t	 *vp;
-	fr_pair_t	 *vp2;
+	// fr_pair_t	 *vp2;
 
 	uint64_t tag;
 	size_t	 len;
@@ -2124,12 +2134,12 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 		return -1;
 	}
 
-	vp2 = fr_pair_afrom_da(vp, fr_dict_attr_ref(parent));
+	// vp2 = fr_pair_afrom_da(vp, fr_dict_attr_ref(parent));
 
-	if (unlikely(vp2 == NULL)) {
-		fr_strerror_const("Out of memory for pair");
-		return -1;
-	}
+	// if (unlikely(vp2 == NULL)) {
+	// 	fr_strerror_const("Out of memory for pair");
+	// 	return -1;
+	// }
 
 	fr_dbuff_marker(&marker, in);
 
@@ -2149,9 +2159,9 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
 	fr_der_decode_oid_to_da_ctx_t uctx = {
-		.ctx	     = vp2,
-		.parent_da   = vp2->da,
-		.parent_list = &vp2->vp_group,
+		.ctx	     = vp,
+		.parent_da   = fr_dict_attr_ref(parent),
+		.parent_list = &vp->vp_group,
 	};
 
 	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
@@ -2202,7 +2212,7 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value");
 
-	fr_pair_append(&vp->vp_group, vp2);
+	// fr_pair_append(&vp->vp_group, vp2);
 	fr_pair_append(out, vp);
 
 	return fr_dbuff_marker_release_behind(&marker);
