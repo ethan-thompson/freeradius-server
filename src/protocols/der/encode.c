@@ -70,6 +70,10 @@ static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 
+static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len);
+static inline CC_HINT(always_inline) ssize_t
+	fr_der_encode_tag(fr_dbuff_t *dbuff, fr_der_tag_num_t tag_num, fr_der_tag_class_t tag_class,
+			  fr_der_tag_constructed_t constructed);
 static ssize_t encode_value(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned int depth, fr_dcursor_t *cursor,
 			    void *encode_ctx);
 static ssize_t encode_pair(fr_dbuff_t *dbuff, fr_da_stack_t *da_stack, unsigned int depth, fr_dcursor_t *cursor,
@@ -439,46 +443,14 @@ static ssize_t fr_der_encode_null(UNUSED fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	return 0;
 }
 
-static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
 {
-	fr_pair_t const *vp;
-	char const	*value;
 	char		 buffer[21];
 	uint64_t	 subidentifier	 = 0;
 	uint8_t		 first_component = 0;
 	size_t		 len = 0, buffer_len = 0;
 	size_t		 index		       = 0, bit_index;
 	bool		 started_subidentifier = false, subsequent = false;
-
-	vp = fr_dcursor_current(cursor);
-	if (unlikely(vp == NULL)) {
-		fr_strerror_const("No pair to encode OID");
-		return -1;
-	}
-
-	/*
-	 *	ISO/IEC 8825-1:2021
-	 *	8.19 Encoding of an object identifier value
-	 *	8.19.1 The encoding of an object identifier value shall be primitive.
-	 *	8.19.2 The contents octets shall be an (ordered) list of encodings of subidentifiers (see 8.19.3
-	 *	       and 8.19.4) concatenated together. Each subidentifier is represented as a series of
-	 *	       (one or more) octets. Bit 8 of each octet indicates whether it is the last in the series: bit 8
-	 *	       of the last octet is zero; bit 8 of each preceding octet is one. Bits 7 to 1 of the octets in
-	 *	       the series collectively encode the subidentifier. Conceptually, these groups of bits are
-	 *	       concatenated to form an unsigned binary number whose most significant bit is bit 7 of the first
-	 *	       octet and whose least significant bit is bit 1 of the last octet. The subidentifier shall be
-	 *	       encoded in the fewest possible octets, that is, the leading octet of the subidentifier shall not
-	 *	       have the value 8016.
-	 *	8.19.3 The number of subidentifiers (N) shall be one less than the number of object identifier
-	 *		components in the object identifier value being encoded. 8.19.4 The numerical value of the
-	 *		first subidentifier is derived from the values of the first two object identifier components in
-	 *		the object identifier value being encoded, using the formula: (X*40) + Y where X is the value
-	 *		of the first object identifier component and Y is the value of the second object identifier
-	 *		component. NOTE – This packing of the first two object identifier components recognizes that
-	 *		only three values are allocated from the root node, and at most 39 subsequent values from nodes
-	 *		reached by X = 0 and X = 1. 8.19.5 The numerical value of the ith subidentifier, (2 ≤ i ≤ N) is
-	 *		that of the (i + 1)th object identifier component.
-	 */
 
 	/*
 	 *	The first subidentifier is the encoding of the first two object identifier components, encoded as:
@@ -487,17 +459,13 @@ static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 	 *	The first number is 0, 1, or 2.
 	 */
 
-	PAIR_VERIFY(vp);
+	first_component = (uint8_t)(strtol(&oid_str[0], NULL, 10));
 
-	value = vp->vp_strvalue;
+	oid_str += 2;
 
-	first_component = (uint8_t)(strtol(&value[0], NULL, 10));
-
-	value += 2;
-
-	for (; index < strlen(value) + 1; index++) {
+	for (; index < strlen(oid_str) + 1; index++) {
 		uint8_t byte = 0;
-		if (value[index] == '.' || value[index] == '\0') {
+		if (oid_str[index] == '.' || oid_str[index] == '\0') {
 			/*
 			 *	We have a subidentifier
 			 */
@@ -569,8 +537,53 @@ static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 			continue;
 		}
 
-		buffer[buffer_len++] = value[index];
+		buffer[buffer_len++] = oid_str[index];
 	}
+
+	return len;
+}
+
+static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const *vp;
+	char const	*value;
+	size_t		 len = 0;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode OID");
+		return -1;
+	}
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	8.19 Encoding of an object identifier value
+	 *	8.19.1 The encoding of an object identifier value shall be primitive.
+	 *	8.19.2 The contents octets shall be an (ordered) list of encodings of subidentifiers (see 8.19.3
+	 *	       and 8.19.4) concatenated together. Each subidentifier is represented as a series of
+	 *	       (one or more) octets. Bit 8 of each octet indicates whether it is the last in the series: bit 8
+	 *	       of the last octet is zero; bit 8 of each preceding octet is one. Bits 7 to 1 of the octets in
+	 *	       the series collectively encode the subidentifier. Conceptually, these groups of bits are
+	 *	       concatenated to form an unsigned binary number whose most significant bit is bit 7 of the first
+	 *	       octet and whose least significant bit is bit 1 of the last octet. The subidentifier shall be
+	 *	       encoded in the fewest possible octets, that is, the leading octet of the subidentifier shall not
+	 *	       have the value 8016.
+	 *	8.19.3 The number of subidentifiers (N) shall be one less than the number of object identifier
+	 *		components in the object identifier value being encoded. 8.19.4 The numerical value of the
+	 *		first subidentifier is derived from the values of the first two object identifier components in
+	 *		the object identifier value being encoded, using the formula: (X*40) + Y where X is the value
+	 *		of the first object identifier component and Y is the value of the second object identifier
+	 *		component. NOTE – This packing of the first two object identifier components recognizes that
+	 *		only three values are allocated from the root node, and at most 39 subsequent values from nodes
+	 *		reached by X = 0 and X = 1. 8.19.5 The numerical value of the ith subidentifier, (2 ≤ i ≤ N) is
+	 *		that of the (i + 1)th object identifier component.
+	 */
+
+	PAIR_VERIFY(vp);
+
+	value = vp->vp_strvalue;
+
+	len = fr_der_encode_oid_to_str(dbuff, value);
 
 	return len;
 }
@@ -1579,6 +1592,284 @@ static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 	return len;
 }
 
+static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_dbuff_marker_t marker, outer_seq_len_start;
+	fr_dcursor_t child_cursor, parent_cursor;
+	fr_pair_t const *vp;
+	ssize_t		 slen = 0;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode pair");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	if (unlikely(!fr_type_is_group(vp->vp_type))) {
+		fr_strerror_printf("Pair %s is not a group", vp->da->name);
+		return -1;
+	}
+
+	fr_dbuff_marker(&marker, dbuff);
+
+	slen = fr_der_encode_tag(dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
+	if (slen < 0) return slen;
+
+	fr_dbuff_marker(&outer_seq_len_start, dbuff);
+	fr_dbuff_advance(dbuff, 1);
+
+	fr_pair_dcursor_child_iter_init(&parent_cursor, &vp->children, cursor);
+	while (fr_dcursor_current(&parent_cursor)) {
+		fr_sbuff_t	 oid_sbuff;
+		fr_dbuff_marker_t length_start, inner_seq_len_start;
+		char oid_buff[1024];
+		bool is_raw = false;
+		bool is_critical = false;
+		/*
+		*	Pairs are sequences or sets containing 2 items:
+		*	1. The first item is the OID
+		*	2. The second item is the value
+		*
+		*	Note: The value may be a constructed or primitive type
+		*/
+
+		oid_sbuff = FR_SBUFF_OUT(oid_buff, sizeof(oid_buff));
+		oid_buff[0] = '\0';
+
+		fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, &parent_cursor);
+		while (fr_dcursor_current(&child_cursor)) {
+			fr_pair_t const *child_vp = fr_dcursor_current(&child_cursor);
+
+			PAIR_VERIFY(child_vp);
+
+			FR_PROTO_TRACE("Child: %s", child_vp->da->name);
+
+			// if (child_vp->da->name == "Critical") {
+			if (strcmp(child_vp->da->name, "Critical") == 0) {
+				/*
+				*	We don't encode the critical flag
+				*/
+				is_critical = true;
+				goto next;
+			}
+
+			if (!fr_type_is_structural(child_vp->vp_type)) {
+				FR_PROTO_TRACE("Found non-structural child %s", child_vp->da->name);
+
+				if(child_vp->da->flags.is_raw) {
+					/*
+					*	This was an unknown oid
+					*/
+					if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0)) goto error;
+					is_raw = true;
+					break;
+				}
+
+				child_cursor = parent_cursor;
+				break;
+			}
+
+			if (oid_buff[0] == '\0') {
+				if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, "%d", child_vp->da->attr) <= 0)) {
+				error:
+					fr_strerror_const("Failed to copy OID to buffer");
+					return -1;
+				}
+
+				goto next;
+			}
+
+			if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0)) goto error;
+
+			if (fr_pair_list_num_elements(&child_vp->children) > 1) break;
+
+		next:
+			FR_PROTO_TRACE("OID: %s", oid_buff);
+			parent_cursor = child_cursor;
+			fr_pair_dcursor_child_iter_init(&child_cursor, &child_vp->children, &parent_cursor);
+		}
+
+		fr_sbuff_terminate(&oid_sbuff);
+		FR_PROTO_TRACE("OID: %s", oid_buff);
+
+		slen = fr_der_encode_tag(dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
+		if (slen < 0) return slen;
+
+		fr_dbuff_marker(&inner_seq_len_start, dbuff);
+		fr_dbuff_advance(dbuff, 1);
+
+		slen = fr_der_encode_tag(dbuff, FR_DER_TAG_OID, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+		if (slen < 0) return slen;
+
+		fr_dbuff_marker(&length_start, dbuff);
+		fr_dbuff_advance(dbuff, 1);
+
+		slen = fr_der_encode_oid_to_str(dbuff, oid_buff);
+		if (slen < 0) return slen;
+
+		slen = fr_der_encode_len(dbuff, &length_start, slen);
+		if (slen < 0) return slen;
+
+		if (is_critical){
+			slen = fr_der_encode_tag(dbuff, FR_DER_TAG_BOOLEAN, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			if (slen < 0) return slen;
+
+			fr_dbuff_marker(&length_start, dbuff);
+			fr_dbuff_advance(dbuff, 1);
+
+			fr_dbuff_in(dbuff, (uint8_t)(0xff));
+			slen = 1;
+
+			slen = fr_der_encode_len(dbuff, &length_start, slen);
+			if (slen < 0) return slen;
+		}
+
+		slen = fr_der_encode_tag(dbuff, FR_DER_TAG_OCTETSTRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+		if (slen < 0) return slen;
+
+		fr_dbuff_marker(&length_start, dbuff);
+		fr_dbuff_advance(dbuff, 1);
+
+		if (is_raw) {
+			slen = fr_der_encode_octetstring(dbuff, &child_cursor, encode_ctx);
+		} else {
+			slen = fr_der_encode_sequence(dbuff, &child_cursor, encode_ctx);
+		}
+		if (slen < 0) return slen;
+
+		slen = fr_der_encode_len(dbuff, &length_start, slen);
+		if (slen < 0) return slen;
+
+		slen = fr_der_encode_len(dbuff, &inner_seq_len_start, fr_dbuff_behind(&inner_seq_len_start) - 1);
+		if (slen < 0) return slen;
+
+		fr_dcursor_next(&parent_cursor);
+	}
+
+	slen = fr_der_encode_len(dbuff, &outer_seq_len_start, fr_dbuff_behind(&outer_seq_len_start) - 1);
+	if (slen < 0) return slen;
+
+	return fr_dbuff_marker_release_behind(&marker);
+}
+
+/*
+ *	TODO: This needs a better name. There are 3 function in this file that have **encode_pair names.
+ */
+static ssize_t fr_der_encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_sbuff_t	 oid_sbuff;
+	fr_dbuff_marker_t marker, length_start;
+	fr_dcursor_t child_cursor, parent_cursor = *cursor;
+	fr_pair_t const *vp;
+	char oid_buff[1024];
+	ssize_t		 slen = 0;
+	bool is_raw = false;
+
+	vp = fr_dcursor_current(&parent_cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode pair");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	if (unlikely(!fr_type_is_group(vp->vp_type))) {
+		fr_strerror_printf("Pair %s is not a group", vp->da->name);
+		return -1;
+	}
+
+	fr_dbuff_marker(&marker, dbuff);
+
+	/*
+	 *	Pairs are sequences or sets containing 2 items:
+	 *	1. The first item is the OID
+	 *	2. The second item is the value
+	 *
+	 *	Note: The value may be a constructed or primitive type
+	 */
+
+	oid_sbuff = FR_SBUFF_OUT(oid_buff, sizeof(oid_buff));
+	oid_buff[0] = '\0';
+
+	fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, &parent_cursor);
+	while (fr_dcursor_current(&child_cursor)) {
+		fr_pair_t const *child_vp = fr_dcursor_current(&child_cursor);
+
+		PAIR_VERIFY(child_vp);
+
+		if (!fr_type_is_structural(child_vp->vp_type)) {
+			FR_PROTO_TRACE("Found non-structural child %s", child_vp->da->name);
+
+			if(child_vp->da->flags.is_raw) {
+				/*
+				 *	This was an unknown oid
+				 */
+				if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0)) goto error;
+				is_raw = true;
+				break;
+			}
+
+			child_cursor = parent_cursor;
+			break;
+		}
+
+		if (oid_buff[0] == '\0') {
+			if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, "%d", child_vp->da->attr) <= 0)) {
+			error:
+				fr_strerror_const("Failed to copy OID to buffer");
+				return -1;
+			}
+
+			goto next;
+		}
+
+		if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0)) goto error;
+
+		if (fr_pair_list_num_elements(&child_vp->children) > 1) break;
+
+	next:
+		FR_PROTO_TRACE("OID: %s", oid_buff);
+		parent_cursor = child_cursor;
+		fr_pair_dcursor_child_iter_init(&child_cursor, &child_vp->children, &parent_cursor);
+	}
+
+	fr_sbuff_terminate(&oid_sbuff);
+	FR_PROTO_TRACE("OID: %s", oid_buff);
+
+	slen = fr_der_encode_tag(dbuff, FR_DER_TAG_OID, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+	if (slen < 0) return slen;
+
+	fr_dbuff_marker(&length_start, dbuff);
+	fr_dbuff_advance(dbuff, 1);
+
+	slen = fr_der_encode_oid_to_str(dbuff, oid_buff);
+	if (slen < 0) return slen;
+
+	slen = fr_der_encode_len(dbuff, &length_start, slen);
+	if (slen < 0) return slen;
+
+
+	slen = fr_der_encode_tag(dbuff, FR_DER_TAG_OCTETSTRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+	if (slen < 0) return slen;
+
+	fr_dbuff_marker(&length_start, dbuff);
+	fr_dbuff_advance(dbuff, 1);
+
+	if (is_raw) {
+		slen = fr_der_encode_octetstring(dbuff, &child_cursor, encode_ctx);
+	} else {
+		slen = fr_der_encode_sequence(dbuff, &child_cursor, encode_ctx);
+	}
+	if (slen < 0) return slen;
+
+	slen = fr_der_encode_len(dbuff, &length_start, slen);
+	if (slen < 0) return slen;
+
+	return fr_dbuff_marker_release_behind(&marker);
+}
+
 static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len)
 {
 	fr_dbuff_marker_t value_start;
@@ -1714,7 +2005,13 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 	fr_dbuff_marker(&marker, &our_dbuff);
 	fr_dbuff_advance(&our_dbuff, 1);
 
-	slen = tag_encode->encode(&our_dbuff, cursor, uctx);
+	if (fr_der_flag_is_pair(vp->da)) {
+		slen = fr_der_encode_pair(&our_dbuff, cursor, uctx);
+	} else if (fr_der_flag_is_extension(vp->da)) {
+		slen = fr_der_encode_X509_extensions(&our_dbuff, cursor, uctx);
+	} else {
+		slen = tag_encode->encode(&our_dbuff, cursor, uctx);
+	}
 	if (slen < 0) return slen;
 
 	uctx->encoding_length += slen;
@@ -1727,7 +2024,6 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 	uctx->encoding_length += slen;
 
 	fr_dcursor_next(cursor);
-
 	return fr_dbuff_set(dbuff, &our_dbuff);
 }
 
