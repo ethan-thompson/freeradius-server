@@ -29,7 +29,7 @@ proto-dictionary-root Test-Other-Extensions-Group
 decode-pair 30 25 30 23 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
 match Test-Other-Extensions-Group = { Test-Extensions.Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Test-Extensions.Critical = { Test-Extensions.Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
 
-decode-pair 30 35 30 32 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
+decode-pair 30 35 30 33 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
 match Test-Other-Extensions-Group = { Test-Extensions.Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Test-Extensions.Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Test-Extensions.Critical = { Test-Extensions.Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
 
 decode-pair 30 47 30 45 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 11 06 02 01 02 01 01 FF 04 08 0c 03 66 6f 6f 02 01 09
@@ -1000,14 +1000,14 @@ match 30 12 30 10 30 0e 06 02 01 04 04 08 0c 03 66 6f 6f 02 01 09
 encode-pair Test-Extension-Group = { Critical = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
 match 30 15 30 13 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09
 
-# encode-pair Test-Other-Extensions-Group = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
-# match 30 25 30 23 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
+encode-pair Test-Other-Extensions-Group = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
+match 30 25 30 23 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09
 
-# encode-pair Test-Other-Extensions-Group = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
-# match 30 35 30 32 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
+encode-pair Test-Other-Extensions-Group = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
+match 30 35 30 33 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09
 
-# encode-pair Test-Other-Extensions-Group = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
-# match 30 47 30 45 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09
+encode-pair Test-Other-Extensions-Group = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } }, Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
+match 30 48 30 46 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09
 
-# encode-pair Test-Extensions-Group-Max = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
-# match 30 25 30 23 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09
+encode-pair Test-Extensions-Group-Max = { Root = { Branch = { Leaf-2 = { Name = "foo", Version = 9 } } }, Critical = { Root = { Branch = { Leaf = { Name = "foo", Version = 9 } } } } }
+match 30 25 30 23 30 0e 06 02 01 03 04 08 0c 03 66 6f 6f 02 01 09 30 11 06 02 01 02 01 01 ff 04 08 0c 03 66 6f 6f 02 01 09
