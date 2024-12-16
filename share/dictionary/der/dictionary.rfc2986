@@ -1,30 +1,87 @@
+#FLAGS !auto_begin
 DEFINE Test-Extensions tlv
-BEGIN-TLV Test-Extensions
+BEGIN Test-Extensions
 DEFINE Critical         group ref=Test-Extensions
 ATTRIBUTE Root 0 tlv
-BEGIN-TLV Root
+BEGIN Root
 ATTRIBUTE Branch 1 tlv
-BEGIN-TLV Branch
+BEGIN Branch
 ATTRIBUTE Leaf 2 tlv subtype=sequence
-BEGIN-TLV Leaf
+BEGIN Leaf
 DEFINE Name string
 DEFINE Version int64
-END-TLV Leaf
+END Leaf
 
 ATTRIBUTE Leaf-2 3 tlv subtype=sequence
-BEGIN-TLV Leaf-2
+BEGIN Leaf-2
 DEFINE Name string
 DEFINE Version int64
-END-TLV Leaf-2
+END Leaf-2
 
-END-TLV Branch
-END-TLV Root
-END-TLV Test-Extensions
+END Branch
+END Root
+
+ATTRIBUTE Root-2        2       tlv
+BEGIN Root-2
+ATTRIBUTE Branch-5      5       tlv
+BEGIN Branch-5
+ATTRIBUTE Branch-29     29      tlv
+BEGIN Branch-29
+ATTRIBUTE Leaf-17       17      tlv
+BEGIN Leaf-17
+ATTRIBUTE subjectAltName        17      tlv subtype=sequence
+BEGIN subjectAltName
+DEFINE otherName     tlv subtype=sequence
+BEGIN otherName
+DEFINE type-id           string subtype=oid
+DEFINE Value-thing      tlv
+BEGIN Value-thing
+DEFINE userPrincipalName       string subtype=utf8string
+END Value-thing
+END otherName
+END subjectAltName
+END Leaf-17
+END Branch-29
+END Branch-5
+END Root-2
+
+END Test-Extensions
+
+
+DEFINE Baz                      tlv
+BEGIN Baz
+DEFINE Qux                      tlv
+BEGIN Qux
+DEFINE Quux                     group ref=Test-Extensions,sequence_of=sequence,is_extension
+END Qux
+END Baz
+
+DEFINE Foo-thing                tlv
+BEGIN Foo-thing
+DEFINE Bar                      tlv clone=Baz
+END Foo-thing
 
 DEFINE Test-Skelly-Cert         tlv
-BEGIN-TLV Test-Skelly-Cert
-DEFINE Extensions               group ref=Test-Extensions
-END-TLV Test-Skelly-Cert
+BEGIN Test-Skelly-Cert
+DEFINE next                     tlv clone=Foo-thing
+END Test-Skelly-Cert
+
+DEFINE Test-Skelly-Cert-No-Clone       tlv
+BEGIN Test-Skelly-Cert-No-Clone
+DEFINE Foo                      tlv
+BEGIN Foo
+DEFINE Bar                      tlv
+BEGIN Bar
+DEFINE Baz                      tlv
+BEGIN Baz
+DEFINE Qux                      tlv
+BEGIN Qux
+DEFINE Quux                     group ref=Test-Extensions,sequence_of=sequence,is_extension
+END Qux
+END Baz
+END Bar
+END Foo
+END Test-Skelly-Cert-No-Clone
 
 DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,is_extension
 
@@ -35,16 +92,16 @@ DEFINE Test-Extensions-Group-Max     group ref=Test-Extensions,sequence_of=seque
 DEFINE Test-Pair-Group          group ref=Test-Extensions,is_pair
 
 DEFINE Test-Seq-Of              tlv sequence_of=integer
-BEGIN-TLV Test-Seq-Of
+BEGIN Test-Seq-Of
 DEFINE Test-First-Integer       int64
 DEFINE Test-Second-Integer      int64
-END-TLV Test-Seq-Of
+END Test-Seq-Of
 
 DEFINE Test-Set-Of              tlv subtype=set,set_of=integer
-BEGIN-TLV Test-Set-Of
+BEGIN Test-Set-Of
 DEFINE Test-First-Integer       int64
 DEFINE Test-Second-Integer      int64
-END-TLV Test-Set-Of
+END Test-Set-Of
 
 DEFINE Test-Set-Of-Group        group ref=Test-Set-Of,subtype=set,set_of=integer
 
@@ -53,58 +110,69 @@ DEFINE Test-Boolean             bool
 DEFINE Test-Integer             int64
 
 DEFINE Foo                      struct subtype=sequence
-
+BEGIN Foo
 MEMBER Test-Integer             int64
+END Foo
 
 DEFINE Bar                      struct
-
+BEGIN Bar
 MEMBER Test-Boolean             bool
+END Bar
 
 DEFINE Foo-Bar                  struct subtype=sequence
-
+BEGIN Foo-Bar
 MEMBER Test-Integer             int64 has_default
 VALUE Test-Integer DEFAULT 1
 MEMBER Test-Boolean             bool
+END Foo-Bar
 
 DEFINE Test-Bitstring           octets subtype=bitstring
 
 DEFINE Seq-Bitstring-Octets     struct
-
+BEGIN Seq-Bitstring-Octets
 MEMBER Test-Bitstring           octets
+END Seq-Bitstring-Octets
 
 DEFINE Bitstring-Struct         struct subtype=bitstring
-
+BEGIN Bitstring-Struct
 MEMBER foo                      bit[8]
 MEMBER bar                      bit[4]
 MEMBER foo-bar                  bit[4]
+END Bitstring-Struct
 
 DEFINE Bitstring-Struct-7       struct subtype=bitstring
-
+BEGIN Bitstring-Struct-7
 MEMBER foo                      bit[2]
 MEMBER bar                      bit[1]
 MEMBER foo-bar                  bit[4]
+END Bitstring-Struct-7
 
 DEFINE Octetstring              octets
 
 DEFINE Seq-Octetstring          struct
-
+BEGIN Seq-Octetstring
 MEMBER Octetstring              octets
+END Seq-Octetstring
 
 DEFINE Test-NULL                bool subtype=null
 
 DEFINE Seq-Null                 struct
-
+BEGIN Seq-Null
 MEMBER Test-Null                bool subtype=null
+END Seq-Null
 
 DEFINE Seq-Integer-Null         struct
-
+BEGIN Seq-Integer-Null
 MEMBER Test-Integer             int64
 MEMBER Test-Null                bool subtype=null
+END Seq-Integer-Null
 
 DEFINE Test-Oid                 string subtype=oid
 
 DEFINE Seq-Oid                  struct subtype=sequence
+BEGIN Seq-Oid
 MEMBER Test-Oid                 string subtype=oid
+END Seq-Oid
 
 DEFINE Test-Enumerated          int64 subtype=enumerated
 
@@ -127,8 +195,9 @@ DEFINE Test-String-General      string subtype=generalstring
 DEFINE Test-String-Universal    string subtype=universalstring
 
 DEFINE Seq-String               struct
-
+BEGIN Seq-String
 MEMBER Test-String              string
+END Seq-String
 
 DEFINE Test-Date                date
 
@@ -137,110 +206,173 @@ DEFINE Test-UTC                 date subtype=utctime
 DEFINE Test-Generalized-Time    date subtype=generalizedtime
 
 DEFINE Seq-Date                 struct
-
+BEGIN Seq-Date
 MEMBER Test-Date                date
+END Seq-Date
 
 DEFINE Set-Bool-Integer         struct
-
+BEGIN Set-Bool-Integer
 MEMBER Test-Bool                bool
 MEMBER Test-Integer             int64
+END Set-Bool-Integer
 
 DEFINE Test-Context-Specific    bool class=context-specific,tagnum=0,subtype=boolean
 
 DEFINE Test-Sequence-TLV        tlv subtype=sequence
-BEGIN-TLV Test-Sequence-TLV
+BEGIN Test-Sequence-TLV
 DEFINE Test-Integer             int64
 DEFINE Test-Boolean             bool
-END-TLV Test-Sequence-TLV
+END Test-Sequence-TLV
 
 DEFINE Test-TLV                 tlv
-BEGIN-TLV Test-TLV
+BEGIN Test-TLV
 DEFINE Test-Integer             int64 subtype=integer
 DEFINE Test-Boolean             bool subtype=boolean
-END-TLV Test-TLV
+END Test-TLV
 
 DEFINE Test-Sequence-GROUP      group subtype=sequence,ref=Test-TLV
 
 DEFINE Test-Set-Struct          struct subtype=set
-
+BEGIN Test-Set-Struct
 MEMBER Test-Boolean             bool subtype=boolean
 MEMBER Test-Integer             int64 subtype=integer
+END Test-Set-Struct
 
 DEFINE Test-Set-Bad-Struct      struct subtype=set
+BEGIN Test-Set-Bad-Struct
 MEMBER Test-Integer             int64 subtype=integer
 MEMBER Test-Boolean             bool subtype=boolean
+END Test-Set-Bad-Struct
 
 DEFINE Test-Set-TLV             tlv subtype=set
-BEGIN-TLV Test-Set-TLV
+BEGIN Test-Set-TLV
 DEFINE Test-Integer             int64 subtype=integer
 DEFINE Test-Boolean             bool subtype=boolean
-END-TLV Test-Set-TLV
+END Test-Set-TLV
 
 DEFINE Test-Set-GROUP      group subtype=set,ref=Test-TLV
 
 # CSR
 DEFINE subjectAltName           tlv
-BEGIN-TLV subjectAltName
+BEGIN subjectAltName
 DEFINE OID                      string
 DEFINE Name                     string
-END-TLV subjectAltName
+END subjectAltName
 
 DEFINE AttributeValue           tlv
-BEGIN-TLV AttributeValue
-DEFINE OID                      string
-DEFINE Value                    tlv clone=subjectAltName
-END-TLV AttributeValue
+BEGIN AttributeValue
+DEFINE OID                      string[50]
+DEFINE Value-thing                    tlv clone=subjectAltName
+END AttributeValue
 
-DEFINE Attribute                tlv
-BEGIN-TLV Attribute
+DEFINE Attribute-tlv            tlv
+BEGIN Attribute-tlv
+DEFINE Attribute-thing          tlv
+BEGIN Attribute-thing
 DEFINE OID                      string
-DEFINE Value                    tlv clone=AttributeValue
-END-TLV Attribute
+DEFINE Extensions-thing         group ref=...Test-Extensions,sequence_of=sequence,is_extension
+#DEFINE Value-thing              tlv subtype=set
+#BEGIN Value-thing
+#DEFINE Extensions               group ref=Test-Extensions,is_extension
+#END Value-thing
+END Attribute-thing
+END Attribute-tlv
 
-#DEFINE Attributes               group ref=Attribute
-# MEMBER Attribute                struct clone=Attribute
+#DEFINE Attributes               group ref=Attribute-tlv
+# MEMBER Attribute               tlv clone=Attribute-tlv
 
 DEFINE AlgorithmIdentifier      tlv
-BEGIN-TLV AlgorithmIdentifier
+BEGIN AlgorithmIdentifier
 DEFINE OID                      string
-END-TLV AlgorithmIdentifier
+END AlgorithmIdentifier
 
 DEFINE subjectPublicKeyInfo     tlv
-BEGIN-TLV subjectPublicKeyInfo
+BEGIN subjectPublicKeyInfo
 DEFINE algorithm                tlv clone=AlgorithmIdentifier
-DEFINE subjectPublicKey         octets
-END-TLV subjectPublicKeyInfo
+DEFINE subjectPublicKey         octets subtype=bitstring
+END subjectPublicKeyInfo
 
 DEFINE ABSAttributeTypeAndValue    tlv
-BEGIN-TLV ABSAttributeTypeAndValue
+BEGIN ABSAttributeTypeAndValue
 DEFINE OID                      string
-DEFINE Value                    string
-END-TLV ABSAttributeTypeAndValue
+DEFINE Value-thing                    string
+END ABSAttributeTypeAndValue
 
 DEFINE RelativeDistinguishedName        tlv
-BEGIN-TLV RelativeDistinguishedName
+BEGIN RelativeDistinguishedName
 DEFINE AttributeTypeAndValue    tlv clone=ABSAttributeTypeAndValue
-END-TLV RelativeDistinguishedName
+END RelativeDistinguishedName
 
 DEFINE subject                  tlv
-BEGIN-TLV subject
+BEGIN subject
 DEFINE RelativeDistinguishedName        tlv clone=RelativeDistinguishedName
-END-TLV subject
+END subject
 
 DEFINE certificationRequestInfo tlv
-BEGIN-TLV certificationRequestInfo
+BEGIN certificationRequestInfo
 DEFINE version                  integer
 DEFINE subject                  tlv clone=subject
 DEFINE subjectPublicKeyInfo     tlv clone=subjectPublicKeyInfo
-DEFINE Attributes               group ref=Attribute
-END-TLV certificationRequestInfo
+DEFINE Attributes               tlv clone=Attribute-tlv,subtype=sequence
+END certificationRequestInfo
 
-DEFINE signatureAlgorithm       struct
-MEMBER OID                      string
+DEFINE signatureAlgorithm       tlv
+BEGIN signatureAlgorithm
+DEFINE OID                      string
+END signatureAlgorithm
 
 DEFINE CertificationRequest     tlv
-BEGIN-TLV CertificationRequest
+BEGIN CertificationRequest
 DEFINE certificationRequestInfo tlv clone=certificationRequestInfo
-DEFINE signatureAlgorithm       struct clone=signatureAlgorithm
-DEFINE signature                octets
-END-TLV CertificationRequest
+DEFINE signatureAlgorithm       tlv clone=signatureAlgorithm
+DEFINE signature                octets subtype=bitstring
+END CertificationRequest
+
+
+#--MINIMAL CLONING--
+DEFINE CertificationRequest-Cloneless tlv
+BEGIN CertificationRequest-Cloneless
+
+DEFINE certificationRequestInfo tlv
+BEGIN certificationRequestInfo
+DEFINE version                          integer
+
+DEFINE subject                          tlv
+BEGIN subject
+DEFINE RelativeDistinguishedName        tlv subtype=set
+BEGIN RelativeDistinguishedName
+DEFINE AttributeTypeandValue            tlv
+BEGIN AttributeTypeAndValue
+DEFINE OID                              string subtype=oid
+DEFINE Value-Thing                      string subtype=utf8string
+END AttributeTypeAndValue
+END RelativeDistinguishedName
+END subject
+
+DEFINE subjectPublicKeyInfo             tlv
+BEGIN subjectPublicKeyInfo
+DEFINE algorithm                        tlv
+BEGIN algorithm
+DEFINE OID                              string subtype=oid
+END algorithm
+DEFINE subjectPublicKey                 octets subtype=bitstring
+END subjectPublicKeyInfo
+
+DEFINE Attributes                       tlv
+BEGIN Attributes
+DEFINE Attribute-thing                  tlv
+BEGIN Attribute-thing
+DEFINE OID                              string subtype=oid
+DEFINE Extensions                       group ref=Test-Extensions,subtype=set,is_extension
+END Attribute-thing
+END Attributes
+
+END certificationRequestInfo
+
+DEFINE signatureAlgorithm tlv
+BEGIN signatureAlgorithm
+DEFINE OID                              string subtype=oid
+END signatureAlgorithm
+
+DEFINE signature                        octets subtype=bitstring
+END CertificationRequest-Cloneless
