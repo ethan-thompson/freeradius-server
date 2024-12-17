@@ -30,10 +30,10 @@ ATTRIBUTE Leaf-17       17      tlv is_extension
 BEGIN Leaf-17
 ATTRIBUTE subjectAltName        17      tlv subtype=sequence
 BEGIN subjectAltName
-DEFINE otherName     tlv subtype=sequence
+DEFINE otherName     tlv subtype=sequence,class=context-specific,tagnum=0
 BEGIN otherName
 DEFINE type-id           string subtype=oid
-DEFINE Value-thing      tlv
+DEFINE Value-thing      tlv subtype=sequence,class=context-specific,tagnum=0
 BEGIN Value-thing
 DEFINE userPrincipalName       string subtype=utf8string
 END Value-thing
@@ -357,7 +357,7 @@ END algorithm
 DEFINE subjectPublicKey                 octets subtype=bitstring
 END subjectPublicKeyInfo
 
-DEFINE Attributes                       tlv
+DEFINE Attributes                       tlv class=context-specific,tagnum=0,subtype=sequence
 BEGIN Attributes
 DEFINE Attribute-thing                  tlv
 BEGIN Attribute-thing
