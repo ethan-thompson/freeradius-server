@@ -158,10 +158,10 @@ static int dict_flag_tagnum(fr_dict_attr_t **da_p, char const *value, UNUSED fr_
 static int dict_flag_class(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	static fr_table_num_sorted_t const table[] = {
-		{ L("universal"), FR_DER_CLASS_UNIVERSAL },
 		{ L("application"), FR_DER_CLASS_APPLICATION },
 		{ L("context-specific"), FR_DER_CLASS_CONTEXT },
 		{ L("private"), FR_DER_CLASS_PRIVATE },
+		{ L("universal"), FR_DER_CLASS_UNIVERSAL },
 	};
 
 	static size_t table_len = NUM_ELEMENTS(table);
@@ -333,6 +333,15 @@ static int dict_flag_is_extension(fr_dict_attr_t **da_p, UNUSED char const *valu
 	return 0;
 }
 
+static int dict_flag_is_extensions(fr_dict_attr_t **da_p, UNUSED char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+{
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+
+	flags->is_extensions = true;
+
+	return 0;
+}
+
 static int dict_flag_max(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
@@ -346,6 +355,7 @@ static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("class"), { .func = dict_flag_class } },
 						   { L("has_default"), { .func = dict_flag_has_default } },
 						   { L("is_extension"), { .func = dict_flag_is_extension } },
+						   { L("is_extensions"), { .func = dict_flag_is_extensions } },
 						   { L("is_pair"), { .func = dict_flag_is_pair } },
 						   { L("max"), { .func = dict_flag_max } },
 						   { L("sequence_of"), { .func = dict_flag_sequence_of } },

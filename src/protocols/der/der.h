@@ -133,7 +133,8 @@ typedef struct {
 	bool is_sequence_of;
 	bool is_set_of;
 	bool is_pair;
-	bool is_extension;
+	bool is_extension; // This is a flag for a single X.509 extension
+	bool is_extensions; // This is a flag for a list X.509 extensions
 	bool has_default;
 } fr_der_attr_flags_t;
 
@@ -152,6 +153,7 @@ static inline fr_der_attr_flags_t const *fr_der_attr_flags(fr_dict_attr_t const 
 #define fr_der_flag_max(_da) 	(fr_der_attr_flags(_da)->max)
 #define fr_der_flag_is_pair(_da) 	(fr_der_attr_flags(_da)->is_pair)
 #define fr_der_flag_is_extension(_da) 	(fr_der_attr_flags(_da)->is_extension)
+#define fr_der_flag_is_extensions(_da) 	(fr_der_attr_flags(_da)->is_extensions)
 #define fr_der_flag_has_default(_da) 	(fr_der_attr_flags(_da)->has_default)
 
 /*

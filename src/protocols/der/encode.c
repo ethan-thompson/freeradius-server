@@ -1634,7 +1634,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		bool is_raw = false;
 
 		/*
-		*	Pairs are sequences or sets containing 2 items:
+		*	Extensions are sequences or sets containing 2 items:
 		*	1. The first item is the OID
 		*	2. The second item is the value
 		*
@@ -1704,7 +1704,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 
 		next:
 			FR_PROTO_TRACE("OID: %s", oid_buff);
-			// parent_cursor = child_cursor;
+			if (fr_der_flag_is_extension(child_vp->da)) break;
 			fr_pair_dcursor_child_iter_init(&child_cursor, &child_vp->children, &child_cursor);
 		}
 
@@ -2044,7 +2044,7 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 
 	if (fr_der_flag_is_pair(vp->da)) {
 		slen = fr_der_encode_pair(&our_dbuff, cursor, uctx);
-	} else if (fr_der_flag_is_extension(vp->da)) {
+	} else if (fr_der_flag_is_extensions(vp->da)) {
 		slen = fr_der_encode_X509_extensions(&our_dbuff, cursor, uctx);
 	} else {
 		slen = tag_encode->encode(&our_dbuff, cursor, uctx);

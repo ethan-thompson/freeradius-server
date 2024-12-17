@@ -1,4 +1,3 @@
-#FLAGS !auto_begin
 DEFINE Test-Extensions tlv
 BEGIN Test-Extensions
 DEFINE Critical         group ref=Test-Extensions
@@ -6,13 +5,13 @@ ATTRIBUTE Root 0 tlv
 BEGIN Root
 ATTRIBUTE Branch 1 tlv
 BEGIN Branch
-ATTRIBUTE Leaf 2 tlv subtype=sequence
+ATTRIBUTE Leaf 2 tlv subtype=sequence,is_extension
 BEGIN Leaf
 DEFINE Name string
 DEFINE Version int64
 END Leaf
 
-ATTRIBUTE Leaf-2 3 tlv subtype=sequence
+ATTRIBUTE Leaf-2 3 tlv subtype=sequence,is_extension
 BEGIN Leaf-2
 DEFINE Name string
 DEFINE Version int64
@@ -27,7 +26,7 @@ ATTRIBUTE Branch-5      5       tlv
 BEGIN Branch-5
 ATTRIBUTE Branch-29     29      tlv
 BEGIN Branch-29
-ATTRIBUTE Leaf-17       17      tlv
+ATTRIBUTE Leaf-17       17      tlv is_extension
 BEGIN Leaf-17
 ATTRIBUTE subjectAltName        17      tlv subtype=sequence
 BEGIN subjectAltName
@@ -52,7 +51,7 @@ DEFINE Baz                      tlv
 BEGIN Baz
 DEFINE Qux                      tlv
 BEGIN Qux
-DEFINE Quux                     group ref=Test-Extensions,sequence_of=sequence,is_extension
+DEFINE Quux                     group ref=Test-Extensions,sequence_of=sequence,is_extensions
 END Qux
 END Baz
 
@@ -76,18 +75,18 @@ DEFINE Baz                      tlv
 BEGIN Baz
 DEFINE Qux                      tlv
 BEGIN Qux
-DEFINE Quux                     group ref=Test-Extensions,sequence_of=sequence,is_extension
+DEFINE Quux                     group ref=Test-Extensions,sequence_of=sequence,is_extensions
 END Qux
 END Baz
 END Bar
 END Foo
 END Test-Skelly-Cert-No-Clone
 
-DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,is_extension
+DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,is_extensions
 
-DEFINE Test-Other-Extensions-Group      group ref=Test-Extensions,sequence_of=sequence,is_extension
+DEFINE Test-Other-Extensions-Group      group ref=Test-Extensions,sequence_of=sequence,is_extensions
 
-DEFINE Test-Extensions-Group-Max     group ref=Test-Extensions,sequence_of=sequence,is_extension,max=2
+DEFINE Test-Extensions-Group-Max     group ref=Test-Extensions,sequence_of=sequence,is_extensions,max=2
 
 DEFINE Test-Pair-Group          group ref=Test-Extensions,is_pair
 
@@ -270,10 +269,10 @@ BEGIN Attribute-tlv
 DEFINE Attribute-thing          tlv
 BEGIN Attribute-thing
 DEFINE OID                      string
-DEFINE Extensions-thing         group ref=...Test-Extensions,sequence_of=sequence,is_extension
+DEFINE Extensions-thing         group ref=...Test-Extensions,sequence_of=sequence,is_extensions
 #DEFINE Value-thing              tlv subtype=set
 #BEGIN Value-thing
-#DEFINE Extensions               group ref=Test-Extensions,is_extension
+#DEFINE Extensions               group ref=Test-Extensions,is_extensions
 #END Value-thing
 END Attribute-thing
 END Attribute-tlv
@@ -363,7 +362,7 @@ BEGIN Attributes
 DEFINE Attribute-thing                  tlv
 BEGIN Attribute-thing
 DEFINE OID                              string subtype=oid
-DEFINE Extensions                       group ref=Test-Extensions,subtype=set,is_extension
+DEFINE Extensions                       group ref=Test-Extensions,subtype=set,is_extensions
 END Attribute-thing
 END Attributes
 
