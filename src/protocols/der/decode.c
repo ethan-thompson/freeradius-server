@@ -1803,7 +1803,9 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 			return -1;
 		}
 
-		if (tag_flags == fr_der_flag_class(parent)) {
+		fr_der_tag_class_t foo = fr_der_flag_class(parent);
+
+		if (tag_flags == foo) {
 			if (*tag == fr_der_flag_tagnum(parent)) {
 				*tag = fr_der_flag_subtype(parent);
 			} else {
@@ -1891,6 +1893,9 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 	uint64_t tag, max;
 	size_t	 len;
 	ssize_t	 slen;
+
+	FR_PROTO_TRACE("Attribute %s", parent->name);
+	FR_PROTO_HEX_DUMP(fr_dbuff_current(in), fr_dbuff_remaining(in), "Top of extension decoding");
 
 	if (unlikely(!fr_type_is_group(parent->type))) {
 		fr_strerror_printf("Pair found in non-group attribute %s of type %s", parent->name,
@@ -2274,7 +2279,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		return fr_dbuff_set(in, &our_in);
 	}
 
-	if (fr_der_flag_is_extension(parent)) {
+	if (fr_der_flag_is_extensions(parent)) {
 		slen = fr_der_decode_x509_extensions(ctx, out, &our_in, parent, decode_ctx);
 
 		if (unlikely(slen < 0)) return slen;
