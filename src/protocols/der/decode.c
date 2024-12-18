@@ -1803,9 +1803,7 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 			return -1;
 		}
 
-		fr_der_tag_class_t foo = fr_der_flag_class(parent);
-
-		if (tag_flags == foo) {
+		if (tag_flags == fr_der_flag_class(parent)) {
 			if (*tag == fr_der_flag_tagnum(parent)) {
 				*tag = fr_der_flag_subtype(parent);
 			} else {
@@ -2138,13 +2136,6 @@ static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff
 		fr_strerror_const("Out of memory for pair");
 		return -1;
 	}
-
-	// vp2 = fr_pair_afrom_da(vp, fr_dict_attr_ref(parent));
-
-	// if (unlikely(vp2 == NULL)) {
-	// 	fr_strerror_const("Out of memory for pair");
-	// 	return -1;
-	// }
 
 	fr_dbuff_marker(&marker, in);
 
