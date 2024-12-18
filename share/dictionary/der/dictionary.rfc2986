@@ -24,6 +24,11 @@ ATTRIBUTE Root-2        2       tlv
 BEGIN Root-2
 ATTRIBUTE Branch-5      5       tlv
 BEGIN Branch-5
+ATTRIBUTE Branch-4      4       tlv
+BEGIN Branch-4
+ATTRIBUTE commonName        3       string subtype=printablestring
+ATTRIBUTE organizationName   10      string
+END Branch-4
 ATTRIBUTE Branch-29     29      tlv
 BEGIN Branch-29
 ATTRIBUTE Leaf-17       17      tlv is_extension
@@ -46,6 +51,7 @@ END Root-2
 
 END Test-Extensions
 
+DEFINE Issuer         group ref=Test-Extensions,sequence_of=set,is_pairs
 
 DEFINE Baz                      tlv
 BEGIN Baz
