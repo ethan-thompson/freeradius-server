@@ -1642,7 +1642,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		*/
 
 		if (max < 0) {
-			fr_strerror_printf("Too many X509 extensions (%lu)", max);
+			fr_strerror_printf("Too many X509 extensions (%llu)", max);
 			break;
 		}
 
