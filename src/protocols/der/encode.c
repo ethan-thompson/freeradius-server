@@ -102,7 +102,7 @@ static fr_der_tag_encode_t tag_funcs[] = {
 	[FR_DER_TAG_UNIVERSAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_universal_string },
 };
 
-static int encode_test_ctx(void **out, TALLOC_CTX *ctx)
+static int encode_test_ctx(void **out, TALLOC_CTX *ctx, UNUSED fr_dict_t const *dict)
 {
 	fr_der_encode_ctx_t *test_ctx;
 

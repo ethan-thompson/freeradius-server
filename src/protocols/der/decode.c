@@ -169,7 +169,7 @@ static fr_der_tag_decode_t tag_funcs[] = {
 	[UINT8_MAX] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = NULL },
 };
 
-static int decode_test_ctx(void **out, TALLOC_CTX *ctx)
+static int decode_test_ctx(void **out, TALLOC_CTX *ctx, UNUSED fr_dict_t const *dict)
 {
 	fr_der_decode_ctx_t *test_ctx;
 
