@@ -39,9 +39,9 @@ typedef enum {
 
 typedef enum {
 	FR_DER_CLASS_UNIVERSAL   = 0x00,
-	FR_DER_CLASS_APPLICATION = 0x01,
-	FR_DER_CLASS_CONTEXT	    = 0x02,
-	FR_DER_CLASS_PRIVATE	    = 0x03,
+	FR_DER_CLASS_APPLICATION = 0x40,
+	FR_DER_CLASS_CONTEXT	    = 0x80,
+	FR_DER_CLASS_PRIVATE	    = 0xC0,
 	FR_DER_CLASS_INVALID	    = 0x04
 } fr_der_tag_class_t;
 
