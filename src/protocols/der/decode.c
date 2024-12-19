@@ -32,6 +32,7 @@
 #include <stddef.h>
 
 #include "der.h"
+#include "include/missing.h"
 #include "lib/util/dict_ext.h"
 #include "lib/util/sbuff.h"
 #include "lib/util/value.h"
@@ -54,6 +55,7 @@
 
 typedef struct {
 	uint8_t *tmp_ctx;
+	bool	  oid_value_pairs;
 } fr_der_decode_ctx_t;
 
 #define IS_DER_TAG_CONTINUATION(_tag) (((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
@@ -179,6 +181,7 @@ static int decode_test_ctx(void **out, TALLOC_CTX *ctx, UNUSED fr_dict_t const *
 	if (!test_ctx) return -1;
 
 	test_ctx->tmp_ctx = talloc(test_ctx, uint8_t);
+	test_ctx->oid_value_pairs = false;
 
 	*out = test_ctx;
 
@@ -996,6 +999,52 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		return -1;
 	}
 
+	if (fr_der_flag_is_pair(parent)) {
+		/*
+		 *	This sequence contains an oid value pair
+		 */
+		if (unlikely(!fr_type_is_group(parent->type))) {
+			fr_strerror_printf("Sequence with pair found in incompatible attribute %s of type %s", parent->name,
+					   fr_type_to_str(parent->type));
+			talloc_free(vp);
+			return -1;
+		}
+
+		if (unlikely(fr_der_decode_oid_value_pair(vp, &vp->vp_group, &our_in, vp->da, decode_ctx) < 0)) {
+			talloc_free(vp);
+			return -1;
+		}
+
+		fr_pair_append(out, vp);
+
+		return fr_dbuff_set(in, &our_in);
+	}
+
+	if (fr_der_flag_is_pairs(parent) || decode_ctx->oid_value_pairs) {
+		/*
+		 *	This sequence contains sequences/sets of pairs
+		 */
+		bool old = decode_ctx->oid_value_pairs;
+		decode_ctx->oid_value_pairs = true;
+		while(fr_dbuff_remaining(&our_in) > 0) {
+			fr_dict_attr_t const *child  = NULL;
+			child = fr_dict_attr_iterate_children(parent, &child);
+
+			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
+
+			if (unlikely(fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx) < 0)) {
+				talloc_free(vp);
+				return -1;
+			}
+		}
+
+		decode_ctx->oid_value_pairs = old;
+
+		fr_pair_append(out, vp);
+
+		return fr_dbuff_set(in, &our_in);
+	}
+
 	if (fr_der_flag_is_sequence_of(parent)) {
 		fr_der_tag_num_t restriction_type = fr_der_flag_sequence_of(parent);
 
@@ -1131,6 +1180,52 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("Out of memory for set pair");
 		return -1;
+	}
+
+	if (fr_der_flag_is_pair(parent)) {
+		/*
+		 *	This set contains an oid value pair
+		 */
+		if (unlikely(!fr_type_is_group(parent->type))) {
+			fr_strerror_printf("Set with pair found in incompatible attribute %s of type %s", parent->name,
+					   fr_type_to_str(parent->type));
+			talloc_free(vp);
+			return -1;
+		}
+
+		if (unlikely(fr_der_decode_oid_value_pair(vp, &vp->vp_group, &our_in, vp->da, decode_ctx) < 0)) {
+			talloc_free(vp);
+			return -1;
+		}
+
+		fr_pair_append(out, vp);
+
+		return fr_dbuff_set(in, &our_in);
+	}
+
+	if (fr_der_flag_is_pairs(parent) || decode_ctx->oid_value_pairs) {
+		/*
+		 *	This set contains sequences/sets of pairs
+		 */
+		bool old = decode_ctx->oid_value_pairs;
+		decode_ctx->oid_value_pairs = true;
+		while(fr_dbuff_remaining(&our_in) > 0) {
+			fr_dict_attr_t const *child  = NULL;
+			child = fr_dict_attr_iterate_children(parent, &child);
+
+			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
+
+			if (unlikely(fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx) < 0)) {
+				talloc_free(vp);
+				return -1;
+			}
+		}
+
+		decode_ctx->oid_value_pairs = old;
+
+		fr_pair_append(out, vp);
+
+		return fr_dbuff_set(in, &our_in);
 	}
 
 	if (fr_der_flag_is_set_of(parent)) {
@@ -2328,9 +2423,16 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 			return 0;
 		}
 
-		fr_strerror_printf("Attribute %s of type %s cannot store type %llu", parent->name,
-				   fr_type_to_str(parent->type), tag);
-		return -1;
+		if (fr_type_is_octets(parent->type)) {
+			/*
+			 *	We will store the value as raw octets if indicated by the dictionary
+			 */
+			tag = FR_DER_TAG_OCTETSTRING;
+		} else {
+			fr_strerror_printf("Attribute %s of type %s cannot store type %llu", parent->name,
+					fr_type_to_str(parent->type), tag);
+			return -1;
+		}
 	}
 
 	if (fr_der_flag_is_extensions(parent)) {

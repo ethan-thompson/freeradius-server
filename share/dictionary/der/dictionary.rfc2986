@@ -51,9 +51,23 @@ END Root-2
 
 END Test-Extensions
 
-DEFINE Issuer         group ref=Test-Extensions,sequence_of=set,is_pairs
+DEFINE Issuer         tlv is_pairs
+BEGIN Issuer
+DEFINE RelativeDistinguishedName        tlv
+BEGIN RelativeDistinguishedName
+DEFINE AttributeTypeAndValue            group ref=Test-Extensions,sequence_of=set,is_pair
+END RelativeDistinguishedName
+END Issuer
 
-DEFINE Issuer-Set         group ref=Test-Extensions,set_of=set,is_pairs
+DEFINE Issuer-Set         tlv is_pairs
+BEGIN Issuer-Set
+DEFINE RelativeDistinguishedName        tlv
+BEGIN RelativeDistinguishedName
+DEFINE AttributeTypeAndValue            group ref=Test-Extensions,sequence_of=set,is_pair
+END RelativeDistinguishedName
+END Issuer-Set
+
+#DEFINE Issuer-Set         group ref=Test-Extensions,set_of=set,is_pairs
 
 DEFINE Baz                      tlv
 BEGIN Baz
@@ -383,3 +397,52 @@ END signatureAlgorithm
 
 DEFINE signature                        octets subtype=bitstring
 END CertificationRequest-Cloneless
+
+DEFINE Certificate-Cloneless tlv
+BEGIN Certificate-Cloneless
+
+DEFINE tbsCertificate tlv
+BEGIN tbsCertificate
+DEFINE version                          tlv class=context-specific,tagnum=0,subtype=sequence
+BEGIN version
+DEFINE VersionNum                       integer
+END version
+DEFINE serialNumber                     octets
+DEFINE signature                        group ref=Test-Extensions,is_pair
+
+DEFINE issuer                           tlv subtype=sequence,sequence_of=set,is_pairs
+BEGIN issuer
+DEFINE RelativeDistinguishedName        tlv subtype=set
+BEGIN RelativeDistinguishedName
+DEFINE AttributeTypeAndValue            group ref=Test-Extensions,is_pair
+END RelativeDistinguishedName
+END issuer
+
+DEFINE validity                         tlv
+BEGIN validity
+DEFINE notBefore                        date subtype=utctime
+DEFINE notAfter                         date subtype=utctime
+END validity
+
+DEFINE subject                          tlv sequence_of=set,is_pairs
+BEGIN subject
+DEFINE RelativeDistinguishedName        tlv subtype=set
+BEGIN RelativeDistinguishedName
+DEFINE AttributeTypeandValue            group ref=Test-Extensions,is_pair
+END RelativeDistinguishedName
+END subject
+
+DEFINE subjectPublicKeyInfo             tlv
+BEGIN subjectPublicKeyInfo
+DEFINE algorithm                        group is_pair
+DEFINE subjectPublicKey                 octets subtype=bitstring
+END subjectPublicKeyInfo
+
+DEFINE extensions                       group ref=Test-Extensions,subtype=sequence,class=context-specific,tagnum=3,is_extensions
+
+END tbsCertificate
+
+DEFINE signatureAlgorithm               group ref=Test-Extensions,is_pair
+
+DEFINE signature                        octets subtype=bitstring
+END Certificate-Cloneless
