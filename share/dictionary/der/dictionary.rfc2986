@@ -51,6 +51,8 @@ END Root-2
 
 END Test-Extensions
 
+DEFINE Certificate-Extensions                       group ref=Test-Extensions,subtype=sequence,sequence_of=sequence,class=context-specific,tagnum=3,is_extensions
+
 DEFINE Issuer         tlv is_pairs
 BEGIN Issuer
 DEFINE RelativeDistinguishedName        tlv subtype=set
@@ -438,7 +440,7 @@ DEFINE algorithm                        group is_pair
 DEFINE subjectPublicKey                 octets subtype=bitstring
 END subjectPublicKeyInfo
 
-DEFINE extensions                       group ref=Test-Extensions,subtype=sequence,class=context-specific,tagnum=3,is_extensions
+DEFINE extensions                       group ref=Test-Extensions,subtype=sequence,sequence_of=sequence,class=context-specific,tagnum=3,is_extensions
 
 END tbsCertificate
 
