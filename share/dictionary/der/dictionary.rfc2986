@@ -26,8 +26,8 @@ ATTRIBUTE Branch-5      5       tlv
 BEGIN Branch-5
 ATTRIBUTE Branch-4      4       tlv
 BEGIN Branch-4
-ATTRIBUTE commonName        3       string subtype=printablestring
-ATTRIBUTE organizationName   10      string
+ATTRIBUTE commonName        3       string subtype=printablestring,is_oid_leaf
+ATTRIBUTE organizationName   10      string subtype=printablestring,is_oid_leaf
 END Branch-4
 ATTRIBUTE Branch-29     29      tlv
 BEGIN Branch-29
@@ -53,7 +53,7 @@ END Test-Extensions
 
 DEFINE Issuer         tlv is_pairs
 BEGIN Issuer
-DEFINE RelativeDistinguishedName        tlv
+DEFINE RelativeDistinguishedName        tlv subtype=set
 BEGIN RelativeDistinguishedName
 DEFINE AttributeTypeAndValue            group ref=Test-Extensions,sequence_of=set,is_pair
 END RelativeDistinguishedName

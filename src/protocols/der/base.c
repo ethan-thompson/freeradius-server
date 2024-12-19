@@ -342,6 +342,15 @@ static int dict_flag_is_extensions(fr_dict_attr_t **da_p, UNUSED char const *val
 	return 0;
 }
 
+static int dict_flag_is_oid_leaf(fr_dict_attr_t **da_p, UNUSED char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+{
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+
+	flags->is_oid_leaf = true;
+
+	return 0;
+}
+
 static int dict_flag_is_pairs(fr_dict_attr_t **da_p, UNUSED char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
@@ -365,6 +374,7 @@ static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("has_default"), { .func = dict_flag_has_default } },
 						   { L("is_extension"), { .func = dict_flag_is_extension } },
 						   { L("is_extensions"), { .func = dict_flag_is_extensions } },
+						   { L("is_oid_leaf"), { .func = dict_flag_is_oid_leaf } },
 						   { L("is_pair"), { .func = dict_flag_is_pair } },
 						   { L("is_pairs"), { .func = dict_flag_is_pairs } },
 						   { L("max"), { .func = dict_flag_max } },

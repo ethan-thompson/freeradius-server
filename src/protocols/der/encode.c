@@ -71,6 +71,8 @@ static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
 
+static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
+
 static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len);
 static inline CC_HINT(always_inline) ssize_t
 	fr_der_encode_tag(fr_dbuff_t *dbuff, fr_der_tag_num_t tag_num, fr_der_tag_class_t tag_class,
@@ -764,6 +766,14 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 
 		return slen;
 	case FR_TYPE_GROUP:
+		if (fr_der_flag_is_pair(vp->da)) {
+			if (unlikely((slen = fr_der_encode_oid_value_pair(dbuff, cursor, encode_ctx)) < 0)) {
+				fr_strerror_printf("Failed to encode OID value pair: %s", fr_strerror());
+				return -1;
+			}
+
+			return slen;
+		}
 		ref = fr_dict_attr_ref(vp->da);
 
 		if (ref && (ref->dict != dict_der)) {
@@ -1791,10 +1801,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 	return fr_dbuff_marker_release_behind(&marker);
 }
 
-/*
- *	TODO: This needs a better name. There are 3 function in this file that have **encode_pair names.
- */
-static ssize_t fr_der_encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
+static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_sbuff_t	 oid_sbuff;
 	fr_dbuff_marker_t marker, length_start;
@@ -1836,7 +1843,7 @@ static ssize_t fr_der_encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_de
 
 		PAIR_VERIFY(child_vp);
 
-		if (!fr_type_is_structural(child_vp->vp_type)) {
+		if (!fr_type_is_structural(child_vp->vp_type) && !fr_der_flag_is_oid_leaf(child_vp->da)) {
 			FR_PROTO_TRACE("Found non-structural child %s", child_vp->da->name);
 
 			if(child_vp->da->flags.is_raw) {
@@ -1848,7 +1855,7 @@ static ssize_t fr_der_encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_de
 				break;
 			}
 
-			child_cursor = parent_cursor;
+			fr_dcursor_copy(&child_cursor, &parent_cursor);
 			break;
 		}
 
@@ -1868,8 +1875,8 @@ static ssize_t fr_der_encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_de
 
 	next:
 		FR_PROTO_TRACE("OID: %s", oid_buff);
-		parent_cursor = child_cursor;
-		fr_pair_dcursor_child_iter_init(&child_cursor, &child_vp->children, &parent_cursor);
+		if (fr_der_flag_is_oid_leaf(child_vp->da)) break;
+		fr_pair_dcursor_child_iter_init(&child_cursor, &child_vp->children, &child_cursor);
 	}
 
 	fr_sbuff_terminate(&oid_sbuff);
@@ -1888,20 +1895,11 @@ static ssize_t fr_der_encode_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_de
 	if (slen < 0) return slen;
 
 
-	slen = fr_der_encode_tag(dbuff, FR_DER_TAG_OCTETSTRING, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
-	if (slen < 0) return slen;
-
-	fr_dbuff_marker(&length_start, dbuff);
-	fr_dbuff_advance(dbuff, 1);
-
 	if (is_raw) {
 		slen = fr_der_encode_octetstring(dbuff, &child_cursor, encode_ctx);
 	} else {
-		slen = fr_der_encode_sequence(dbuff, &child_cursor, encode_ctx);
+		slen = der_encode_pair(dbuff, &child_cursor, encode_ctx);
 	}
-	if (slen < 0) return slen;
-
-	slen = fr_der_encode_len(dbuff, &length_start, slen);
 	if (slen < 0) return slen;
 
 	return fr_dbuff_marker_release_behind(&marker);
@@ -2042,9 +2040,7 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 	fr_dbuff_marker(&marker, &our_dbuff);
 	fr_dbuff_advance(&our_dbuff, 1);
 
-	if (fr_der_flag_is_pair(vp->da)) {
-		slen = fr_der_encode_pair(&our_dbuff, cursor, uctx);
-	} else if (fr_der_flag_is_extensions(vp->da)) {
+	if (fr_der_flag_is_extensions(vp->da)) {
 		slen = fr_der_encode_X509_extensions(&our_dbuff, cursor, uctx);
 	} else {
 		slen = tag_encode->encode(&our_dbuff, cursor, uctx);
