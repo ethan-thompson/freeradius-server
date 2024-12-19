@@ -32,7 +32,6 @@
 #include <stddef.h>
 
 #include "der.h"
-#include "include/missing.h"
 #include "lib/util/dict_ext.h"
 #include "lib/util/sbuff.h"
 #include "lib/util/value.h"
@@ -1048,53 +1047,6 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	if (fr_der_flag_is_sequence_of(parent)) {
 		fr_der_tag_num_t restriction_type = fr_der_flag_sequence_of(parent);
 
-		if (fr_der_flag_is_pairs(parent)) {
-			while(fr_dbuff_remaining(&our_in) > 0) {
-				/*
-					*	This sequence contains sequences/sets of pairs
-					*/
-				fr_dbuff_t work_dbuff = FR_DBUFF(&our_in);
-				uint64_t tag;
-				size_t len;
-				ssize_t slen;
-
-				if (!fr_type_is_group(parent->type)) {
-					fr_strerror_printf("Sequence of pairs found in incompatible attribute %s of type %s",
-								parent->name, fr_type_to_str(parent->type));
-					goto error;
-				}
-
-				if (unlikely(slen = fr_der_decode_hdr(NULL, &work_dbuff, &tag, &len) < 0)) {
-					fr_strerror_const("Insufficient data for sequence of pairs. Missing sub-sequence/set.");
-					goto error;
-				}
-
-				if (tag != restriction_type) {
-					fr_strerror_printf("Expected sequence or set tag %u, but found tag %llu", FR_DER_TAG_SEQUENCE, tag);
-					goto error;
-				}
-
-				if (unlikely(slen = fr_der_decode_hdr(NULL, &work_dbuff, &tag, &len) < 0)) {
-					fr_strerror_const("Insufficient data for sequence of pairs. Missing Extra header");
-					goto error;
-				}
-
-				fr_dbuff_set_end(&work_dbuff, fr_dbuff_current(&work_dbuff) + len);
-
-				if (unlikely(slen = fr_der_decode_oid_value_pair(vp, &vp->vp_group, &work_dbuff, vp->da, decode_ctx) < 0)) {
-					goto error;
-				}
-
-				fr_dbuff_set(&our_in, &work_dbuff);
-
-				continue;
-			}
-
-			fr_pair_append(out, vp);
-
-			return fr_dbuff_set(in, &our_in);
-		}
-
 		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
 			ssize_t	 ret;
 			uint8_t	 current_tag;
@@ -1230,58 +1182,6 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 	if (fr_der_flag_is_set_of(parent)) {
 		fr_der_tag_num_t restriction_type = fr_der_flag_set_of(parent);
-
-		if (fr_der_flag_is_pairs(parent)) {
-			while(fr_dbuff_remaining(&our_in) > 0) {
-				/*
-					*	This sequence contains sequences/sets of pairs
-					*/
-				fr_dbuff_t work_dbuff = FR_DBUFF(&our_in);
-				uint64_t tag;
-				size_t len;
-				ssize_t slen;
-
-				if (!fr_type_is_group(parent->type)) {
-					fr_strerror_printf("Set of pairs found in incompatible attribute %s of type %s",
-								parent->name, fr_type_to_str(parent->type));
-					talloc_free(vp);
-					return -1;
-				}
-
-				if (unlikely(slen = fr_der_decode_hdr(NULL, &work_dbuff, &tag, &len) < 0)) {
-					fr_strerror_const("Insufficient data for set of pairs. Missing sub-sequence/set.");
-					talloc_free(vp);
-					return -1;
-				}
-
-				if (tag != restriction_type) {
-					fr_strerror_printf("Expected sequence or set tag %u, but found tag %llu", restriction_type, tag);
-					talloc_free(vp);
-					return -1;
-				}
-
-				if (unlikely(slen = fr_der_decode_hdr(NULL, &work_dbuff, &tag, &len) < 0)) {
-					fr_strerror_const("Insufficient data for set of pairs. Missing Extra header");
-					talloc_free(vp);
-					return -1;
-				}
-
-				fr_dbuff_set_end(&work_dbuff, fr_dbuff_current(&work_dbuff) + len);
-
-				if (unlikely(slen = fr_der_decode_oid_value_pair(vp, &vp->vp_group, &work_dbuff, vp->da, decode_ctx) < 0)) {
-					talloc_free(vp);
-					return -1;
-				}
-
-				fr_dbuff_set(&our_in, &work_dbuff);
-
-				continue;
-			}
-
-			fr_pair_append(out, vp);
-
-			return fr_dbuff_set(in, &our_in);
-		}
 
 		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
 			fr_dbuff_marker_t current_value_marker;
