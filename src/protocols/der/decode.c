@@ -1858,7 +1858,7 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	uint8_t			 tag_byte;
 	uint8_t			 len_byte;
 	fr_der_tag_decode_t	*func;
-	fr_der_tag_class_t	 tag_flags;
+	fr_der_tag_class_t	 tag_class;
 	fr_der_tag_constructed_t constructed;
 
 	if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) {
@@ -1869,7 +1869,8 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	/*
 	 *	Decode the tag flags
 	 */
-	tag_flags   = (tag_byte >> 6) & 0x03;
+	// tag_class   = (tag_byte >> 6) & 0x03;
+	tag_class = (tag_byte & DER_TAG_CLASS_MASK);
 	constructed = IS_DER_TAG_CONSTRUCTED(tag_byte);
 
 	/*
@@ -1888,7 +1889,7 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	/*
 	 *	Check if the tag is not universal
 	 */
-	if (tag_flags != FR_DER_CLASS_UNIVERSAL) {
+	if (tag_class != FR_DER_CLASS_UNIVERSAL) {
 		/*
 		 *	The data type will need to be resolved using the dictionary and the tag value
 		 */
@@ -1898,7 +1899,7 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 			return -1;
 		}
 
-		if (tag_flags == fr_der_flag_class(parent)) {
+		if (tag_class == fr_der_flag_class(parent)) {
 			if (*tag == fr_der_flag_tagnum(parent)) {
 				*tag = fr_der_flag_subtype(parent);
 			} else {

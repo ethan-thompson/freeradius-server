@@ -982,6 +982,14 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 		}
 		break;
 	case FR_TYPE_GROUP:
+		if (fr_der_flag_is_pair(vp->da)) {
+			if (unlikely((slen = fr_der_encode_oid_value_pair(dbuff, cursor, encode_ctx)) < 0)) {
+				fr_strerror_printf("Failed to encode OID value pair: %s", fr_strerror());
+				return -1;
+			}
+
+			return slen;
+		}
 		if (fr_der_flag_is_set_of(vp->da)) {
 			fr_dbuff_t	 work_dbuff;
 			uint8_t *buff;
@@ -1635,6 +1643,9 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 	fr_dbuff_marker(&outer_seq_len_start, dbuff);
 	fr_dbuff_advance(dbuff, 1);
 
+	FR_PROTO_HEX_DUMP(fr_dbuff_start(dbuff), fr_dbuff_behind(&outer_seq_len_start) - 1,
+				  "BEFORE encoded X509 extension");
+
 	fr_pair_dcursor_child_iter_init(&root_cursor, &vp->children, cursor);
 	fr_dcursor_copy(&parent_cursor, &root_cursor);
 	while (fr_dcursor_current(&parent_cursor)) {
@@ -1681,7 +1692,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 				goto next;
 			}
 
-			if (!fr_type_is_structural(child_vp->vp_type)) {
+			if (!fr_type_is_structural(child_vp->vp_type) && !fr_der_flag_is_extension(child_vp->da)) {
 				FR_PROTO_TRACE("Found non-structural child %s", child_vp->da->name);
 
 				if(child_vp->da->flags.is_raw) {
@@ -1789,6 +1800,9 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 			continue;
 		}
 
+		FR_PROTO_HEX_DUMP(fr_dbuff_start(dbuff), fr_dbuff_behind(&outer_seq_len_start) - 1,
+				  "Encoded X509 extension");
+
 		fr_dcursor_next(&root_cursor);
 		// parent_cursor = root_cursor;
 		fr_dcursor_copy(&parent_cursor, &root_cursor);
@@ -1798,7 +1812,12 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 	slen = fr_der_encode_len(dbuff, &outer_seq_len_start, fr_dbuff_behind(&outer_seq_len_start) - 1);
 	if (slen < 0) return slen;
 
-	return fr_dbuff_marker_release_behind(&marker);
+	slen = fr_dbuff_marker_release_behind(&marker);
+
+	FR_PROTO_HEX_DUMP(fr_dbuff_start(dbuff), slen,
+				  "Encoded X509 extensions");
+
+	return slen;
 }
 
 static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
@@ -1902,7 +1921,7 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	}
 	if (slen < 0) return slen;
 
-	return fr_dbuff_marker_release_behind(&marker);
+	return (ssize_t)fr_dbuff_marker_release_behind(&marker);
 }
 
 static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len)
@@ -2029,7 +2048,7 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 
 	uctx->encoding_start = fr_dbuff_current(&our_dbuff);
 
-	slen = fr_der_encode_tag(&our_dbuff, tag_num, tag_class, tag_encode->constructed);
+	slen = fr_der_encode_tag(&our_dbuff, tag_class ? fr_der_flag_tagnum(vp->da) : tag_num, tag_class, tag_encode->constructed);
 	if (slen < 0) return slen;
 
 	uctx->encoding_length = slen;
