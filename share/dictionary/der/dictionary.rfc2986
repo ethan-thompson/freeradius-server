@@ -53,6 +53,8 @@ END Test-Extensions
 
 DEFINE Issuer         group ref=Test-Extensions,sequence_of=set,is_pairs
 
+DEFINE Issuer-Set         group ref=Test-Extensions,set_of=set,is_pairs
+
 DEFINE Baz                      tlv
 BEGIN Baz
 DEFINE Qux                      tlv
@@ -94,7 +96,7 @@ DEFINE Test-Other-Extensions-Group      group ref=Test-Extensions,sequence_of=se
 
 DEFINE Test-Extensions-Group-Max     group ref=Test-Extensions,sequence_of=sequence,is_extensions,max=2
 
-DEFINE Test-Pair-Group          group ref=Test-Extensions,is_pair
+#DEFINE Test-Pair-Group          group ref=Test-Extensions,is_pair
 
 DEFINE Test-Seq-Of              tlv sequence_of=integer
 BEGIN Test-Seq-Of
