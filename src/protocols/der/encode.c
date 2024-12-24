@@ -372,7 +372,7 @@ static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 {
 	fr_pair_t const *vp;
 	uint8_t const	*value = NULL;
-	size_t		 len;
+	ssize_t		 slen;
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
@@ -408,14 +408,14 @@ static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	 */
 
 	value = vp->vp_octets;
-	len   = vp->vp_length;
+	slen   = vp->vp_length;
 
-	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy octet string value");
 		return -1;
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_null(UNUSED fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
@@ -451,7 +451,8 @@ static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
 	char		 buffer[21];
 	uint64_t	 subidentifier	 = 0;
 	uint8_t		 first_component = 0;
-	size_t		 len = 0, buffer_len = 0;
+	ssize_t		 slen = 0;
+	size_t		 buffer_len = 0;
 	size_t		 index		       = 0, bit_index;
 	bool		 started_subidentifier = false, subsequent = false;
 
@@ -464,7 +465,7 @@ static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
 
 	first_component = (uint8_t)(strtol(&oid_str[0], NULL, 10));
 
-	oid_str += 2;
+	index += 2;
 
 	for (; index < strlen(oid_str) + 1; index++) {
 		uint8_t byte = 0;
@@ -522,7 +523,7 @@ static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
 
 				fr_dbuff_in(dbuff, byte);
 				started_subidentifier = true;
-				len++;
+				slen++;
 			}
 
 			/*
@@ -535,7 +536,7 @@ static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
 			fr_dbuff_in(dbuff, byte);
 			memset(buffer, 0, sizeof(buffer));
 			buffer_len = 0;
-			len++;
+			slen++;
 
 			continue;
 		}
@@ -543,7 +544,7 @@ static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
 		buffer[buffer_len++] = oid_str[index];
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_oid(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
@@ -1750,7 +1751,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		slen = fr_der_encode_oid_to_str(dbuff, oid_buff);
 		if (slen < 0) return slen;
 
-		slen = fr_der_encode_len(dbuff, &length_start, slen);
+		slen = fr_der_encode_len(dbuff, &length_start, fr_dbuff_behind(&length_start) - 1);
 		if (slen < 0) return slen;
 
 		if (is_critical){
@@ -1766,7 +1767,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 			fr_dbuff_in(dbuff, (uint8_t)(0xff));
 			slen = 1;
 
-			slen = fr_der_encode_len(dbuff, &length_start, slen);
+			slen = fr_der_encode_len(dbuff, &length_start, fr_dbuff_behind(&length_start) - 1);
 			if (slen < 0) return slen;
 
 			is_critical--;
@@ -1788,7 +1789,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		}
 		if (slen < 0) return slen;
 
-		slen = fr_der_encode_len(dbuff, &length_start, slen);
+		slen = fr_der_encode_len(dbuff, &length_start, fr_dbuff_behind(&length_start) - 1);
 		if (slen < 0) return slen;
 
 		slen = fr_der_encode_len(dbuff, &inner_seq_len_start, fr_dbuff_behind(&inner_seq_len_start) - 1);
@@ -1800,7 +1801,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 			continue;
 		}
 
-		FR_PROTO_HEX_DUMP(fr_dbuff_start(dbuff), fr_dbuff_behind(&outer_seq_len_start) - 1,
+		FR_PROTO_HEX_DUMP(fr_dbuff_start(dbuff), fr_dbuff_behind(&outer_seq_len_start) + 2,
 				  "Encoded X509 extension");
 
 		fr_dcursor_next(&root_cursor);
@@ -1924,7 +1925,7 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	return (ssize_t)fr_dbuff_marker_release_behind(&marker);
 }
 
-static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len)
+static ssize_t fr_der_encode_len(fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len)
 {
 	fr_dbuff_marker_t value_start;
 	fr_dbuff_t	  value_field;
@@ -1934,7 +1935,7 @@ static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *le
 	/*
 	 * If the length can fit in a single byte, we don't need to extend the size of the length field
 	 */
-	if (len < 0x7f) {
+	if (len <= 0x7f) {
 		fr_dbuff_in(length_start, (uint8_t)len);
 		return 1;
 	}
@@ -1958,7 +1959,10 @@ static ssize_t fr_der_encode_len(UNUSED fr_dbuff_t *dbuff, fr_dbuff_marker_t *le
 
 	fr_dbuff_marker(&value_start, &value_field);
 
-	fr_dbuff_set(dbuff, fr_dbuff_start(length_start) + len_len + 1);
+	/*
+	 *	Set the dbuff write locaiton to where the new value field will start
+	 */
+	fr_dbuff_set(dbuff, fr_dbuff_current(length_start) + len_len);
 
 	fr_dbuff_move(dbuff, fr_dbuff_ptr(&value_start), len + 1);
 
@@ -2069,7 +2073,7 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 	uctx->encoding_length += slen;
 	uctx->length_of_encoding = slen;
 
-	slen = fr_der_encode_len(&our_dbuff, &marker, slen);
+	slen = fr_der_encode_len(&our_dbuff, &marker, fr_dbuff_behind(&marker) - 1);
 	if (slen < 0) return slen;
 
 	uctx->encoded_value = fr_dbuff_start(&marker) + slen + 1;
