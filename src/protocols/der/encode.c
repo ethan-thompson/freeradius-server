@@ -1671,7 +1671,6 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		oid_sbuff = FR_SBUFF_OUT(oid_buff, sizeof(oid_buff));
 		oid_buff[0] = '\0';
 
-		// fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, &parent_cursor);
 		fr_dcursor_copy(&child_cursor, &parent_cursor);
 		while (fr_dcursor_current(&child_cursor)) {
 			fr_pair_t const *child_vp = fr_dcursor_current(&child_cursor);
@@ -1680,15 +1679,12 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 
 			FR_PROTO_TRACE("Child: %s", child_vp->da->name);
 
-			// if (child_vp->da->name == "Critical") {
 			if (!is_critical && (strcmp(child_vp->da->name, "Critical") == 0)) {
 				/*
 				*	We don't encode the critical flag
 				*/
 				is_critical = fr_pair_list_num_elements(&child_vp->children);
 				FR_PROTO_TRACE("Critical flag: %lu", is_critical);
-				// parent_cursor = child_cursor;
-				// fr_dcursor_copy(&parent_cursor, &child_cursor);
 				fr_pair_dcursor_child_iter_init(&parent_cursor, &child_vp->children, &child_cursor);
 				goto next;
 			}
@@ -1705,7 +1701,6 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 					break;
 				}
 
-				// child_cursor = parent_cursor;
 				fr_dcursor_copy(&child_cursor, &parent_cursor);
 				break;
 			}
@@ -1805,7 +1800,6 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 				  "Encoded X509 extension");
 
 		fr_dcursor_next(&root_cursor);
-		// parent_cursor = root_cursor;
 		fr_dcursor_copy(&parent_cursor, &root_cursor);
 		max --;
 	}

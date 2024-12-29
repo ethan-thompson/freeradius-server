@@ -32,7 +32,6 @@
 #include <stddef.h>
 
 #include "der.h"
-#include "include/missing.h"
 #include "lib/util/dict_ext.h"
 #include "lib/util/sbuff.h"
 #include "lib/util/value.h"
@@ -65,8 +64,6 @@ typedef ssize_t (*fr_der_decode_oid_t)(uint64_t subidentifier, void *uctx, bool 
 
 static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx);
 
-// static ssize_t fr_der_decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
-// 				  fr_der_decode_ctx_t *decode_ctx);
 static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
 				  fr_der_decode_ctx_t *decode_ctx);
 
@@ -153,7 +150,6 @@ static fr_der_tag_decode_t tag_funcs[] = {
 	[FR_DER_TAG_BITSTRING]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_bitstring },
 	[FR_DER_TAG_OCTETSTRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_octetstring },
 	[FR_DER_TAG_NULL]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_null },
-	// [FR_DER_TAG_OID]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_oid },
 	[FR_DER_TAG_ENUMERATED]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_enumerated },
 	[FR_DER_TAG_UTF8_STRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utf8_string },
 	[FR_DER_TAG_SEQUENCE]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_sequence },
@@ -689,8 +685,6 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 		talloc_free(unknown_da);
 	} else {
 		vp = fr_pair_afrom_da(decode_ctx->ctx, da);
-
-		// vp = fr_pair_afrom_da_nested(decode_ctx->ctx, decode_ctx->parent_list, da);
 	}
 
 	if (unlikely(vp == NULL)) {
@@ -876,7 +870,7 @@ static ssize_t fr_der_decode_enumerated(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		 *	If the sign bit is set, this is a negative number.
 		 *	This will fill the upper bits with 1s.
 		 *	This is important for the case where the length of the integer is less than the length of the
-		 *integer type.
+		 *	integer type.
 		 */
 		val = -1;
 	}
@@ -1027,7 +1021,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		bool old = decode_ctx->oid_value_pairs;
 		decode_ctx->oid_value_pairs = true;
 		while(fr_dbuff_remaining(&our_in) > 0) {
-			fr_dict_attr_t const *child  = NULL;
+			child  = NULL;
 			child = fr_dict_attr_iterate_children(parent, &child);
 
 			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
@@ -1163,7 +1157,7 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		bool old = decode_ctx->oid_value_pairs;
 		decode_ctx->oid_value_pairs = true;
 		while(fr_dbuff_remaining(&our_in) > 0) {
-			fr_dict_attr_t const *child  = NULL;
+			child  = NULL;
 			child = fr_dict_attr_iterate_children(parent, &child);
 
 			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
@@ -1193,7 +1187,6 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 
 			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
 
-			// if (unlikely(fr_dbuff_out(&current_tag, &our_in) < 0)) {
 			if (unlikely(fr_der_decode_hdr(NULL, &our_in, &current_tag, &len) < 0)) {
 				fr_strerror_const("Insufficient data for set. Missing tag");
 				ret = -1;
@@ -1870,7 +1863,6 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	/*
 	 *	Decode the tag flags
 	 */
-	// tag_class   = (tag_byte >> 6) & 0x03;
 	tag_class = (tag_byte & DER_TAG_CLASS_MASK);
 	constructed = IS_DER_TAG_CONSTRUCTED(tag_byte);
 
@@ -2005,13 +1997,6 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		return -1;
 	}
 
-	// extensions_vp = fr_pair_afrom_da(vp, fr_dict_attr_ref(parent));
-
-	// if (unlikely(extensions_vp == NULL)) {
-	// 	fr_strerror_const("Out of memory for extensions pair");
-	// 	return -1;
-	// }
-
 	vp2 = fr_pair_afrom_da(vp, fr_dict_attr_by_name(NULL, fr_dict_attr_ref(parent), "critical"));
 
 	if (unlikely(vp2 == NULL)) {
@@ -2045,6 +2030,7 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 	while (fr_dbuff_remaining(&our_in) > 0) {
 		fr_dbuff_t	  sub_in = FR_DBUFF(&our_in);
 		fr_dbuff_marker_t sub_marker;
+		fr_der_decode_oid_to_da_ctx_t uctx;
 
 		size_t	sub_len, len_peek;
 		uint8_t isCritical = false;
@@ -2078,14 +2064,9 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 
 		FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
-		fr_der_decode_oid_to_da_ctx_t uctx = {
-			// .ctx	     = extensions_vp,
-			// .parent_da   = extensions_vp->da,
-			// .parent_list = &extensions_vp->vp_group,
-			.ctx = vp,
-			.parent_da = vp->da,
-			.parent_list = &vp->vp_group,
-		};
+		uctx.ctx = vp;
+		uctx.parent_da = vp->da;
+		uctx.parent_list = &vp->vp_group;
 
 		fr_dbuff_marker(&sub_marker, &sub_in);
 
@@ -2117,9 +2098,6 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 			}
 
 			if (isCritical) {
-				// uctx.ctx	 = critical_extensions_vp;
-				// uctx.parent_da	 = critical_extensions_vp->da;
-				// uctx.parent_list = &critical_extensions_vp->vp_group;
 				uctx.ctx	 = vp2;
 				uctx.parent_da	 = vp2->da;
 				uctx.parent_list = &vp2->vp_group;
@@ -2196,13 +2174,10 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		}
 	}
 
-	// if (critical_extensions_vp->children.order.head.dlist_head.num_elements > 0) {
 	if (vp2->children.order.head.dlist_head.num_elements > 0) {
-		// fr_pair_append(&vp->vp_group, vp2);
 		fr_pair_prepend(&vp->vp_group, vp2);
 	}
 
-	// fr_pair_append(&vp->vp_group, extensions_vp);
 	fr_pair_append(out, vp);
 
 	return fr_dbuff_set(in, &our_in);
@@ -2213,6 +2188,7 @@ static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out
 {
 	fr_dbuff_t	  our_in = FR_DBUFF(in);
 	fr_dbuff_marker_t marker;
+	fr_der_decode_oid_to_da_ctx_t uctx;
 
 	uint64_t tag;
 	size_t	 len;
@@ -2241,11 +2217,9 @@ static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
-	fr_der_decode_oid_to_da_ctx_t uctx = {
-		.ctx	     = ctx,
-		.parent_da   = fr_dict_attr_ref(parent),
-		.parent_list = out,
-	};
+	uctx.ctx	     = ctx;
+	uctx.parent_da   = fr_dict_attr_ref(parent);
+	uctx.parent_list = out;
 
 	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
 
