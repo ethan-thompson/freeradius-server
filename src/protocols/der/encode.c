@@ -2052,7 +2052,8 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 
 	uctx->encoding_start = fr_dbuff_current(&our_dbuff);
 
-	slen = fr_der_encode_tag(&our_dbuff, tag_class ? fr_der_flag_tagnum(vp->da) : tag_num, tag_class, tag_encode->constructed);
+	// slen = fr_der_encode_tag(&our_dbuff, tag_class ? fr_der_flag_tagnum(vp->da) : tag_num, tag_class, tag_encode->constructed);
+	slen = fr_der_encode_tag(&our_dbuff, fr_der_flag_tagnum(vp->da) | tag_class ? fr_der_flag_tagnum(vp->da) : tag_num, tag_class, tag_encode->constructed);
 	if (slen < 0) return slen;
 
 	uctx->encoding_length = slen;

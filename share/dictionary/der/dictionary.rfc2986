@@ -409,7 +409,7 @@ DEFINE version                          tlv class=context-specific,tagnum=0,subt
 BEGIN version
 DEFINE VersionNum                       integer
 END version
-DEFINE serialNumber                     octets
+DEFINE serialNumber                     octets tagnum=2
 DEFINE signature                        group ref=Test-Extensions,is_pair
 
 DEFINE issuer                           tlv subtype=sequence,sequence_of=set,is_pairs

@@ -32,6 +32,7 @@
 #include <stddef.h>
 
 #include "der.h"
+#include "include/missing.h"
 #include "lib/util/dict_ext.h"
 #include "lib/util/sbuff.h"
 #include "lib/util/value.h"
@@ -2197,9 +2198,8 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 
 	// if (critical_extensions_vp->children.order.head.dlist_head.num_elements > 0) {
 	if (vp2->children.order.head.dlist_head.num_elements > 0) {
-		// fr_pair_append(&vp2->vp_group, critical_extensions_vp);
-		// fr_pair_append(&extensions_vp->vp_group, vp2);
-		fr_pair_append(&vp->vp_group, vp2);
+		// fr_pair_append(&vp->vp_group, vp2);
+		fr_pair_prepend(&vp->vp_group, vp2);
 	}
 
 	// fr_pair_append(&vp->vp_group, extensions_vp);
