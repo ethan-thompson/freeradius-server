@@ -410,7 +410,7 @@ static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	value = vp->vp_octets;
 	slen   = vp->vp_length;
 
-	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) < slen) {
 		fr_strerror_const("Failed to copy octet string value");
 		return -1;
 	}
