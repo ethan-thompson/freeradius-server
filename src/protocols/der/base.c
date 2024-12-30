@@ -27,7 +27,6 @@
 
 #include "include/build.h"
 #include "der.h"
-#include "lib/util/debug.h"
 #include "lib/util/table.h"
 #include "lib/util/types.h"
 #include <freeradius-devel/util/proto.h>

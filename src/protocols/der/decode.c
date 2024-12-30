@@ -1046,7 +1046,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 			restriction_types[fr_der_flag_sequence_of(parent)] = true;
 		} else {
 			fr_dict_attr_t const *choices;
-			uint8_t num_chocies = 0, i = 0;
+			uint8_t num_chocies = 0;
 
 			if (unlikely(!fr_type_is_group(parent->type))) {
 				fr_strerror_printf("Sequence-of choice found in incompatible attribute %s of type %s", parent->name,
