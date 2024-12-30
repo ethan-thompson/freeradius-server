@@ -29,6 +29,8 @@ typedef enum {
 	FR_DER_TAG_UNIVERSAL_STRING = 0x1c,	   //!< String of universal chars.
 	FR_DER_TAG_BMP_STRING	    = 0x1e,	  //!< String of BMP chars.
 
+	FR_DER_TAG_CHOICE	    = 0x23,	   //!< A choice of types. Techically not a DER tag, but used to represent a choice.
+
 	FR_DER_TAG_MAX		= UINT8_MAX
 } fr_der_tag_num_t;
 

@@ -1040,27 +1040,59 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	}
 
 	if (unlikely(fr_der_flag_is_sequence_of(parent))) {
-		fr_der_tag_num_t restriction_type = fr_der_flag_sequence_of(parent);
+		bool restriction_types[] = {[UINT8_MAX] = false};
 
-		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
+		if (fr_der_flag_sequence_of(parent) != FR_DER_TAG_CHOICE) {
+			restriction_types[fr_der_flag_sequence_of(parent)] = true;
+		} else {
+			fr_dict_attr_t const *choices;
+			uint8_t num_chocies = 0, i = 0;
+
+			if (unlikely(!fr_type_is_group(parent->type))) {
+				fr_strerror_printf("Sequence-of choice found in incompatible attribute %s of type %s", parent->name,
+						   fr_type_to_str(parent->type));
+				talloc_free(vp);
+				return -1;
+			}
+
+			while ((choices = fr_dict_attr_iterate_children(fr_dict_attr_ref(parent), &choices))) {
+				restriction_types[num_chocies++] = true;
+			}
+		}
+
+		while(fr_dbuff_remaining(&our_in) > 0) {
 			ssize_t	 ret;
 			uint8_t	 current_tag;
+			uint8_t	 tag_byte;
 			uint8_t *current_marker = fr_dbuff_current(&our_in);
 
-			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
 
-			if (unlikely(fr_dbuff_out(&current_tag, &our_in) < 0)) {
+			if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) {
 				fr_strerror_const("Insufficient data for sequence. Missing tag");
 			error:
 				talloc_free(vp);
 				return -1;
 			}
 
-			if (unlikely(current_tag != restriction_type)) {
-				fr_strerror_printf("Attribute %s is a sequence-of type %u, but found type %u",
-						   parent->name, restriction_type, current_tag);
+			current_tag = (tag_byte & DER_TAG_CONTINUATION);
+
+			if (unlikely(!restriction_types[current_tag])) {
+				fr_strerror_printf("Attribute %s is a sequence-of, but received tag %u", parent->name, current_tag);
 				goto error;
 			}
+
+			if (unlikely(fr_der_flag_sequence_of(parent) == FR_DER_TAG_CHOICE)) {
+				child = fr_dict_attr_child_by_num(parent, current_tag);
+				if (unlikely(child == NULL)) {
+					fr_strerror_printf("Attribute %s is a sequence-of choice, but received unknown option %u",
+							   parent->name, current_tag);
+					goto error;
+				}
+			} else {
+				child = fr_dict_attr_iterate_children(parent, &child);
+			}
+
+			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
 
 			fr_dbuff_set(&our_in, current_marker);
 
@@ -1132,6 +1164,10 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		if (unlikely(ret < 0)) {
 			talloc_free(vp);
 			return ret;
+		}
+
+		if (unlikely(fr_dbuff_remaining(&our_in) == 0)) {
+			break;
 		}
 	}
 
