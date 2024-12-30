@@ -993,7 +993,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		return -1;
 	}
 
-	if (fr_der_flag_is_pair(parent)) {
+	if (unlikely(fr_der_flag_is_pair(parent))) {
 		/*
 		 *	This sequence contains an oid value pair
 		 */
@@ -1014,7 +1014,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		return fr_dbuff_set(in, &our_in);
 	}
 
-	if (fr_der_flag_is_pairs(parent) || decode_ctx->oid_value_pairs) {
+	if (unlikely(fr_der_flag_is_pairs(parent) || decode_ctx->oid_value_pairs)) {
 		/*
 		 *	This sequence contains sequences/sets of pairs
 		 */
@@ -1039,7 +1039,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		return fr_dbuff_set(in, &our_in);
 	}
 
-	if (fr_der_flag_is_sequence_of(parent)) {
+	if (unlikely(fr_der_flag_is_sequence_of(parent))) {
 		fr_der_tag_num_t restriction_type = fr_der_flag_sequence_of(parent);
 
 		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
@@ -1068,6 +1068,54 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 			if (unlikely(ret < 0)) {
 				goto error;
 			}
+		}
+
+		fr_pair_append(out, vp);
+
+		return fr_dbuff_set(in, &our_in);
+	}
+
+	if (unlikely(fr_der_flag_is_choice(parent))) {
+		fr_der_tag_class_t tag_class;
+		uint64_t	      tag_num;
+		uint8_t		tag_byte;
+		uint8_t		     *current_marker = fr_dbuff_current(&our_in);
+
+		if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) {
+			fr_strerror_const("Insufficient data for sequence choice. Missing tag");
+			talloc_free(vp);
+			return -1;
+		}
+
+		tag_class = (tag_byte & DER_TAG_CLASS_MASK);
+
+		if (unlikely(tag_class != FR_DER_CLASS_CONTEXT)) {
+			fr_strerror_printf("Attribute %s is a choice, but received tag class %u", parent->name, tag_class);
+			talloc_free(vp);
+			return -1;
+		}
+
+		if (unlikely(IS_DER_TAG_CONTINUATION(tag_byte))) {
+			fr_strerror_printf("Attribute %s is a choice, but received tag with continuation bit set", parent->name);
+			talloc_free(vp);
+			return -1;
+		}
+
+		tag_num = (tag_byte & DER_TAG_CONTINUATION);
+
+		child = fr_dict_attr_child_by_num(parent, tag_num);
+		if (unlikely(child == NULL)) {
+			fr_strerror_printf("Attribute %s is a choice, but received unknown option %llu", parent->name,
+					   tag_num);
+			talloc_free(vp);
+			return -1;
+		}
+
+		fr_dbuff_set(&our_in, current_marker);
+
+		if (unlikely(fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx) < 0)) {
+			talloc_free(vp);
+			return -1;
 		}
 
 		fr_pair_append(out, vp);

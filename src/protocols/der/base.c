@@ -360,6 +360,15 @@ static int dict_flag_is_pairs(fr_dict_attr_t **da_p, UNUSED char const *value, U
 	return 0;
 }
 
+static int dict_flag_is_choice(fr_dict_attr_t **da_p, UNUSED char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+{
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+
+	flags->is_choice = true;
+
+	return 0;
+}
+
 static int dict_flag_max(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
@@ -372,6 +381,7 @@ static int dict_flag_max(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dic
 static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("class"), { .func = dict_flag_class } },
 						   { L("has_default"), { .func = dict_flag_has_default } },
+						   { L("is_choice"), { .func = dict_flag_is_choice } },
 						   { L("is_extension"), { .func = dict_flag_is_extension } },
 						   { L("is_extensions"), { .func = dict_flag_is_extensions } },
 						   { L("is_oid_leaf"), { .func = dict_flag_is_oid_leaf } },
@@ -420,6 +430,11 @@ static bool attr_valid(fr_dict_attr_t *da)
 			fr_strerror_printf("Attribute %s of type %s is not allowed in a sequence/set-of %s",da->name, fr_type_to_str(da->type), fr_table_str_by_value(table, of_type, "<INVALID>"));
 			return false;
 		}
+	}
+
+	if (fr_der_flag_is_choice(da) && unlikely(!fr_type_is_tlv(da->type))) {
+		fr_strerror_printf("Attribute %s of type %s is not allowed represent a collection of choices.",da->name, fr_type_to_str(da->type));
+		return false;
 	}
 
 	// if ((fr_der_flag_class(da) && !fr_der_flag_tagnum(da)) && unlikely(da->type != FR_TYPE_BOOL)) {

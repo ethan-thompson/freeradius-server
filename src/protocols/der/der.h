@@ -138,6 +138,7 @@ typedef struct {
 	bool is_extensions; // This is a flag for a list X.509 extensions
 	bool has_default;
 	bool is_oid_leaf;
+	bool is_choice;
 } fr_der_attr_flags_t;
 
 static inline fr_der_attr_flags_t const *fr_der_attr_flags(fr_dict_attr_t const *da)
@@ -159,6 +160,7 @@ static inline fr_der_attr_flags_t const *fr_der_attr_flags(fr_dict_attr_t const 
 #define fr_der_flag_is_extensions(_da) 	(fr_der_attr_flags(_da)->is_extensions)
 #define fr_der_flag_has_default(_da) 	(fr_der_attr_flags(_da)->has_default)
 #define fr_der_flag_is_oid_leaf(_da) 	(fr_der_attr_flags(_da)->is_oid_leaf)
+#define fr_der_flag_is_choice(_da) 	(fr_der_attr_flags(_da)->is_choice)
 
 /*
  * 	base.c
