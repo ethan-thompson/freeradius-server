@@ -67,10 +67,10 @@ static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_dec
 static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
 				  fr_der_decode_ctx_t *decode_ctx);
 
+static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, uint64_t *tag, size_t *len);
+
 typedef ssize_t (*fr_der_decode_t)(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent, fr_dbuff_t *in,
 				   fr_der_decode_ctx_t *decode_ctx);
-
-static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, uint64_t *tag, size_t *len);
 
 typedef struct {
 	fr_der_tag_constructed_t constructed;
