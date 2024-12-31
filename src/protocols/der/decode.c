@@ -191,7 +191,7 @@ static ssize_t fr_der_decode_boolean(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_di
 	fr_dbuff_t our_in = FR_DBUFF(in);
 	uint8_t	   val;
 
-	ssize_t len = fr_dbuff_remaining(&our_in);
+	size_t len = fr_dbuff_remaining(&our_in);
 
 	if (!fr_type_is_bool(parent->type)) {
 		fr_strerror_printf("Boolean found in non-boolean attribute %s of type %s", parent->name,
@@ -398,6 +398,9 @@ static ssize_t fr_der_decode_bitstring(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_
 	}
 
 	if (unlikely(unused_bits > 7)) {
+		/*
+		 *	This means an entire byte is unused bits. Which is not allowed.
+		 */
 		fr_strerror_const("Invalid number of unused bits in bitstring");
 		return -1;
 	}
@@ -574,13 +577,22 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 }
 
 typedef struct {
-	TALLOC_CTX	     *ctx;
-	fr_dict_attr_t const *parent_da;
-	fr_pair_list_t	     *parent_list;
-	char		      oid_buff[1024];
-	fr_sbuff_marker_t     marker;
-} fr_der_decode_oid_to_str_ctx_t;
+	TALLOC_CTX	     *ctx;		/**< Allocation context */
+	fr_dict_attr_t const *parent_da;	/**< Parent dictionary attribute */
+	fr_pair_list_t	     *parent_list;	/**< Parent pair list */
+	char		      oid_buff[1024];	/**< Buffer to store the OID string */
+	fr_sbuff_marker_t     marker;		/**< Marker of the current position in the OID buffer */
+} fr_der_decode_oid_to_str_ctx_t;	/**< Context for decoding an OID to a string */
 
+/** Decode an OID to a string
+ *
+ * @param[in] subidentifier	The subidentifier to decode
+ * @param[in] uctx		User context
+ * @param[in] is_last		Is this the last subidentifier in the OID
+ * @return
+ *	- 1 on success
+ *	- < 0 on error
+ */
 static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool is_last)
 {
 	fr_der_decode_oid_to_str_ctx_t *decode_ctx = uctx;
@@ -588,6 +600,9 @@ static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool
 	fr_sbuff_t			sb	   = FR_SBUFF_OUT(decode_ctx->oid_buff, sizeof(decode_ctx->oid_buff));
 
 	if (decode_ctx->oid_buff[0] == '\0') {
+		/*
+		 *	First subidentifier
+		 */
 		if (unlikely(fr_sbuff_in_sprintf(&sb, "%llu", subidentifier) < 0)) {
 			fr_strerror_const("Out of memory for OID string");
 			return -1;
@@ -607,6 +622,10 @@ static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool
 	decode_ctx->marker = marker;
 
 	if (is_last) {
+		/*
+		 *	If this is the last subidentifier, we need to terminate the string,
+		 * 	create a vp with the oid string, and add it to the parent list
+		 */
 		fr_pair_t *vp;
 
 		vp = fr_pair_afrom_da(decode_ctx->ctx, decode_ctx->parent_da);
@@ -634,11 +653,20 @@ static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool
 }
 
 typedef struct {
-	TALLOC_CTX	     *ctx;
-	fr_dict_attr_t const *parent_da;
-	fr_pair_list_t	     *parent_list;
-} fr_der_decode_oid_to_da_ctx_t;
+	TALLOC_CTX	     *ctx;		/**< Allocation context */
+	fr_dict_attr_t const *parent_da;	/**< Parent dictionary attribute */
+	fr_pair_list_t	     *parent_list;	/**< Parent pair list */
+} fr_der_decode_oid_to_da_ctx_t; /**< Context for decoding an OID to a dictionary attribute */
 
+/** Decode an OID to a dictionary attribute
+ *
+ * @param[in] subidentifier	The subidentifier to decode
+ * @param[in] uctx		User context
+ * @param[in] is_last		Is this the last subidentifier in the OID
+ * @return
+ *	- 1 on success
+ *	- < 0 on error
+ */
 static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool is_last)
 {
 	fr_der_decode_oid_to_da_ctx_t *decode_ctx = uctx;
@@ -672,6 +700,9 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 	}
 
 	if (unlikely(da == NULL)) {
+		/*
+		 *	We need to create an unknown attribute for this subidentifier so we can store the raw data
+		 */
 		fr_dict_attr_t *unknown_da =
 			fr_dict_attr_unknown_typed_afrom_num(NULL, parent_da, subidentifier, FR_TYPE_TLV);
 
@@ -701,6 +732,16 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 	return 1;
 }
 
+/** Decode an OID from a DER encoded buffer using a callback
+ *
+ * @param[in] out		The pair list to add the OID to.
+ * @param[in] in		The DER encoded data.
+ * @param[in] func		The callback function to call for each subidentifier.
+ * @param[in] uctx		User context for the callback function.
+ * @return
+ *	- 0 on success
+ *	- < 0 on error
+ */
 static ssize_t fr_der_decode_oid(UNUSED fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx)
 {
 	fr_dbuff_t our_in  = FR_DBUFF(in);
