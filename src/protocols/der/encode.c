@@ -26,7 +26,7 @@
 #include <sys/types.h>
 
 typedef struct {
-	uint8_t *tmp_ctx;
+	uint8_t *tmp_ctx; //!< Temporary context for decoding.
 	uint8_t *encoding_start; //!< This is the start of the encoding. It is NOT the same as the start of the encoded value. It is the position of the tag.
 	size_t encoding_length; //!< This is the length of the entire encoding. It is NOT the same as the length of the encoded value. It includes the tag, length, and value.
 	ssize_t	 length_of_encoding;	//!< This is the number of bytes used by the encoded value. It is NOT the same as the encoded length field.
@@ -122,6 +122,12 @@ static int encode_test_ctx(void **out, TALLOC_CTX *ctx, UNUSED fr_dict_t const *
 	return 0;
 }
 
+/** Compare two pairs by their tag number.
+ *
+ * @param[in] a	First pair.
+ * @param[in] b	Second pair.
+ * @return		-1 if a < b, 0 if a == b, 1 if a > b.
+ */
 static inline CC_HINT(always_inline) int8_t fr_der_pair_cmp_by_da_tag(void const *a, void const *b)
 {
 	fr_pair_t const *my_a = a;
@@ -158,7 +164,7 @@ static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UN
 	 */
 	value = vp->vp_bool;
 
-	fr_dbuff_in(dbuff, (uint8_t)(value ? 0xff : 0x00));
+	fr_dbuff_in(dbuff, (uint8_t)(value ? DER_BOOLEAN_TRUE : DER_BOOLEAN_FALSE));
 
 	return 1;
 }
@@ -206,13 +212,13 @@ static ssize_t fr_der_encode_integer(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UN
 		} else if (slen == 1) {
 			/*
 			 *	8.3.2 If the contents octets of an integer value encoding consist of more than one
-			 *octet, then the bits of the first octet and bit 8 of the second octet: a) shall not all be
-			 *ones; and b) shall not all be zero.
+			 *	octet, then the bits of the first octet and bit 8 of the second octet: a) shall not all
+			 *	be ones; and b) shall not all be zero.
 			 */
 			if ((first_octet == 0xff && (byte & 0x80)) || (first_octet == 0x00 && byte >> 7 == 0)) {
 				if (i == sizeof(value) - 1) {
 					/*
-					 * If this is the only byte, then we can encode it as a single byte.
+					 * 	If this is the only byte, then we can encode it as a single byte.
 					 */
 					fr_dbuff_in(dbuff, byte);
 					continue;
@@ -239,7 +245,7 @@ static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, 
 {
 	fr_pair_t const *vp;
 	uint8_t const	*value = NULL;
-	size_t		 len;
+	ssize_t		 slen;
 	uint8_t		 unused_bits = 0;
 
 	vp = fr_dcursor_current(cursor);
@@ -281,7 +287,10 @@ static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, 
 	 */
 
 	if (fr_type_is_struct(vp->vp_type)) {
-		ssize_t		  slen;
+		/*
+		 *	For struct type, we need to encode the struct as a bitstring using the
+		 *	fr_struct_to_network function.
+		*/
 		unsigned int	  depth = 0;
 		fr_da_stack_t	  da_stack;
 		fr_dbuff_t	  work_dbuff = FR_DBUFF(dbuff);
@@ -352,19 +361,19 @@ static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, 
 	 */
 
 	value = vp->vp_octets;
-	len   = vp->vp_length;
+	slen   = (ssize_t)vp->vp_length;
 
-	if (len == 0) {
+	if (slen == 0) {
 		fr_dbuff_in(dbuff, 0x00);
 		return 1;
 	}
 
-	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy bitstring value");
 		return -1;
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
