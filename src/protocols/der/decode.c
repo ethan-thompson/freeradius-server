@@ -59,6 +59,7 @@ typedef struct {
 
 #define IS_DER_TAG_CONTINUATION(_tag) (((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
 #define IS_DER_TAG_CONSTRUCTED(_tag) (((_tag) & 0x20) == 0x20)
+#define IS_DER_LEN_MULTI_BYTE(_len) (((_len) & DER_LEN_MULTI_BYTE) == DER_LEN_MULTI_BYTE)
 
 typedef ssize_t (*fr_der_decode_oid_t)(uint64_t subidentifier, void *uctx, bool is_last);
 
@@ -2062,6 +2063,15 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 	return fr_dbuff_set(in, &our_in);
 }
 
+/** Decode the tag and length fields of a DER encoded structure
+ *
+ * @param[in] parent	Parent attribute
+ * @param[in] in	Input buffer
+ * @param[out] tag	Tag value
+ * @param[out] len	Length of the value field
+ *
+ * @return		0 on success, -1 on failure
+ */
 static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, uint64_t *tag, size_t *len)
 {
 	fr_dbuff_t		 our_in = FR_DBUFF(in);
@@ -2128,6 +2138,9 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	}
 
 	func = &tag_funcs[*tag];
+	/*
+	 *	Check if the tag is an OID. OID tags will be handled differently
+	*/
 	if (*tag != FR_DER_TAG_OID) {
 		if (unlikely(func->decode == NULL)) {
 			fr_strerror_printf("No decode function for tag %" PRIu64, *tag);
@@ -2145,7 +2158,10 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 		return -1;
 	}
 
-	if (len_byte & 0x80) {
+	/*
+	 *	Check if the length is a multi-byte length field
+	 */
+	if (IS_DER_LEN_MULTI_BYTE(len_byte)) {
 		uint8_t len_len = len_byte & 0x7f;
 		*len		= 0;
 
@@ -2187,6 +2203,16 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	return fr_dbuff_set(in, &our_in);
 }
 
+/** Decode an X509 Extentions Field
+ *
+ * @param[in] ctx		Talloc context
+ * @param[in] out		Output list
+ * @param[in] in		Input buffer
+ * @param[in] parent		Parent attribute
+ * @param[in] decode_ctx	Decode context
+ *
+ * @return		0 on success, -1 on failure
+ */
 static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in,
 					     fr_dict_attr_t const *parent, fr_der_decode_ctx_t *decode_ctx)
 {
@@ -2399,6 +2425,16 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 	return fr_dbuff_set(in, &our_in);
 }
 
+/** Decode an OID value pair
+ *
+ * @param[in] ctx		Talloc context
+ * @param[in] out		Output list
+ * @param[in] in		Input buffer
+ * @param[in] parent		Parent attribute
+ * @param[in] decode_ctx	Decode context
+ *
+ * @return		0 on success, -1 on failure
+ */
 static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
 				  fr_der_decode_ctx_t *decode_ctx)
 {
@@ -2484,6 +2520,45 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		fr_strerror_const("No parent attribute to decode");
 		return -1;
 	}
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 *	The structure of a DER encoding is as follows:
+	 *
+	 *		+------------+--------+-------+
+	 *		| IDENTIFIER | LENGTH | VALUE |
+	 *		+------------+--------+-------+
+	 *
+	 *	The IDENTIFIER is a tag that specifies the type of the value field and is encoded as follows:
+	 *
+	 *		  8   7    6    5   4   3   2   1
+	 *		+---+---+-----+---+---+---+---+---+
+	 *		| Class | P/C |     Tag Number    |
+	 *		+---+---+-----+---+---+---+---+---+
+	 *			   |
+	 *			   |- 0 = Primitive
+	 *			   |- 1 = Constructed
+	 *
+	 *	The CLASS field specifies the encoding class of the tag and may be one of the following values:
+	 *
+	 *		+------------------+-------+-------+
+	 *		|      Class       | Bit 8 | Bit 7 |
+	 *		+------------------+-------+-------+
+	 *		| UNIVERSAL        |   0   |   0   |
+	 *		| APPLICATION      |   0   |   1   |
+	 *		| CONTEXT-SPECIFIC |   1   |   0   |
+	 *		| PRIVATE          |   1   |   1   |
+	 *		+------------------+-------+-------+
+	 *
+	 *	The P/C field specifies whether the value field is primitive or constructed.
+	 *	The TAG NUMBER field specifies the tag number of the value field and is encoded as an unsigned binary integer.
+	 *
+	 *	The LENGTH field specifies the length of the VALUE field and is encoded as an unsigned binary integer
+	 *	and may be encoded as a single byte or multiple bytes.
+	 *
+	 *	The VALUE field contains LENGTH number of bytes and is encoded according to the tag.
+	 *
+	 */
 
 	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) return -1;
 

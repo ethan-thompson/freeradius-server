@@ -120,6 +120,8 @@ static inline CC_HINT(always_inline) fr_der_tag_num_t fr_type_to_der_tag_default
 
 #define DER_TAG_CONTINUATION 0x1f	 //!< Mask to check if the tag is a continuation.
 
+#define DER_LEN_MULTI_BYTE 0x80	 //!< Mask to check if the length is multi-byte.
+
 #define DER_BOOLEAN_FALSE 0x00	 //!< DER encoded boolean false value.
 #define DER_BOOLEAN_TRUE 0xff	 //!< DER encoded boolean true value.
 
