@@ -54,7 +54,7 @@
 
 typedef struct {
 	uint8_t *tmp_ctx;
-	bool	  oid_value_pairs;
+	bool	 oid_value_pairs;
 } fr_der_decode_ctx_t;
 
 #define IS_DER_TAG_CONTINUATION(_tag) (((_tag) & DER_TAG_CONTINUATION) == DER_TAG_CONTINUATION)
@@ -65,8 +65,8 @@ typedef ssize_t (*fr_der_decode_oid_t)(uint64_t subidentifier, void *uctx, bool 
 
 static ssize_t fr_der_decode_oid(fr_pair_list_t *out, fr_dbuff_t *in, fr_der_decode_oid_t func, void *uctx);
 
-static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
-				  fr_der_decode_ctx_t *decode_ctx);
+static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in,
+					    fr_dict_attr_t const *parent, fr_der_decode_ctx_t *decode_ctx);
 
 static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, uint64_t *tag, size_t *len);
 
@@ -146,11 +146,11 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 					      fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx);
 
 static fr_der_tag_decode_t tag_funcs[] = {
-	[FR_DER_TAG_BOOLEAN]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_boolean },
-	[FR_DER_TAG_INTEGER]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_integer },
-	[FR_DER_TAG_BITSTRING]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_bitstring },
-	[FR_DER_TAG_OCTETSTRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_octetstring },
-	[FR_DER_TAG_NULL]	 = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_null },
+	[FR_DER_TAG_BOOLEAN]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_boolean },
+	[FR_DER_TAG_INTEGER]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_integer },
+	[FR_DER_TAG_BITSTRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_bitstring },
+	[FR_DER_TAG_OCTETSTRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_octetstring },
+	[FR_DER_TAG_NULL]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_null },
 	[FR_DER_TAG_ENUMERATED]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_enumerated },
 	[FR_DER_TAG_UTF8_STRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .decode = fr_der_decode_utf8_string },
 	[FR_DER_TAG_SEQUENCE]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .decode = fr_der_decode_sequence },
@@ -177,7 +177,7 @@ static int decode_test_ctx(void **out, TALLOC_CTX *ctx, UNUSED fr_dict_t const *
 	test_ctx = talloc_zero(ctx, fr_der_decode_ctx_t);
 	if (!test_ctx) return -1;
 
-	test_ctx->tmp_ctx = talloc(test_ctx, uint8_t);
+	test_ctx->tmp_ctx	  = talloc(test_ctx, uint8_t);
 	test_ctx->oid_value_pairs = false;
 
 	*out = test_ctx;
@@ -578,12 +578,12 @@ static ssize_t fr_der_decode_null(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_
 }
 
 typedef struct {
-	TALLOC_CTX	     *ctx;		/**< Allocation context */
-	fr_dict_attr_t const *parent_da;	/**< Parent dictionary attribute */
-	fr_pair_list_t	     *parent_list;	/**< Parent pair list */
-	char		      oid_buff[1024];	/**< Buffer to store the OID string */
-	fr_sbuff_marker_t     marker;		/**< Marker of the current position in the OID buffer */
-} fr_der_decode_oid_to_str_ctx_t;	/**< Context for decoding an OID to a string */
+	TALLOC_CTX	     *ctx; /**< Allocation context */
+	fr_dict_attr_t const *parent_da; /**< Parent dictionary attribute */
+	fr_pair_list_t	     *parent_list; /**< Parent pair list */
+	char		      oid_buff[1024]; /**< Buffer to store the OID string */
+	fr_sbuff_marker_t     marker; /**< Marker of the current position in the OID buffer */
+} fr_der_decode_oid_to_str_ctx_t; /**< Context for decoding an OID to a string */
 
 /** Decode an OID to a string
  *
@@ -654,9 +654,9 @@ static ssize_t fr_der_decode_oid_to_str(uint64_t subidentifier, void *uctx, bool
 }
 
 typedef struct {
-	TALLOC_CTX	     *ctx;		/**< Allocation context */
-	fr_dict_attr_t const *parent_da;	/**< Parent dictionary attribute */
-	fr_pair_list_t	     *parent_list;	/**< Parent pair list */
+	TALLOC_CTX	     *ctx; /**< Allocation context */
+	fr_dict_attr_t const *parent_da; /**< Parent dictionary attribute */
+	fr_pair_list_t	     *parent_list; /**< Parent pair list */
 } fr_der_decode_oid_to_da_ctx_t; /**< Context for decoding an OID to a dictionary attribute */
 
 /** Decode an OID to a dictionary attribute
@@ -1053,8 +1053,8 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		 *	This sequence contains an oid value pair
 		 */
 		if (unlikely(!fr_type_is_group(parent->type))) {
-			fr_strerror_printf("Sequence with pair found in incompatible attribute %s of type %s", parent->name,
-					   fr_type_to_str(parent->type));
+			fr_strerror_printf("Sequence with pair found in incompatible attribute %s of type %s",
+					   parent->name, fr_type_to_str(parent->type));
 			talloc_free(vp);
 			return -1;
 		}
@@ -1073,10 +1073,10 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		/*
 		 *	This sequence contains sequences/sets of pairs
 		 */
-		bool old = decode_ctx->oid_value_pairs;
+		bool old		    = decode_ctx->oid_value_pairs;
 		decode_ctx->oid_value_pairs = true;
-		while(fr_dbuff_remaining(&our_in) > 0) {
-			child  = NULL;
+		while (fr_dbuff_remaining(&our_in) > 0) {
+			child = NULL;
 			child = fr_dict_attr_iterate_children(parent, &child);
 
 			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
@@ -1095,17 +1095,17 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	}
 
 	if (unlikely(fr_der_flag_is_sequence_of(parent))) {
-		bool restriction_types[] = {[UINT8_MAX] = false};
+		bool restriction_types[] = { [UINT8_MAX] = false };
 
 		if (fr_der_flag_sequence_of(parent) != FR_DER_TAG_CHOICE) {
 			restriction_types[fr_der_flag_sequence_of(parent)] = true;
 		} else {
 			fr_dict_attr_t const *choices;
-			uint8_t num_chocies = 0;
+			uint8_t		      num_chocies = 0;
 
 			if (unlikely(!fr_type_is_group(parent->type))) {
-				fr_strerror_printf("Sequence-of choice found in incompatible attribute %s of type %s", parent->name,
-						   fr_type_to_str(parent->type));
+				fr_strerror_printf("Sequence-of choice found in incompatible attribute %s of type %s",
+						   parent->name, fr_type_to_str(parent->type));
 				talloc_free(vp);
 				return -1;
 			}
@@ -1115,12 +1115,11 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 			}
 		}
 
-		while(fr_dbuff_remaining(&our_in) > 0) {
+		while (fr_dbuff_remaining(&our_in) > 0) {
 			ssize_t	 ret;
 			uint8_t	 current_tag;
 			uint8_t	 tag_byte;
 			uint8_t *current_marker = fr_dbuff_current(&our_in);
-
 
 			if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) {
 				fr_strerror_const("Insufficient data for sequence. Missing tag");
@@ -1132,15 +1131,17 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 			current_tag = (tag_byte & DER_TAG_CONTINUATION);
 
 			if (unlikely(!restriction_types[current_tag])) {
-				fr_strerror_printf("Attribute %s is a sequence-of, but received tag %u", parent->name, current_tag);
+				fr_strerror_printf("Attribute %s is a sequence-of, but received tag %u", parent->name,
+						   current_tag);
 				goto error;
 			}
 
 			if (unlikely(fr_der_flag_sequence_of(parent) == FR_DER_TAG_CHOICE)) {
 				child = fr_dict_attr_child_by_num(parent, current_tag);
 				if (unlikely(child == NULL)) {
-					fr_strerror_printf("Attribute %s is a sequence-of choice, but received unknown option %u",
-							   parent->name, current_tag);
+					fr_strerror_printf(
+						"Attribute %s is a sequence-of choice, but received unknown option %u",
+						parent->name, current_tag);
 					goto error;
 				}
 			} else {
@@ -1164,9 +1165,9 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 
 	if (unlikely(fr_der_flag_is_choice(parent))) {
 		fr_der_tag_class_t tag_class;
-		uint64_t	      tag_num;
-		uint8_t		tag_byte;
-		uint8_t		     *current_marker = fr_dbuff_current(&our_in);
+		uint64_t	   tag_num;
+		uint8_t		   tag_byte;
+		uint8_t		  *current_marker = fr_dbuff_current(&our_in);
 
 		if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) {
 			fr_strerror_const("Insufficient data for sequence choice. Missing tag");
@@ -1177,13 +1178,15 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		tag_class = (tag_byte & DER_TAG_CLASS_MASK);
 
 		if (unlikely(tag_class != FR_DER_CLASS_CONTEXT)) {
-			fr_strerror_printf("Attribute %s is a choice, but received tag class %u", parent->name, tag_class);
+			fr_strerror_printf("Attribute %s is a choice, but received tag class %u", parent->name,
+					   tag_class);
 			talloc_free(vp);
 			return -1;
 		}
 
 		if (unlikely(IS_DER_TAG_CONTINUATION(tag_byte))) {
-			fr_strerror_printf("Attribute %s is a choice, but received tag with continuation bit set", parent->name);
+			fr_strerror_printf("Attribute %s is a choice, but received tag with continuation bit set",
+					   parent->name);
 			talloc_free(vp);
 			return -1;
 		}
@@ -1293,10 +1296,10 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		/*
 		 *	This set contains sequences/sets of pairs
 		 */
-		bool old = decode_ctx->oid_value_pairs;
+		bool old		    = decode_ctx->oid_value_pairs;
 		decode_ctx->oid_value_pairs = true;
-		while(fr_dbuff_remaining(&our_in) > 0) {
-			child  = NULL;
+		while (fr_dbuff_remaining(&our_in) > 0) {
+			child = NULL;
 			child = fr_dict_attr_iterate_children(parent, &child);
 
 			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
@@ -2089,7 +2092,7 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	/*
 	 *	Decode the tag flags
 	 */
-	tag_class = (tag_byte & DER_TAG_CLASS_MASK);
+	tag_class   = (tag_byte & DER_TAG_CLASS_MASK);
 	constructed = IS_DER_TAG_CONSTRUCTED(tag_byte);
 
 	/*
@@ -2140,7 +2143,7 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	func = &tag_funcs[*tag];
 	/*
 	 *	Check if the tag is an OID. OID tags will be handled differently
-	*/
+	 */
 	if (*tag != FR_DER_TAG_OID) {
 		if (unlikely(func->decode == NULL)) {
 			fr_strerror_printf("No decode function for tag %" PRIu64, *tag);
@@ -2235,16 +2238,16 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 	/*
 	 *	RFC 5280 Section 4.2
 	 *	The extensions defined for X.509 v3 certificates provide methods for
-   	 *	associating additional attributes with users or public keys and for
-   	 *	managing relationships between CAs.  The X.509 v3 certificate format
-   	 *	also allows communities to define private extensions to carry
-   	 *	information unique to those communities.  Each extension in a
-   	 *	certificate is designated as either critical or non-critical.
+	 *	associating additional attributes with users or public keys and for
+	 *	managing relationships between CAs.  The X.509 v3 certificate format
+	 *	also allows communities to define private extensions to carry
+	 *	information unique to those communities.  Each extension in a
+	 *	certificate is designated as either critical or non-critical.
 	 *
 	 *	Each extension includes an OID and an ASN.1 structure.  When an
-   	 *	extension appears in a certificate, the OID appears as the field
-   	 *	extnID and the corresponding ASN.1 DER encoded structure is the value
-   	 *	of the octet string extnValue.
+	 *	extension appears in a certificate, the OID appears as the field
+	 *	extnID and the corresponding ASN.1 DER encoded structure is the value
+	 *	of the octet string extnValue.
 	 *
 	 *	RFC 5280 Section A.1 Explicitly Tagged Module, 1988 Syntax
 	 *		Extensions  ::=  SEQUENCE SIZE (1..MAX) OF Extension
@@ -2290,11 +2293,11 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
-	max = fr_der_flag_max(parent);	/* Maximum number of extensions specified in the dictionary*/
+	max = fr_der_flag_max(parent); /* Maximum number of extensions specified in the dictionary*/
 
 	while (fr_dbuff_remaining(&our_in) > 0) {
-		fr_dbuff_t	  sub_in = FR_DBUFF(&our_in);
-		fr_dbuff_marker_t sub_marker;
+		fr_dbuff_t		      sub_in = FR_DBUFF(&our_in);
+		fr_dbuff_marker_t	      sub_marker;
 		fr_der_decode_oid_to_da_ctx_t uctx;
 
 		size_t	sub_len, len_peek;
@@ -2329,8 +2332,8 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 
 		FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
-		uctx.ctx = vp;
-		uctx.parent_da = vp->da;
+		uctx.ctx	 = vp;
+		uctx.parent_da	 = vp->da;
 		uctx.parent_list = &vp->vp_group;
 
 		fr_dbuff_marker(&sub_marker, &sub_in);
@@ -2467,11 +2470,11 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
  *
  * @return		0 on success, -1 on failure
  */
-static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in, fr_dict_attr_t const *parent,
-				  fr_der_decode_ctx_t *decode_ctx)
+static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dbuff_t *in,
+					    fr_dict_attr_t const *parent, fr_der_decode_ctx_t *decode_ctx)
 {
-	fr_dbuff_t	  our_in = FR_DBUFF(in);
-	fr_dbuff_marker_t marker;
+	fr_dbuff_t		      our_in = FR_DBUFF(in);
+	fr_dbuff_marker_t	      marker;
 	fr_der_decode_oid_to_da_ctx_t uctx;
 
 	uint64_t tag;
@@ -2509,8 +2512,8 @@ static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
-	uctx.ctx	     = ctx;
-	uctx.parent_da   = fr_dict_attr_ref(parent);
+	uctx.ctx	 = ctx;
+	uctx.parent_da	 = fr_dict_attr_ref(parent);
 	uctx.parent_list = out;
 
 	fr_dbuff_set_end(&our_in, fr_dbuff_current(&our_in) + len);
@@ -2534,16 +2537,18 @@ static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out
 
 	FR_PROTO_HEX_DUMP(fr_dbuff_current(&our_in), fr_dbuff_remaining(&our_in), "DER pair value");
 
-	if (unlikely(uctx.parent_da->flags.is_unknown)){
+	if (unlikely(uctx.parent_da->flags.is_unknown)) {
 		/*
 		 *	The this pair is not in the dictionary
 		 *	We will store the value as raw octets
 		 */
-		if (unlikely(slen = fr_der_decode_octetstring(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx) < 0)) {
+		if (unlikely(slen = fr_der_decode_octetstring(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in,
+							      decode_ctx) < 0)) {
 			fr_strerror_const_push("Failed decoding extension value");
 			goto error;
 		}
-	} else if (unlikely(slen = fr_der_decode_pair_dbuff(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in, decode_ctx) < 0)) {
+	} else if (unlikely(slen = fr_der_decode_pair_dbuff(uctx.ctx, uctx.parent_list, uctx.parent_da, &our_in,
+							    decode_ctx) < 0)) {
 		fr_strerror_const_push("Failed decoding extension value");
 		goto error;
 	}
@@ -2599,7 +2604,8 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	 *		+------------------+-------+-------+
 	 *
 	 *	The P/C field specifies whether the value field is primitive or constructed.
-	 *	The TAG NUMBER field specifies the tag number of the value field and is encoded as an unsigned binary integer.
+	 *	The TAG NUMBER field specifies the tag number of the value field and is encoded as an unsigned binary
+	 *	integer.
 	 *
 	 *	The LENGTH field specifies the length of the VALUE field and is encoded as an unsigned binary integer
 	 *	and may be encoded as a single byte or multiple bytes.
@@ -2644,7 +2650,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 			tag = FR_DER_TAG_OCTETSTRING;
 		} else {
 			fr_strerror_printf("Attribute %s of type %s cannot store type %llu", parent->name,
-					fr_type_to_str(parent->type), tag);
+					   fr_type_to_str(parent->type), tag);
 			return -1;
 		}
 	}
