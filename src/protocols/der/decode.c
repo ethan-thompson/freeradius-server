@@ -1095,11 +1095,19 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 	}
 
 	if (unlikely(fr_der_flag_is_sequence_of(parent))) {
+		/*
+		 * 	This is a sequence-of, meaning there are restrictions on the types which can be present
+		 */
+
 		bool restriction_types[] = { [UINT8_MAX] = false };
 
 		if (fr_der_flag_sequence_of(parent) != FR_DER_TAG_CHOICE) {
 			restriction_types[fr_der_flag_sequence_of(parent)] = true;
 		} else {
+			/*
+			 *	If it is a seuqnec of choices, then we must construct the list of restriction_types.
+			 *	This will be a list of the number of choices, starting at 0.
+			 */
 			fr_dict_attr_t const *choices;
 			uint8_t		      num_chocies = 0;
 
@@ -1318,6 +1326,9 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 	}
 
 	if (fr_der_flag_is_set_of(parent)) {
+		/*
+		 * 	This is a set-of, meaning there are restrictions on the types which can be present
+		 */
 		fr_der_tag_num_t restriction_type = fr_der_flag_set_of(parent);
 
 		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
