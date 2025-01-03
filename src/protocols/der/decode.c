@@ -2217,7 +2217,7 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 					     fr_dict_attr_t const *parent, fr_der_decode_ctx_t *decode_ctx)
 {
 	fr_dbuff_t our_in = FR_DBUFF(in);
-	fr_pair_t *vp, *vp2, *critical_extensions_vp;
+	fr_pair_t *vp, *vp2;
 
 	uint64_t tag, max;
 	size_t	 len;
@@ -2232,6 +2232,36 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		return -1;
 	}
 
+	/*
+	 *	RFC 5280 Section 4.2
+	 *	The extensions defined for X.509 v3 certificates provide methods for
+   	 *	associating additional attributes with users or public keys and for
+   	 *	managing relationships between CAs.  The X.509 v3 certificate format
+   	 *	also allows communities to define private extensions to carry
+   	 *	information unique to those communities.  Each extension in a
+   	 *	certificate is designated as either critical or non-critical.
+	 *
+	 *	Each extension includes an OID and an ASN.1 structure.  When an
+   	 *	extension appears in a certificate, the OID appears as the field
+   	 *	extnID and the corresponding ASN.1 DER encoded structure is the value
+   	 *	of the octet string extnValue.
+	 *
+	 *	RFC 5280 Section A.1 Explicitly Tagged Module, 1988 Syntax
+	 *		Extensions  ::=  SEQUENCE SIZE (1..MAX) OF Extension
+	 *
+	 *		Extension  ::=  SEQUENCE  {
+	 *			extnID      OBJECT IDENTIFIER,
+	 *			critical    BOOLEAN DEFAULT FALSE,
+	 *			extnValue   OCTET STRING
+	 *					-- contains the DER encoding of an ASN.1 value
+	 *					-- corresponding to the extension type identified
+	 *					-- by extnID
+	 *		}
+	 *
+	 *	So the extensions are a SEQUENCE of SEQUENCEs containing an OID, a boolean and an OCTET STRING.
+	 *	Note: If the boolean value is false, it is not included in the encoding.
+	 */
+
 	vp = fr_pair_afrom_da(ctx, parent);
 
 	if (unlikely(vp == NULL)) {
@@ -2243,13 +2273,6 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 
 	if (unlikely(vp2 == NULL)) {
 		fr_strerror_const("Out of memory for critical extensions pair parent");
-		return -1;
-	}
-
-	critical_extensions_vp = fr_pair_afrom_da(vp2, fr_dict_attr_ref(vp2->da));
-
-	if (unlikely(critical_extensions_vp == NULL)) {
-		fr_strerror_const("Out of memory for critical extensions pair");
 		return -1;
 	}
 
@@ -2267,7 +2290,7 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
-	max = fr_der_flag_max(parent);
+	max = fr_der_flag_max(parent);	/* Maximum number of extensions specified in the dictionary*/
 
 	while (fr_dbuff_remaining(&our_in) > 0) {
 		fr_dbuff_t	  sub_in = FR_DBUFF(&our_in);
@@ -2357,6 +2380,9 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in),
 				  "Before decoding extension oid");
 
+		/*
+		 *	Decode the OID to get the attribute to use for the extension value
+		 */
 		if (unlikely((slen = fr_der_decode_oid(NULL, &sub_in, fr_der_decode_oid_to_da, &uctx)) < 0)) {
 			fr_strerror_const_push("Failed decoding extension");
 			goto error;
@@ -2370,6 +2396,9 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 				  "After decoding extension oid");
 
 		if (isCritical) {
+			/*
+			 *	Skip over boolean value
+			 */
 			fr_dbuff_advance(&sub_in, 3);
 		}
 
@@ -2394,6 +2423,9 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 				  "Before decoding extension value");
 
 		if (fr_type_is_octets(uctx.parent_da->type)) {
+			/*
+			 * 	The extension was not found in the dictionary. We will store the value as raw octets
+			 */
 			if (unlikely((slen = fr_der_decode_octetstring(uctx.ctx, uctx.parent_list, uctx.parent_da,
 								       &sub_in, decode_ctx)) < 0)) {
 				fr_strerror_const_push("Failed decoding extension value");
