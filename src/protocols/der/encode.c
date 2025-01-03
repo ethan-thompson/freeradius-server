@@ -4,24 +4,24 @@
 #include <stddef.h>
 
 #include "der.h"
-#include "lib/util/dcursor.h"
-#include "lib/util/dict_ext.h"
-#include "lib/util/sbuff.h"
-#include "lib/util/value.h"
 #include "talloc.h"
 
 #include <freeradius-devel/io/test_point.h>
 
-#include <freeradius-devel/util/encode.h>
 #include <freeradius-devel/util/dbuff.h>
+#include <freeradius-devel/util/dcursor.h>
+#include <freeradius-devel/util/dict_ext.h>
 #include <freeradius-devel/util/dict.h>
+#include <freeradius-devel/util/encode.h>
 #include <freeradius-devel/util/pair.h>
-#include <freeradius-devel/util/strerror.h>
-#include <freeradius-devel/util/types.h>
-
 #include <freeradius-devel/util/proto.h>
+#include <freeradius-devel/util/sbuff.h>
+#include <freeradius-devel/util/strerror.h>
 #include <freeradius-devel/util/struct.h>
 #include <freeradius-devel/util/time.h>
+#include <freeradius-devel/util/types.h>
+#include <freeradius-devel/util/value.h>
+
 #include <string.h>
 #include <sys/types.h>
 
