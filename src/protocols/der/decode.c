@@ -978,6 +978,19 @@ static ssize_t fr_der_decode_utf8_string(TALLOC_CTX *ctx, fr_pair_list_t *out, f
 		return -1;
 	}
 
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 * 	8.23 Encoding for values of the restricted character string types
+	 *	8.23.1 The data value consists of a string of characters from the character set specified in the ASN.1
+	 *		type definition. 8.23.2 Each data value shall be encoded independently of other data values of
+	 *		the same type.
+	 *	8.23.3 Each character string type shall be encoded as if it had been declared:
+	 *			[UNIVERSAL x] IMPLICIT OCTET STRING
+	 *		where x is the number of the universal class tag assigned to the character string type in
+	 *		Rec. ITU-T X.680 | ISO/IEC 8824-1. The value of the octet string is specified in 8.23.4 and
+	 *		8.23.5.
+	 */
+
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("Out of memory for UTF8 string pair");
@@ -1454,6 +1467,19 @@ static ssize_t fr_der_decode_printable_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 		return -1;
 	}
 
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 * 	8.23 Encoding for values of the restricted character string types
+	 *	8.23.1 The data value consists of a string of characters from the character set specified in the ASN.1
+	 *		type definition. 8.23.2 Each data value shall be encoded independently of other data values of
+	 *		the same type.
+	 *	8.23.3 Each character string type shall be encoded as if it had been declared:
+	 *			[UNIVERSAL x] IMPLICIT OCTET STRING
+	 *		where x is the number of the universal class tag assigned to the character string type in
+	 *		Rec. ITU-T X.680 | ISO/IEC 8824-1. The value of the octet string is specified in 8.23.4 and
+	 *		8.23.5.
+	 */
+
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("Out of memory for printable string pair");
@@ -1531,6 +1557,19 @@ static ssize_t fr_der_decode_t61_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		return -1;
 	}
 
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 * 	8.23 Encoding for values of the restricted character string types
+	 *	8.23.1 The data value consists of a string of characters from the character set specified in the ASN.1
+	 *		type definition. 8.23.2 Each data value shall be encoded independently of other data values of
+	 *		the same type.
+	 *	8.23.3 Each character string type shall be encoded as if it had been declared:
+	 *			[UNIVERSAL x] IMPLICIT OCTET STRING
+	 *		where x is the number of the universal class tag assigned to the character string type in
+	 *		Rec. ITU-T X.680 | ISO/IEC 8824-1. The value of the octet string is specified in 8.23.4 and
+	 *		8.23.5.
+	 */
+
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("Out of memory for T61 string pair");
@@ -1574,6 +1613,19 @@ static ssize_t fr_der_decode_ia5_string(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 				   fr_type_to_str(parent->type));
 		return -1;
 	}
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 * 	8.23 Encoding for values of the restricted character string types
+	 *	8.23.1 The data value consists of a string of characters from the character set specified in the ASN.1
+	 *		type definition. 8.23.2 Each data value shall be encoded independently of other data values of
+	 *		the same type.
+	 *	8.23.3 Each character string type shall be encoded as if it had been declared:
+	 *			[UNIVERSAL x] IMPLICIT OCTET STRING
+	 *		where x is the number of the universal class tag assigned to the character string type in
+	 *		Rec. ITU-T X.680 | ISO/IEC 8824-1. The value of the octet string is specified in 8.23.4 and
+	 *		8.23.5.
+	 */
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
@@ -1871,6 +1923,19 @@ static ssize_t fr_der_decode_visible_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 		return -1;
 	}
 
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 * 	8.23 Encoding for values of the restricted character string types
+	 *	8.23.1 The data value consists of a string of characters from the character set specified in the ASN.1
+	 *		type definition. 8.23.2 Each data value shall be encoded independently of other data values of
+	 *		the same type.
+	 *	8.23.3 Each character string type shall be encoded as if it had been declared:
+	 *			[UNIVERSAL x] IMPLICIT OCTET STRING
+	 *		where x is the number of the universal class tag assigned to the character string type in
+	 *		Rec. ITU-T X.680 | ISO/IEC 8824-1. The value of the octet string is specified in 8.23.4 and
+	 *		8.23.5.
+	 */
+
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("Out of memory for visible string pair");
@@ -1916,6 +1981,19 @@ static ssize_t fr_der_decode_general_string(TALLOC_CTX *ctx, fr_pair_list_t *out
 		return -1;
 	}
 
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 * 	8.23 Encoding for values of the restricted character string types
+	 *	8.23.1 The data value consists of a string of characters from the character set specified in the ASN.1
+	 *		type definition. 8.23.2 Each data value shall be encoded independently of other data values of
+	 *		the same type.
+	 *	8.23.3 Each character string type shall be encoded as if it had been declared:
+	 *			[UNIVERSAL x] IMPLICIT OCTET STRING
+	 *		where x is the number of the universal class tag assigned to the character string type in
+	 *		Rec. ITU-T X.680 | ISO/IEC 8824-1. The value of the octet string is specified in 8.23.4 and
+	 *		8.23.5.
+	 */
+
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("Out of memory for general string pair");
@@ -1950,6 +2028,19 @@ static ssize_t fr_der_decode_universal_string(TALLOC_CTX *ctx, fr_pair_list_t *o
 				   fr_type_to_str(parent->type));
 		return -1;
 	}
+
+	/*
+	 *	ISO/IEC 8825-1:2021
+	 * 	8.23 Encoding for values of the restricted character string types
+	 *	8.23.1 The data value consists of a string of characters from the character set specified in the ASN.1
+	 *		type definition. 8.23.2 Each data value shall be encoded independently of other data values of
+	 *		the same type.
+	 *	8.23.3 Each character string type shall be encoded as if it had been declared:
+	 *			[UNIVERSAL x] IMPLICIT OCTET STRING
+	 *		where x is the number of the universal class tag assigned to the character string type in
+	 *		Rec. ITU-T X.680 | ISO/IEC 8824-1. The value of the octet string is specified in 8.23.4 and
+	 *		8.23.5.
+	 */
 
 	vp = fr_pair_afrom_da(ctx, parent);
 	if (unlikely(vp == NULL)) {
