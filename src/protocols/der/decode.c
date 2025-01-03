@@ -2484,6 +2484,14 @@ static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out
 		return -1;
 	}
 
+	/*
+	 *	A very common pattern in DER encoding is ro have a sequence of set containing two things: an OID and a
+	 *	value, where the OID is used to determine how to decode the value.
+	 *	We will be decoding the OID first and then try to find the attribute associated with that OID to then
+	 *	decode the value. If no attribute is found, one will be created and the value will be stored as raw
+	 *	octets in the attribute.
+	 */
+
 	fr_dbuff_marker(&marker, in);
 
 	if (unlikely((slen = fr_der_decode_hdr(parent, &our_in, &tag, &len)) < 0)) {
@@ -2512,6 +2520,14 @@ static ssize_t fr_der_decode_oid_value_pair(TALLOC_CTX *ctx, fr_pair_list_t *out
 	slen = fr_der_decode_oid(out, &our_in, fr_der_decode_oid_to_da, &uctx);
 	if (unlikely(slen < 0)) goto error;
 
+	/*
+	 *	We have the attribute associated with the OID
+	 *	We will now decode the value.
+	 *
+	 *	We will advance the buffer to the end of the OID, and then reuse the our_in buffer to decode the value.
+	 *  	This looks strange in the code, but it is necessary to reset the end restrictions on the our_in buffer
+	 * 	which were set to avoid overreading the buffer when decoding the OID.
+	 */
 	fr_dbuff_set(in, &our_in);
 
 	our_in = FR_DBUFF(in);
