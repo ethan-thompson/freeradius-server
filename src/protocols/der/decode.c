@@ -2112,6 +2112,12 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	if (IS_DER_TAG_CONTINUATION(tag_byte)) {
 		/*
 		 *	We have a multi-byte tag
+		 *
+		 *	Note: Mutli-byte tags would mean having a tag number that is greater than 30 (0x1E) (since tag
+		 *	31 would indicate a multi-byte tag). For most use-cases, this should not be needed, since all
+		 *	of the basic ASN.1 types are tagged under 30, and if a CHOICE type were to have over 30 options
+		 *	(meaning a multi-byte tag would be needed), that would be a very complex CHOICE type that
+		 *	should probably be simplified.
 		 */
 		fr_strerror_const("Multi-byte tags are not supported");
 		return -1;
