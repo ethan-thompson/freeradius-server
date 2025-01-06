@@ -678,7 +678,7 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 {
 	fr_pair_t const *vp;
 	char const	*value = NULL;
-	size_t		 len;
+	ssize_t		 slen;
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
@@ -700,16 +700,16 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	 *		encoding shall not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	len   = vp->vp_length;
+	slen   = vp->vp_length;
 
-	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for UTF8 string");
 		fr_strerror_printf("Failed to copy string value with error number %ld",
-				   fr_dbuff_in_memcpy(dbuff, value, len));
+				   fr_dbuff_in_memcpy(dbuff, value, slen));
 		return -1;
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
