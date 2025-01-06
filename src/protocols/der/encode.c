@@ -26,11 +26,14 @@
 #include <sys/types.h>
 
 typedef struct {
-	uint8_t *tmp_ctx; //!< Temporary context for decoding.
-	uint8_t *encoding_start; //!< This is the start of the encoding. It is NOT the same as the start of the encoded value. It is the position of the tag.
-	size_t encoding_length; //!< This is the length of the entire encoding. It is NOT the same as the length of the encoded value. It includes the tag, length, and value.
-	ssize_t	 length_of_encoding;	//!< This is the number of bytes used by the encoded value. It is NOT the same as the encoded length field.
-	uint8_t *encoded_value;		//!< This is a pointer to the start of the encoded value.
+	uint8_t *tmp_ctx;	 //!< Temporary context for decoding.
+	uint8_t *encoding_start;	//!< This is the start of the encoding. It is NOT the same as the start of the
+					//!< encoded value. It is the position of the tag.
+	size_t encoding_length;	       //!< This is the length of the entire encoding. It is NOT the same as the length
+				       //!< of the encoded value. It includes the tag, length, and value.
+	ssize_t length_of_encoding;	   //!< This is the number of bytes used by the encoded value. It is NOT the
+					   //!< same as the encoded length field.
+	uint8_t *encoded_value;	       //!< This is a pointer to the start of the encoded value.
 } fr_der_encode_ctx_t;
 
 #define DER_MAX_STR 16384
@@ -49,7 +52,7 @@ typedef ssize_t (*fr_der_encode_t)(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_d
 
 typedef struct {
 	fr_der_tag_constructed_t constructed;
-	fr_der_encode_t encode;
+	fr_der_encode_t		 encode;
 } fr_der_tag_encode_t;
 
 static ssize_t fr_der_encode_boolean(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx);
@@ -94,14 +97,17 @@ static fr_der_tag_encode_t tag_funcs[] = {
 	[FR_DER_TAG_UTF8_STRING]      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_utf8_string },
 	[FR_DER_TAG_SEQUENCE]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .encode = fr_der_encode_sequence },
 	[FR_DER_TAG_SET]	      = { .constructed = FR_DER_TAG_CONSTRUCTED, .encode = fr_der_encode_set },
-	[FR_DER_TAG_PRINTABLE_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_printable_string },
+	[FR_DER_TAG_PRINTABLE_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE,
+					  .encode      = fr_der_encode_printable_string },
 	[FR_DER_TAG_T61_STRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_t61_string },
 	[FR_DER_TAG_IA5_STRING]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_ia5_string },
 	[FR_DER_TAG_UTC_TIME]	      = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_utc_time },
-	[FR_DER_TAG_GENERALIZED_TIME] = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_generalized_time },
+	[FR_DER_TAG_GENERALIZED_TIME] = { .constructed = FR_DER_TAG_PRIMATIVE,
+					  .encode      = fr_der_encode_generalized_time },
 	[FR_DER_TAG_VISIBLE_STRING]   = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_visible_string },
 	[FR_DER_TAG_GENERAL_STRING]   = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_general_string },
-	[FR_DER_TAG_UNIVERSAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE, .encode = fr_der_encode_universal_string },
+	[FR_DER_TAG_UNIVERSAL_STRING] = { .constructed = FR_DER_TAG_PRIMATIVE,
+					  .encode      = fr_der_encode_universal_string },
 };
 
 static int encode_test_ctx(void **out, TALLOC_CTX *ctx, UNUSED fr_dict_t const *dict)
@@ -111,11 +117,11 @@ static int encode_test_ctx(void **out, TALLOC_CTX *ctx, UNUSED fr_dict_t const *
 	test_ctx = talloc_zero(ctx, fr_der_encode_ctx_t);
 	if (!test_ctx) return -1;
 
-	test_ctx->tmp_ctx = talloc(test_ctx, uint8_t);
-	test_ctx->encoding_start = NULL;
-	test_ctx->encoding_length = 0;
+	test_ctx->tmp_ctx	     = talloc(test_ctx, uint8_t);
+	test_ctx->encoding_start     = NULL;
+	test_ctx->encoding_length    = 0;
 	test_ctx->length_of_encoding = 0;
-	test_ctx->encoded_value = NULL;
+	test_ctx->encoded_value	     = NULL;
 
 	*out = test_ctx;
 
@@ -290,7 +296,7 @@ static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, 
 		/*
 		 *	For struct type, we need to encode the struct as a bitstring using the
 		 *	fr_struct_to_network function.
-		*/
+		 */
 		unsigned int	  depth = 0;
 		fr_da_stack_t	  da_stack;
 		fr_dbuff_t	  work_dbuff = FR_DBUFF(dbuff);
@@ -361,7 +367,7 @@ static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, 
 	 */
 
 	value = vp->vp_octets;
-	slen   = (ssize_t)vp->vp_length;
+	slen  = (ssize_t)vp->vp_length;
 
 	if (slen == 0) {
 		fr_dbuff_in(dbuff, 0x00);
@@ -417,7 +423,7 @@ static ssize_t fr_der_encode_octetstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	 */
 
 	value = vp->vp_octets;
-	slen   = vp->vp_length;
+	slen  = vp->vp_length;
 
 	if (fr_dbuff_in_memcpy(dbuff, value, slen) < slen) {
 		fr_strerror_const("Failed to copy octet string value");
@@ -455,15 +461,15 @@ static ssize_t fr_der_encode_null(UNUSED fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	return 0;
 }
 
-static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
+static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char *oid_str)
 {
-	char		 buffer[21];
-	uint64_t	 subidentifier	 = 0;
-	uint8_t		 first_component = 0;
-	ssize_t		 slen = 0;
-	size_t		 buffer_len = 0;
-	size_t		 index		       = 0, bit_index;
-	bool		 started_subidentifier = false, subsequent = false;
+	char	 buffer[21];
+	uint64_t subidentifier	       = 0;
+	uint8_t	 first_component       = 0;
+	ssize_t	 slen		       = 0;
+	size_t	 buffer_len	       = 0;
+	size_t	 index		       = 0, bit_index;
+	bool	 started_subidentifier = false, subsequent = false;
 
 	/*
 	 *	The first subidentifier is the encoding of the first two object identifier components, encoded as:
@@ -684,13 +690,14 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 
 	/*
 	 *	ISO/IEC 8825-1:2021
-	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
-	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
-	 *	     shall be encoded independently of other data values of the same type.
+	 *	8.23 Encoding for values of the restricted character string types
+	 *		8.23.1 The data value consists of a string of characters from the character set specified in
+	 *			the ASN.1 type definition.
+	 *		8.23.2 Each data value shall be encoded independently of other data values of the same type.
 	 *
 	 *	10.2 String encoding forms
-	 *		For bitstring, octetstring and restricted character string types, the constructed form of encoding shall
-	 *		not be used. (Contrast with 8.23.6.)
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
 	len   = vp->vp_length;
@@ -822,10 +829,10 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 }
 
 typedef struct {
-	uint8_t *item_ptr;	//!< Pointer to the start of the encoded item (beginning of the tag)
-	size_t	 item_len;	//!< Length of the encoded item (tag + length + value)
-	uint8_t *octet_ptr;	//!< Pointer to the current octet
-	size_t  remaining;	//!< Remaining octets
+	uint8_t *item_ptr;	  //!< Pointer to the start of the encoded item (beginning of the tag)
+	size_t	 item_len;	  //!< Length of the encoded item (tag + length + value)
+	uint8_t *octet_ptr;	   //!< Pointer to the current octet
+	size_t	 remaining;	   //!< Remaining octets
 } fr_der_encode_set_of_ptr_pairs_t;
 
 /*
@@ -915,9 +922,9 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 			/*
 			 *	Set-of items will all have the same tag, so we need to sort them lexicographically
 			 */
-			fr_dbuff_t	 work_dbuff;
-			uint8_t *buff;
+			fr_dbuff_t			  work_dbuff;
 			fr_der_encode_set_of_ptr_pairs_t *ptr_pairs;
+			uint8_t				 *buff;
 			size_t				  i = 0, count;
 
 			buff = talloc_array(vp, uint8_t, fr_dbuff_remaining(dbuff));
@@ -953,8 +960,8 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 					return -1;
 				}
 
-				ptr_pairs[i].item_ptr = encode_ctx->encoding_start;
-				ptr_pairs[i].item_len = encode_ctx->encoding_length;
+				ptr_pairs[i].item_ptr  = encode_ctx->encoding_start;
+				ptr_pairs[i].item_len  = encode_ctx->encoding_length;
 				ptr_pairs[i].octet_ptr = encode_ctx->encoded_value;
 				ptr_pairs[i].remaining = encode_ctx->length_of_encoding;
 
@@ -972,10 +979,11 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 			for (i = 0; i < count; i++) {
 				fr_dbuff_set(&work_dbuff, ptr_pairs[i].item_ptr);
 
-				FR_PROTO_TRACE("Copying %zu bytes from %p to %p", ptr_pairs[i].item_len, ptr_pairs[i].item_ptr,
-					       fr_dbuff_current(dbuff));
+				FR_PROTO_TRACE("Copying %zu bytes from %p to %p", ptr_pairs[i].item_len,
+					       ptr_pairs[i].item_ptr, fr_dbuff_current(dbuff));
 
-				if (fr_dbuff_in_memcpy(dbuff, fr_dbuff_current(&work_dbuff), ptr_pairs[i].item_len) <= 0) {
+				if (fr_dbuff_in_memcpy(dbuff, fr_dbuff_current(&work_dbuff), ptr_pairs[i].item_len) <=
+				    0) {
 					fr_strerror_const("Failed to copy set of value");
 					talloc_free(ptr_pairs);
 					talloc_free(buff);
@@ -996,7 +1004,7 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 
 		fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
 
-		while (fr_dcursor_current(&child_cursor)){
+		while (fr_dcursor_current(&child_cursor)) {
 			ssize_t len_count;
 
 			len_count = fr_pair_cursor_to_network(dbuff, &da_stack, depth, &child_cursor, encode_ctx,
@@ -1007,7 +1015,6 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 			}
 
 			slen += len_count;
-
 		}
 		break;
 	case FR_TYPE_GROUP:
@@ -1023,9 +1030,9 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 			/*
 			 *	Set-of items will all have the same tag, so we need to sort them lexicographically
 			 */
-			fr_dbuff_t	 work_dbuff;
-			uint8_t *buff;
+			fr_dbuff_t			  work_dbuff;
 			fr_der_encode_set_of_ptr_pairs_t *ptr_pairs;
+			uint8_t				 *buff;
 			size_t				  i = 0, count;
 
 			buff = talloc_array(vp, uint8_t, fr_dbuff_remaining(dbuff));
@@ -1069,8 +1076,8 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 						return -1;
 					}
 
-					ptr_pairs[i].item_ptr = encode_ctx->encoding_start;
-					ptr_pairs[i].item_len = encode_ctx->encoding_length;
+					ptr_pairs[i].item_ptr  = encode_ctx->encoding_start;
+					ptr_pairs[i].item_len  = encode_ctx->encoding_length;
 					ptr_pairs[i].octet_ptr = encode_ctx->encoded_value;
 					ptr_pairs[i].remaining = encode_ctx->length_of_encoding;
 
@@ -1083,15 +1090,17 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 					return -1;
 				}
 
-				qsort(ptr_pairs, count, sizeof(fr_der_encode_set_of_ptr_pairs_t), fr_der_encode_set_of_cmp);
+				qsort(ptr_pairs, count, sizeof(fr_der_encode_set_of_ptr_pairs_t),
+				      fr_der_encode_set_of_cmp);
 
 				for (i = 0; i < count; i++) {
 					fr_dbuff_set(&work_dbuff, ptr_pairs[i].item_ptr);
 
-					FR_PROTO_TRACE("Copying %zu bytes from %p to %p", ptr_pairs[i].item_len, ptr_pairs[i].item_ptr,
-						fr_dbuff_current(dbuff));
+					FR_PROTO_TRACE("Copying %zu bytes from %p to %p", ptr_pairs[i].item_len,
+						       ptr_pairs[i].item_ptr, fr_dbuff_current(dbuff));
 
-					if (fr_dbuff_in_memcpy(dbuff, fr_dbuff_current(&work_dbuff), ptr_pairs[i].item_len) <= 0) {
+					if (fr_dbuff_in_memcpy(dbuff, fr_dbuff_current(&work_dbuff),
+							       ptr_pairs[i].item_len) <= 0) {
 						fr_strerror_const("Failed to copy set of value");
 						talloc_free(ptr_pairs);
 						talloc_free(buff);
@@ -1169,17 +1178,18 @@ static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 	PAIR_VERIFY(vp);
 
 	/*
-	*	ISO/IEC 8825-1:2021
-	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
-	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
-	 *	     shall be encoded independently of other data values of the same type.
+	 *	ISO/IEC 8825-1:2021
+	 *	8.23 Encoding for values of the restricted character string types
+	 *		8.23.1 The data value consists of a string of characters from the character set specified in
+	 *			the ASN.1 type definition.
+	 *		8.23.2 Each data value shall be encoded independently of other data values of the same type.
 	 *
 	 *	10.2 String encoding forms
-	 *		For bitstring, octetstring and restricted character string types, the constructed form of encoding shall
-	 *		not be used. (Contrast with 8.23.6.)
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	slen   = vp->vp_length;
+	slen  = vp->vp_length;
 
 	for (; i < slen; i++) {
 		/*
@@ -1247,16 +1257,17 @@ static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 
 	/*
 	 *	ISO/IEC 8825-1:2021
-	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
-	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
-	 *	     shall be encoded independently of other data values of the same type.
+	 *	8.23 Encoding for values of the restricted character string types
+	 *		8.23.1 The data value consists of a string of characters from the character set specified in
+	 *			the ASN.1 type definition.
+	 *		8.23.2 Each data value shall be encoded independently of other data values of the same type.
 	 *
 	 *	10.2 String encoding forms
-	 *		For bitstring, octetstring and restricted character string types, the constructed form of encoding shall
-	 *		not be used. (Contrast with 8.23.6.)
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	slen   = vp->vp_length;
+	slen  = vp->vp_length;
 
 	for (; i < slen; i++) {
 		/*
@@ -1292,16 +1303,17 @@ static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 
 	/*
 	 *	ISO/IEC 8825-1:2021
-	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
-	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
-	 *	     shall be encoded independently of other data values of the same type.
+	 *	8.23 Encoding for values of the restricted character string types
+	 *		8.23.1 The data value consists of a string of characters from the character set specified in
+	 *			the ASN.1 type definition.
+	 *		8.23.2 Each data value shall be encoded independently of other data values of the same type.
 	 *
 	 *	10.2 String encoding forms
-	 *		For bitstring, octetstring and restricted character string types, the constructed form of encoding shall
-	 *		not be used. (Contrast with 8.23.6.)
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	slen   = vp->vp_length;
+	slen  = vp->vp_length;
 
 	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for IA5 string");
@@ -1328,7 +1340,6 @@ static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 	}
 
 	PAIR_VERIFY(vp);
-
 
 	/*
 	 *	ISO/IEC 8825-1:2021
@@ -1548,16 +1559,17 @@ static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 
 	/*
 	 *	ISO/IEC 8825-1:2021
-	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
-	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
-	 *	     shall be encoded independently of other data values of the same type.
+	 *	8.23 Encoding for values of the restricted character string types
+	 *		8.23.1 The data value consists of a string of characters from the character set specified in
+	 *			the ASN.1 type definition.
+	 *		8.23.2 Each data value shall be encoded independently of other data values of the same type.
 	 *
 	 *	10.2 String encoding forms
-	 *		For bitstring, octetstring and restricted character string types, the constructed form of encoding shall
-	 *		not be used. (Contrast with 8.23.6.)
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	slen   = vp->vp_length;
+	slen  = vp->vp_length;
 
 	for (; i < slen; i++) {
 		/*
@@ -1594,16 +1606,17 @@ static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 
 	/*
 	 *	ISO/IEC 8825-1:2021
-	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
-	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
-	 *	     shall be encoded independently of other data values of the same type.
+	 *	8.23 Encoding for values of the restricted character string types
+	 *		8.23.1 The data value consists of a string of characters from the character set specified in
+	 *			the ASN.1 type definition.
+	 *		8.23.2 Each data value shall be encoded independently of other data values of the same type.
 	 *
 	 *	10.2 String encoding forms
-	 *		For bitstring, octetstring and restricted character string types, the constructed form of encoding shall
-	 *		not be used. (Contrast with 8.23.6.)
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	slen   = vp->vp_length;
+	slen  = vp->vp_length;
 
 	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for general string");
@@ -1630,16 +1643,17 @@ static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 
 	/*
 	 *	ISO/IEC 8825-1:2021
-	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
-	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
-	 *	     shall be encoded independently of other data values of the same type.
+	 *	8.23 Encoding for values of the restricted character string types
+	 *		8.23.1 The data value consists of a string of characters from the character set specified in
+	 *			the ASN.1 type definition.
+	 *		8.23.2 Each data value shall be encoded independently of other data values of the same type.
 	 *
 	 *	10.2 String encoding forms
-	 *		For bitstring, octetstring and restricted character string types, the constructed form of encoding shall
-	 *		not be used. (Contrast with 8.23.6.)
+	 *		For bitstring, octetstring and restricted character string types, the constructed form of
+	 *		encoding shall not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	slen   = vp->vp_length;
+	slen  = vp->vp_length;
 
 	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for universal string");
@@ -1652,11 +1666,11 @@ static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_dbuff_marker_t marker, outer_seq_len_start;
-	fr_dcursor_t child_cursor, root_cursor, parent_cursor;
-	fr_pair_t const *vp;
-	ssize_t		 slen = 0;
-	size_t is_critical = 0;
-	uint64_t max;
+	fr_dcursor_t	  child_cursor, root_cursor, parent_cursor;
+	fr_pair_t const	 *vp;
+	ssize_t		  slen	      = 0;
+	size_t		  is_critical = 0;
+	uint64_t	  max;
 
 	/*
 	 *	RFC 5280 Section 4.2
@@ -1712,30 +1726,30 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 	fr_dbuff_advance(dbuff, 1);
 
 	FR_PROTO_HEX_DUMP(fr_dbuff_start(dbuff), fr_dbuff_behind(&outer_seq_len_start) - 1,
-				  "BEFORE encoded X509 extension");
+			  "BEFORE encoded X509 extension");
 
 	fr_pair_dcursor_child_iter_init(&root_cursor, &vp->children, cursor);
 	fr_dcursor_copy(&parent_cursor, &root_cursor);
 	while (fr_dcursor_current(&parent_cursor)) {
-		fr_sbuff_t	 oid_sbuff;
+		fr_sbuff_t	  oid_sbuff;
 		fr_dbuff_marker_t length_start, inner_seq_len_start;
-		char oid_buff[1024];
-		bool is_raw = false;
+		char		  oid_buff[1024];
+		bool		  is_raw = false;
 
 		/*
-		*	Extensions are sequences or sets containing 2 items:
-		*	1. The first item is the OID
-		*	2. The second item is the value
-		*
-		*	Note: The value may be a constructed or primitive type
-		*/
+		 *	Extensions are sequences or sets containing 2 items:
+		 *	1. The first item is the OID
+		 *	2. The second item is the value
+		 *
+		 *	Note: The value may be a constructed or primitive type
+		 */
 
 		if (max < 0) {
 			fr_strerror_printf("Too many X509 extensions (%llu)", max);
 			break;
 		}
 
-		oid_sbuff = FR_SBUFF_OUT(oid_buff, sizeof(oid_buff));
+		oid_sbuff   = FR_SBUFF_OUT(oid_buff, sizeof(oid_buff));
 		oid_buff[0] = '\0';
 
 		/*
@@ -1755,8 +1769,8 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 
 			if (!is_critical && (strcmp(child_vp->da->name, "Critical") == 0)) {
 				/*
-				*	We don't encode the critical flag
-				*/
+				 *	We don't encode the critical flag
+				 */
 				is_critical = fr_pair_list_num_elements(&child_vp->children);
 				FR_PROTO_TRACE("Critical flag: %lu", is_critical);
 				fr_pair_dcursor_child_iter_init(&parent_cursor, &child_vp->children, &child_cursor);
@@ -1766,11 +1780,12 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 			if (!fr_type_is_structural(child_vp->vp_type) && !fr_der_flag_is_extension(child_vp->da)) {
 				FR_PROTO_TRACE("Found non-structural child %s", child_vp->da->name);
 
-				if(child_vp->da->flags.is_raw) {
+				if (child_vp->da->flags.is_raw) {
 					/*
-					*	This was an unknown oid
-					*/
-					if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0)) goto error;
+					 *	This was an unknown oid
+					 */
+					if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0))
+						goto error;
 					is_raw = true;
 					break;
 				}
@@ -1830,11 +1845,12 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		slen = fr_der_encode_len(dbuff, &length_start, fr_dbuff_behind(&length_start) - 1);
 		if (slen < 0) return slen;
 
-		if (is_critical){
+		if (is_critical) {
 			/*
 			 *	Encode the critical flag
 			 */
-			slen = fr_der_encode_tag(dbuff, FR_DER_TAG_BOOLEAN, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_PRIMATIVE);
+			slen = fr_der_encode_tag(dbuff, FR_DER_TAG_BOOLEAN, FR_DER_CLASS_UNIVERSAL,
+						 FR_DER_TAG_PRIMATIVE);
 			if (slen < 0) return slen;
 
 			fr_dbuff_marker(&length_start, dbuff);
@@ -1879,7 +1895,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 
 		if (is_critical) {
 			fr_dcursor_next(&parent_cursor);
-			max --;
+			max--;
 			continue;
 		}
 
@@ -1888,7 +1904,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 
 		fr_dcursor_next(&root_cursor);
 		fr_dcursor_copy(&parent_cursor, &root_cursor);
-		max --;
+		max--;
 	}
 
 	/*
@@ -1899,21 +1915,20 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 
 	slen = fr_dbuff_marker_release_behind(&marker);
 
-	FR_PROTO_HEX_DUMP(fr_dbuff_start(dbuff), slen,
-				  "Encoded X509 extensions");
+	FR_PROTO_HEX_DUMP(fr_dbuff_start(dbuff), slen, "Encoded X509 extensions");
 
 	return slen;
 }
 
 static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
 {
-	fr_sbuff_t	 oid_sbuff;
+	fr_sbuff_t	  oid_sbuff;
 	fr_dbuff_marker_t marker, length_start;
-	fr_dcursor_t child_cursor, parent_cursor = *cursor;
-	fr_pair_t const *vp;
-	char oid_buff[1024];
-	ssize_t		 slen = 0;
-	bool is_raw = false;
+	fr_dcursor_t	  child_cursor, parent_cursor = *cursor;
+	fr_pair_t const	 *vp;
+	char		  oid_buff[1024];
+	ssize_t		  slen	 = 0;
+	bool		  is_raw = false;
 
 	vp = fr_dcursor_current(&parent_cursor);
 	if (unlikely(vp == NULL)) {
@@ -1940,7 +1955,7 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	 *	Note: The value may be a constructed or primitive type
 	 */
 
-	oid_sbuff = FR_SBUFF_OUT(oid_buff, sizeof(oid_buff));
+	oid_sbuff   = FR_SBUFF_OUT(oid_buff, sizeof(oid_buff));
 	oid_buff[0] = '\0';
 
 	/*
@@ -1959,11 +1974,12 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 		if (!fr_type_is_structural(child_vp->vp_type) && !fr_der_flag_is_oid_leaf(child_vp->da)) {
 			FR_PROTO_TRACE("Found non-structural child %s", child_vp->da->name);
 
-			if(child_vp->da->flags.is_raw) {
+			if (child_vp->da->flags.is_raw) {
 				/*
 				 *	This was an unknown oid
 				 */
-				if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0)) goto error;
+				if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0))
+					goto error;
 				is_raw = true;
 				break;
 			}
@@ -2016,7 +2032,6 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	 */
 	slen = fr_der_encode_len(dbuff, &length_start, slen);
 	if (slen < 0) return slen;
-
 
 	if (is_raw) {
 		slen = fr_der_encode_octetstring(dbuff, &child_cursor, encode_ctx);
@@ -2126,14 +2141,14 @@ static inline CC_HINT(always_inline) ssize_t
 static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, UNUSED unsigned int depth,
 			    fr_dcursor_t *cursor, void *encode_ctx)
 {
-	fr_pair_t const	 *vp;
-	fr_dbuff_t	  our_dbuff = FR_DBUFF(dbuff);
-	fr_dbuff_marker_t marker;
+	fr_pair_t const	    *vp;
+	fr_dbuff_t	     our_dbuff = FR_DBUFF(dbuff);
+	fr_dbuff_marker_t    marker;
 	fr_der_tag_encode_t *tag_encode;
-	fr_der_tag_num_t tag_num;
-	fr_der_tag_class_t tag_class;
+	fr_der_tag_num_t     tag_num;
+	fr_der_tag_class_t   tag_class;
 	fr_der_encode_ctx_t *uctx = encode_ctx;
-	ssize_t		  slen	    = 0;
+	ssize_t		     slen = 0;
 
 	if (unlikely(cursor == NULL)) {
 		fr_strerror_const("No cursor to encode");
@@ -2150,7 +2165,7 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 
 	PAIR_VERIFY(vp);
 
-/*
+	/*
 	 *	ISO/IEC 8825-1:2021
 	 *	The structure of a DER encoding is as follows:
 	 *
@@ -2209,7 +2224,7 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 		}
 	}
 
-	tag_num   = fr_der_flag_subtype(vp->da) ? fr_der_flag_subtype(vp->da) : fr_type_to_der_tag_default(vp->vp_type);
+	tag_num = fr_der_flag_subtype(vp->da) ? fr_der_flag_subtype(vp->da) : fr_type_to_der_tag_default(vp->vp_type);
 
 	tag_encode = &tag_funcs[tag_num];
 	if (tag_encode->encode == NULL) {
@@ -2221,7 +2236,9 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 
 	uctx->encoding_start = fr_dbuff_current(&our_dbuff);
 
-	slen = fr_der_encode_tag(&our_dbuff, fr_der_flag_tagnum(vp->da) | tag_class ? fr_der_flag_tagnum(vp->da) : tag_num, tag_class, tag_encode->constructed);
+	slen = fr_der_encode_tag(&our_dbuff,
+				 fr_der_flag_tagnum(vp->da) | tag_class ? fr_der_flag_tagnum(vp->da) : tag_num,
+				 tag_class, tag_encode->constructed);
 	if (slen < 0) return slen;
 
 	uctx->encoding_length = slen;
