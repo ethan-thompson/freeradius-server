@@ -1658,6 +1658,36 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 	size_t is_critical = 0;
 	uint64_t max;
 
+	/*
+	 *	RFC 5280 Section 4.2
+	 *	The extensions defined for X.509 v3 certificates provide methods for
+	 *	associating additional attributes with users or public keys and for
+	 *	managing relationships between CAs.  The X.509 v3 certificate format
+	 *	also allows communities to define private extensions to carry
+	 *	information unique to those communities.  Each extension in a
+	 *	certificate is designated as either critical or non-critical.
+	 *
+	 *	Each extension includes an OID and an ASN.1 structure.  When an
+	 *	extension appears in a certificate, the OID appears as the field
+	 *	extnID and the corresponding ASN.1 DER encoded structure is the value
+	 *	of the octet string extnValue.
+	 *
+	 *	RFC 5280 Section A.1 Explicitly Tagged Module, 1988 Syntax
+	 *		Extensions  ::=  SEQUENCE SIZE (1..MAX) OF Extension
+	 *
+	 *		Extension  ::=  SEQUENCE  {
+	 *			extnID      OBJECT IDENTIFIER,
+	 *			critical    BOOLEAN DEFAULT FALSE,
+	 *			extnValue   OCTET STRING
+	 *					-- contains the DER encoding of an ASN.1 value
+	 *					-- corresponding to the extension type identified
+	 *					-- by extnID
+	 *		}
+	 *
+	 *	So the extensions are a SEQUENCE of SEQUENCEs containing an OID, a boolean and an OCTET STRING.
+	 *	Note: If the boolean value is false, it is not included in the encoding.
+	 */
+
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
 		fr_strerror_const("No pair to encode pair");
@@ -1671,9 +1701,9 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		return -1;
 	}
 
-	max = fr_der_flag_max(vp->da);
+	max = fr_der_flag_max(vp->da); /* Maximum number of extensions specified in the dictionary */
 
-	fr_dbuff_marker(&marker, dbuff);
+	fr_dbuff_marker(&marker, dbuff); /* Mark the start of the encoded extensions. Used to track amount written */
 
 	slen = fr_der_encode_tag(dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
 	if (slen < 0) return slen;
@@ -1708,6 +1738,13 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		oid_sbuff = FR_SBUFF_OUT(oid_buff, sizeof(oid_buff));
 		oid_buff[0] = '\0';
 
+		/*
+		 *	Walk through the children until we find either an attribute marked as an extension, or one with
+		 *	no children (which is an unknown OID).
+		 *
+		 *	We will use this to construct the OID to encode, as well as to get the actual value of the
+		 *	extension.
+		 */
 		fr_dcursor_copy(&child_cursor, &parent_cursor);
 		while (fr_dcursor_current(&child_cursor)) {
 			fr_pair_t const *child_vp = fr_dcursor_current(&child_cursor);
@@ -1754,6 +1791,10 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 
 			if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0)) goto error;
 
+			/*
+			 *	Unless this was the last child (marked as an extension), there should only be one child
+			 *	- representing the next OID in the extension
+			 */
 			if (fr_pair_list_num_elements(&child_vp->children) > 1) break;
 
 		next:
@@ -1783,6 +1824,9 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		slen = fr_der_encode_oid_to_str(dbuff, oid_buff);
 		if (slen < 0) return slen;
 
+		/*
+		 *	Encode the length of the OID
+		 */
 		slen = fr_der_encode_len(dbuff, &length_start, fr_dbuff_behind(&length_start) - 1);
 		if (slen < 0) return slen;
 
@@ -1821,9 +1865,15 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		}
 		if (slen < 0) return slen;
 
+		/*
+		 *	Encode the length of the value
+		 */
 		slen = fr_der_encode_len(dbuff, &length_start, fr_dbuff_behind(&length_start) - 1);
 		if (slen < 0) return slen;
 
+		/*
+		 *	Encode the length of the extension (OID + Value portions)
+		 */
 		slen = fr_der_encode_len(dbuff, &inner_seq_len_start, fr_dbuff_behind(&inner_seq_len_start) - 1);
 		if (slen < 0) return slen;
 
@@ -1841,6 +1891,9 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		max --;
 	}
 
+	/*
+	 *	Encode the length of the extensions
+	 */
 	slen = fr_der_encode_len(dbuff, &outer_seq_len_start, fr_dbuff_behind(&outer_seq_len_start) - 1);
 	if (slen < 0) return slen;
 
@@ -1878,9 +1931,11 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	fr_dbuff_marker(&marker, dbuff);
 
 	/*
-	 *	Pairs are sequences or sets containing 2 items:
-	 *	1. The first item is the OID
-	 *	2. The second item is the value
+	 *	A very common pattern in DER encoding is ro have a sequence of set containing two things: an OID and a
+	 *	value, where the OID is used to determine how to decode the value.
+	 *	We will be decoding the OID first and then try to find the attribute associated with that OID to then
+	 *	decode the value. If no attribute is found, one will be created and the value will be stored as raw
+	 *	octets in the attribute.
 	 *
 	 *	Note: The value may be a constructed or primitive type
 	 */
@@ -1888,6 +1943,13 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	oid_sbuff = FR_SBUFF_OUT(oid_buff, sizeof(oid_buff));
 	oid_buff[0] = '\0';
 
+	/*
+	 *	Walk through the children until we find either an attribute marked as an oid leaf, or one with
+	 *	no children (which is an unknown OID).
+	 *
+	 *	We will use this to construct the OID to encode, as well as to get the actual value of the
+	 *	pair.
+	 */
 	fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, &parent_cursor);
 	while (fr_dcursor_current(&child_cursor)) {
 		fr_pair_t const *child_vp = fr_dcursor_current(&child_cursor);
@@ -1922,6 +1984,10 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 
 		if (unlikely(fr_sbuff_in_sprintf(&oid_sbuff, ".%d", child_vp->da->attr) <= 0)) goto error;
 
+		/*
+		 *	Unless this was the last child (marked as an oid leaf), there should only be one child
+		 *	- representing the next OID in the pair
+		 */
 		if (fr_pair_list_num_elements(&child_vp->children) > 1) break;
 
 	next:
@@ -1939,9 +2005,15 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	fr_dbuff_marker(&length_start, dbuff);
 	fr_dbuff_advance(dbuff, 1);
 
+	/*
+	 *	Encode the OID portion of the pair
+	 */
 	slen = fr_der_encode_oid_to_str(dbuff, oid_buff);
 	if (slen < 0) return slen;
 
+	/*
+	 *	Encode the length of the OID
+	 */
 	slen = fr_der_encode_len(dbuff, &length_start, slen);
 	if (slen < 0) return slen;
 
@@ -1956,31 +2028,39 @@ static ssize_t fr_der_encode_oid_value_pair(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	return (ssize_t)fr_dbuff_marker_release_behind(&marker);
 }
 
-static ssize_t fr_der_encode_len(fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t len)
+/** Encode the length field of a DER structure
+ *
+ * @param dbuff		The buffer to write the length field to
+ * @param length_start	The start of the length field
+ * @param slen		The length of the structure
+ *
+ * @return		The number of bytes written to the buffer
+ */
+static ssize_t fr_der_encode_len(fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_start, ssize_t slen)
 {
 	fr_dbuff_marker_t value_start;
 	fr_dbuff_t	  value_field;
 	uint8_t		  len_len = 0;
-	ssize_t		  i = 0, our_len = len;
+	ssize_t		  i = 0, our_slen = slen;
 
 	/*
 	 * If the length can fit in a single byte, we don't need to extend the size of the length field
 	 */
-	if (len <= 0x7f) {
-		fr_dbuff_in(length_start, (uint8_t)len);
+	if (slen <= 0x7f) {
+		fr_dbuff_in(length_start, (uint8_t)slen);
 		return 1;
 	}
 
 	/*
 	 * Calculate the number of bytes needed to encode the length
 	 */
-	while (our_len > 0) {
-		our_len >>= 8;
+	while (our_slen > 0) {
+		our_slen >>= 8;
 		len_len++;
 	}
 
 	if (len_len > 0x7f) {
-		fr_strerror_printf("Length %zd is too large to encode", len);
+		fr_strerror_printf("Length %zd is too large to encode", slen);
 		return -1;
 	}
 
@@ -1995,23 +2075,32 @@ static ssize_t fr_der_encode_len(fr_dbuff_t *dbuff, fr_dbuff_marker_t *length_st
 	 */
 	fr_dbuff_set(dbuff, fr_dbuff_current(length_start) + len_len);
 
-	fr_dbuff_move(dbuff, fr_dbuff_ptr(&value_start), len + 1);
+	fr_dbuff_move(dbuff, fr_dbuff_ptr(&value_start), slen + 1);
 
 	fr_dbuff_set(dbuff, length_start);
 
 	fr_dbuff_in(dbuff, (uint8_t)(0x80 | len_len));
 
 	for (; i < len_len; i++) {
-		fr_dbuff_in(dbuff, (uint8_t)((len) >> ((len_len - i - 1) * 8)));
+		fr_dbuff_in(dbuff, (uint8_t)((slen) >> ((len_len - i - 1) * 8)));
 	}
 
-	fr_dbuff_set(dbuff, fr_dbuff_current(length_start) + len_len + 1 + len);
+	fr_dbuff_set(dbuff, fr_dbuff_current(length_start) + len_len + 1 + slen);
 
 	fr_dbuff_marker_release(&value_start);
 
 	return len_len + 1;
 }
 
+/** Encode a DER tag
+ *
+ * @param dbuff		The buffer to write the tag to
+ * @param tag_num	The tag number
+ * @param tag_class	The tag class
+ * @param constructed	Whether the tag is constructed
+ *
+ * @return		The number of bytes written to the buffer
+ */
 static inline CC_HINT(always_inline) ssize_t
 	fr_der_encode_tag(fr_dbuff_t *dbuff, fr_der_tag_num_t tag_num, fr_der_tag_class_t tag_class,
 			  fr_der_tag_constructed_t constructed)
@@ -2027,18 +2116,24 @@ static inline CC_HINT(always_inline) ssize_t
 }
 
 /** Encode a DER structure
+ *
+ * @param[out] dbuff		The buffer to write the structure to
+ * @param[in] cursor	The cursor to the structure to encode
+ * @param[in] encode_ctx	The encoding context
+ *
+ * @return		The number of bytes written to the buffer
  */
 static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, UNUSED unsigned int depth,
 			    fr_dcursor_t *cursor, void *encode_ctx)
 {
 	fr_pair_t const	 *vp;
-	ssize_t		  slen	    = 0;
 	fr_dbuff_t	  our_dbuff = FR_DBUFF(dbuff);
 	fr_dbuff_marker_t marker;
 	fr_der_tag_encode_t *tag_encode;
 	fr_der_tag_num_t tag_num;
 	fr_der_tag_class_t tag_class;
 	fr_der_encode_ctx_t *uctx = encode_ctx;
+	ssize_t		  slen	    = 0;
 
 	if (unlikely(cursor == NULL)) {
 		fr_strerror_const("No cursor to encode");
@@ -2055,7 +2150,50 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 
 	PAIR_VERIFY(vp);
 
+/*
+	 *	ISO/IEC 8825-1:2021
+	 *	The structure of a DER encoding is as follows:
+	 *
+	 *		+------------+--------+-------+
+	 *		| IDENTIFIER | LENGTH | VALUE |
+	 *		+------------+--------+-------+
+	 *
+	 *	The IDENTIFIER is a tag that specifies the type of the value field and is encoded as follows:
+	 *
+	 *		  8   7    6    5   4   3   2   1
+	 *		+---+---+-----+---+---+---+---+---+
+	 *		| Class | P/C |     Tag Number    |
+	 *		+---+---+-----+---+---+---+---+---+
+	 *			   |
+	 *			   |- 0 = Primitive
+	 *			   |- 1 = Constructed
+	 *
+	 *	The CLASS field specifies the encoding class of the tag and may be one of the following values:
+	 *
+	 *		+------------------+-------+-------+
+	 *		|      Class       | Bit 8 | Bit 7 |
+	 *		+------------------+-------+-------+
+	 *		| UNIVERSAL        |   0   |   0   |
+	 *		| APPLICATION      |   0   |   1   |
+	 *		| CONTEXT-SPECIFIC |   1   |   0   |
+	 *		| PRIVATE          |   1   |   1   |
+	 *		+------------------+-------+-------+
+	 *
+	 *	The P/C field specifies whether the value field is primitive or constructed.
+	 *	The TAG NUMBER field specifies the tag number of the value field and is encoded as an unsigned binary
+	 *	integer.
+	 *
+	 *	The LENGTH field specifies the length of the VALUE field and is encoded as an unsigned binary integer
+	 *	and may be encoded as a single byte or multiple bytes.
+	 *
+	 *	The VALUE field contains LENGTH number of bytes and is encoded according to the tag.
+	 *
+	 */
+
 	if (fr_der_flag_has_default(vp->da)) {
+		/*
+		 *	Skip encoding the default value, as per ISO/IEC 8825-1:2021 11.5
+		 */
 		fr_dict_enum_value_t const *evp;
 
 		evp = fr_dict_enum_by_name(vp->da, "DEFAULT", strlen("DEFAULT"));
@@ -2083,7 +2221,6 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 
 	uctx->encoding_start = fr_dbuff_current(&our_dbuff);
 
-	// slen = fr_der_encode_tag(&our_dbuff, tag_class ? fr_der_flag_tagnum(vp->da) : tag_num, tag_class, tag_encode->constructed);
 	slen = fr_der_encode_tag(&our_dbuff, fr_der_flag_tagnum(vp->da) | tag_class ? fr_der_flag_tagnum(vp->da) : tag_num, tag_class, tag_encode->constructed);
 	if (slen < 0) return slen;
 
@@ -2105,6 +2242,9 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 	uctx->encoding_length += slen;
 	uctx->length_of_encoding = slen;
 
+	/*
+	 * Encode the length of the value
+	 */
 	slen = fr_der_encode_len(&our_dbuff, &marker, fr_dbuff_behind(&marker) - 1);
 	if (slen < 0) return slen;
 
