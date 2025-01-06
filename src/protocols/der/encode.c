@@ -1144,7 +1144,7 @@ static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 {
 	fr_pair_t const *vp;
 	char const	*value = NULL;
-	size_t		 len;
+	ssize_t		 slen, i = 0;
 
 	static bool const allowed_chars[] = {
 		[' '] = true, ['\''] = true, ['('] = true, [')'] = true, ['+'] = true,	     [','] = true, ['-'] = true,
@@ -1178,9 +1178,9 @@ static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 	 *		not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	len   = vp->vp_length;
+	slen   = vp->vp_length;
 
-	for (size_t i = 0; i < len; i++) {
+	for (; i < slen; i++) {
 		/*
 		 *	Check that the byte is a printable ASCII character allowed in a printable string
 		 */
@@ -1190,12 +1190,12 @@ static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 		}
 	}
 
-	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for printable string");
 		return -1;
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
