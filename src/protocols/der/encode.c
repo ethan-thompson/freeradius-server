@@ -1169,6 +1169,7 @@ static ssize_t fr_der_encode_printable_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 	PAIR_VERIFY(vp);
 
 	/*
+	*	ISO/IEC 8825-1:2021
 	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
 	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
 	 *	     shall be encoded independently of other data values of the same type.
@@ -1202,7 +1203,7 @@ static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 {
 	fr_pair_t const *vp;
 	char const	*value = NULL;
-	size_t		 len;
+	ssize_t		 slen, i = 0;
 
 	static bool const allowed_chars[] = {
 		[0x08] = true, [0x0A] = true, [0x0C] = true,	  [0x0D] = true, [0x0E] = true, [0x0F] = true,
@@ -1245,6 +1246,7 @@ static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 	PAIR_VERIFY(vp);
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
 	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
 	 *	     shall be encoded independently of other data values of the same type.
@@ -1254,9 +1256,9 @@ static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 	 *		not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	len   = vp->vp_length;
+	slen   = vp->vp_length;
 
-	for (size_t i = 0; i < len; i++) {
+	for (; i < slen; i++) {
 		/*
 		 *	Check that the byte is a printable ASCII character allowed in a printable string
 		 */
@@ -1266,19 +1268,19 @@ static ssize_t fr_der_encode_t61_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 		}
 	}
 
-	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for T61 string");
 		return -1;
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_pair_t const *vp;
 	char const	*value = NULL;
-	size_t		 len;
+	ssize_t		 slen;
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
@@ -1289,6 +1291,7 @@ static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 	PAIR_VERIFY(vp);
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
 	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
 	 *	     shall be encoded independently of other data values of the same type.
@@ -1298,14 +1301,14 @@ static ssize_t fr_der_encode_ia5_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 	 *		not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	len   = vp->vp_length;
+	slen   = vp->vp_length;
 
-	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for IA5 string");
 		return -1;
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_utc_time(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED fr_der_encode_ctx_t *encode_ctx)
@@ -1514,7 +1517,7 @@ static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 {
 	fr_pair_t const *vp;
 	char const	*value = NULL;
-	size_t		 len;
+	ssize_t		 slen, i = 0;
 
 	static bool const allowed_chars[] = {
 		[' '] = true,  ['!'] = true,  ['"'] = true, ['#'] = true, ['$'] = true,	      ['%'] = true,
@@ -1544,6 +1547,7 @@ static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	PAIR_VERIFY(vp);
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
 	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
 	 *	     shall be encoded independently of other data values of the same type.
@@ -1553,9 +1557,9 @@ static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	 *		not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	len   = vp->vp_length;
+	slen   = vp->vp_length;
 
-	for (size_t i = 0; i < len; i++) {
+	for (; i < slen; i++) {
 		/*
 		 *	Check that the byte is a printable ASCII character allowed in a printable string
 		 */
@@ -1565,12 +1569,12 @@ static ssize_t fr_der_encode_visible_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 		}
 	}
 
-	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for visible string");
 		return -1;
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
@@ -1578,7 +1582,7 @@ static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 {
 	fr_pair_t const *vp;
 	char const	*value = NULL;
-	size_t		 len;
+	ssize_t		 slen;
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
@@ -1589,6 +1593,7 @@ static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	PAIR_VERIFY(vp);
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
 	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
 	 *	     shall be encoded independently of other data values of the same type.
@@ -1598,14 +1603,14 @@ static ssize_t fr_der_encode_general_string(fr_dbuff_t *dbuff, fr_dcursor_t *cur
 	 *		not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	len   = vp->vp_length;
+	slen   = vp->vp_length;
 
-	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for general string");
 		return -1;
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
@@ -1613,7 +1618,7 @@ static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 {
 	fr_pair_t const *vp;
 	char const	*value = NULL;
-	size_t		 len;
+	ssize_t		 slen;
 
 	vp = fr_dcursor_current(cursor);
 	if (unlikely(vp == NULL)) {
@@ -1624,6 +1629,7 @@ static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 	PAIR_VERIFY(vp);
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
 	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
 	 *	     shall be encoded independently of other data values of the same type.
@@ -1633,14 +1639,14 @@ static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 	 *		not be used. (Contrast with 8.23.6.)
 	 */
 	value = vp->vp_strvalue;
-	len   = vp->vp_length;
+	slen   = vp->vp_length;
 
-	if (fr_dbuff_in_memcpy(dbuff, value, len) <= 0) {
+	if (fr_dbuff_in_memcpy(dbuff, value, slen) <= 0) {
 		fr_strerror_const("Failed to copy string value to buffer for universal string");
 		return -1;
 	}
 
-	return len;
+	return slen;
 }
 
 static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
