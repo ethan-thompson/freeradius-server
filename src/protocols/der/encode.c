@@ -474,7 +474,7 @@ static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
 
 	first_component = (uint8_t)(strtol(&oid_str[0], NULL, 10));
 
-	index += 2;
+	index += 2; /* Advance past the first number and the delimiter '.' */
 
 	for (; index < strlen(oid_str) + 1; index++) {
 		uint8_t byte = 0;
@@ -498,7 +498,9 @@ static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
 			}
 
 			/*
-			 *	We will be reading the subidentifier 7 bits at a time
+			 *	We will be reading the subidentifier 7 bits at a time. This is because the
+			 *	OID components are encoded in a variable length format, where the high bit
+			 *	of each byte indicates if there are more bytes to follow.
 			 */
 			while (bit_index > 7) {
 				if (!started_subidentifier && ((uint8_t)(subidentifier >> (bit_index - 8)) == 0)) {
@@ -528,7 +530,7 @@ static ssize_t fr_der_encode_oid_to_str(fr_dbuff_t *dbuff, const char* oid_str)
 					byte = (uint8_t)(subidentifier >> (bit_index -= 7));
 				}
 
-				byte = byte | 0x80;
+				byte = byte | 0x80; /* Set the high bit to indicate more bytes to follow */
 
 				fr_dbuff_in(dbuff, byte);
 				started_subidentifier = true;
@@ -636,13 +638,13 @@ static ssize_t fr_der_encode_enumerated(fr_dbuff_t *dbuff, fr_dcursor_t *cursor,
 		} else if (slen == 1) {
 			/*
 			 *	8.3.2 If the contents octets of an integer value encoding consist of more than one
-			 *octet, then the bits of the first octet and bit 8 of the second octet: a) shall not all be
-			 *ones; and b) shall not all be zero.
+			 *	octet, then the bits of the first octet and bit 8 of the second octet: a) shall not
+			 *	all be ones; and b) shall not all be zero.
 			 */
 			if ((first_octet == 0xff && (byte & 0x80)) || (first_octet == 0x00 && byte >> 7 == 0)) {
 				if (i == sizeof(value) - 1) {
 					/*
-					 * If this is the only byte, then we can encode it as a single byte.
+					 * If this is the only byte, then we can encode it in a single byte.
 					 */
 					fr_dbuff_in(dbuff, byte);
 					continue;
@@ -681,6 +683,7 @@ static ssize_t fr_der_encode_utf8_string(fr_dbuff_t *dbuff, fr_dcursor_t *cursor
 	PAIR_VERIFY(vp);
 
 	/*
+	 *	ISO/IEC 8825-1:2021
 	 *	8.23 Encoding for values of the restricted character string types 8.23.1 The data value consists of a
 	 *	     string of characters from the character set specified in the ASN.1 type definition. 8.23.2 Each data value
 	 *	     shall be encoded independently of other data values of the same type.
@@ -738,7 +741,7 @@ static ssize_t fr_der_encode_sequence(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, U
 
 	switch (vp->vp_type) {
 	default:
-		fr_strerror_printf("Unknown type %d", vp->vp_type);
+		fr_strerror_printf("Unsupported type %d for sequence", vp->vp_type);
 		return -1;
 	case FR_TYPE_STRUCT:
 		fr_proto_da_stack_build(&da_stack, vp->da);
@@ -870,6 +873,19 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 	 *	11.5 Set and sequence components with default value
 	 *		The encoding of a set value or sequence value shall not include an encoding for any component
 	 *		value which is equal to its default value.
+	 *
+	 *	ISO/IEC 8825-1:2021
+	 *	8.12 Encoding of a set-of value
+	 *		8.12.1 The encoding of a set-of value shall be constructed.
+	 *		8.12.2 The text of 8.10.2 applies.
+	 *		8.12.3 The order of data values need not be preserved by the encoding and subsequent decoding.
+	 *
+	 *	11.6 Set-of components
+	 *		The encodings of the component values of a set-of value shall appear in ascending order, the
+	 *		encodings being compared as octet strings with the shorter components being padded at their
+	 *		trailing end with 0-octets.
+	 *			NOTE – The padding octets are for comparison purposes only and do not appear in the
+	 *			encodings.
 	 */
 
 	switch (vp->vp_type) {
@@ -896,6 +912,9 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 		break;
 	case FR_TYPE_TLV:
 		if (fr_der_flag_is_set_of(vp->da)) {
+			/*
+			 *	Set-of items will all have the same tag, so we need to sort them lexicographically
+			 */
 			fr_dbuff_t	 work_dbuff;
 			uint8_t *buff;
 			fr_der_encode_set_of_ptr_pairs_t *ptr_pairs;
@@ -1001,6 +1020,9 @@ static ssize_t fr_der_encode_set(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, UNUSED
 			return slen;
 		}
 		if (fr_der_flag_is_set_of(vp->da)) {
+			/*
+			 *	Set-of items will all have the same tag, so we need to sort them lexicographically
+			 */
 			fr_dbuff_t	 work_dbuff;
 			uint8_t *buff;
 			fr_der_encode_set_of_ptr_pairs_t *ptr_pairs;
