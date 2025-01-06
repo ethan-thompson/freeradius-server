@@ -2480,7 +2480,7 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 /** Decode an OID value pair
  *
  * @param[in] ctx		Talloc context
- * @param[in] out		Output list
+ * @param[out] out		Output list
  * @param[in] in		Input buffer
  * @param[in] parent		Parent attribute
  * @param[in] decode_ctx	Decode context
