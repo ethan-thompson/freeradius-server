@@ -2206,7 +2206,7 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 
 		else if (!constructed) {
 			fr_strerror_const("Primative data with indefinite form length field is invalid");
-			return DECODE_FAIL_INVALID_ATTRIBUTE;
+			return -1;
 		}
 	} else {
 		*len = len_byte;
