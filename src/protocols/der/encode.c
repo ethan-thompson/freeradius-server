@@ -1670,7 +1670,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 	fr_pair_t const	 *vp;
 	ssize_t		  slen	      = 0;
 	size_t		  is_critical = 0;
-	uint64_t	  max;
+	int64_t	  max;
 
 	/*
 	 *	RFC 5280 Section 4.2
@@ -1717,6 +1717,8 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 
 	max = fr_der_flag_max(vp->da); /* Maximum number of extensions specified in the dictionary */
 
+	if (max == 0) max = INT64_MAX;
+
 	fr_dbuff_marker(&marker, dbuff); /* Mark the start of the encoded extensions. Used to track amount written */
 
 	slen = fr_der_encode_tag(dbuff, FR_DER_TAG_SEQUENCE, FR_DER_CLASS_UNIVERSAL, FR_DER_TAG_CONSTRUCTED);
@@ -1745,7 +1747,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		 */
 
 		if (max < 0) {
-			fr_strerror_printf("Too many X509 extensions (%llu)", max);
+			fr_strerror_printf("Too many X509 extensions (%lli)", max);
 			break;
 		}
 

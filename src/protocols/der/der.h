@@ -132,7 +132,7 @@ typedef struct {
 	fr_der_tag_num_t sequence_of;
 	fr_der_tag_num_t set_of;
 
-	uint64_t max;
+	int64_t max;
 
 	bool is_sequence_of;
 	bool is_set_of;

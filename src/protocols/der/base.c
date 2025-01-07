@@ -375,7 +375,7 @@ static int dict_flag_max(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dic
 {
 	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
 
-	flags->max = (uint64_t)atoll(value);
+	flags->max = (int64_t)atoll(value);
 
 	return 0;
 }
