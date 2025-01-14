@@ -380,6 +380,17 @@ static int dict_flag_max(fr_dict_attr_t **da_p, char const *value, UNUSED fr_dic
 	return 0;
 }
 
+static int dict_flag_option(fr_dict_attr_t **da_p, UNUSED char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
+{
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+
+	flags->class = FR_DER_CLASS_CONTEXT;
+
+	flags->tagnum = (uint8_t)atoi(value);
+
+	return 0;
+}
+
 static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("class"), { .func = dict_flag_class } },
 						   { L("has_default"), { .func = dict_flag_has_default } },
@@ -390,6 +401,7 @@ static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("is_pair"), { .func = dict_flag_is_pair } },
 						   { L("is_pairs"), { .func = dict_flag_is_pairs } },
 						   { L("max"), { .func = dict_flag_max } },
+						   { L("option"), { .func = dict_flag_option } },
 						   { L("sequence_of"), { .func = dict_flag_sequence_of } },
 						   { L("set_of"), { .func = dict_flag_set_of } },
 						   { L("subtype"), { .func = dict_flag_subtype } },
@@ -423,7 +435,7 @@ static bool attr_type(fr_type_t *type ,fr_dict_attr_t **da_p, char const *name)
 		{ L("bitstring"), FR_DER_TAG_BITSTRING },
 		{ L("bmpstring"), FR_DER_TAG_BMP_STRING },
 		{ L("boolean"), FR_DER_TAG_BOOLEAN },
-		{ L("choice"), FR_DER_TAG_CHOICE },
+		{ L("choice"), FR_DER_TAG_SEQUENCE },
 		{ L("enumerated"), FR_DER_TAG_ENUMERATED },
 		{ L("generalizedtime"), FR_DER_TAG_GENERALIZED_TIME },
 		{ L("generalstring"), FR_DER_TAG_GENERAL_STRING },
