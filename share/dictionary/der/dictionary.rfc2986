@@ -10,8 +10,8 @@ DEFINE userPrincipalName       string subtype=utf8string
 END Value-thing
 END otherName
 
-ATTRIBUTE rfc822Name    1       string subtype=ia5string,class=context-specific,tagnum=1
-ATTRIBUTE dNSName       2       string subtype=ia5string,class=context-specific,tagnum=2
+ATTRIBUTE rfc822Name    1       ia5string class=context-specific,tagnum=1
+ATTRIBUTE dNSName       2       ia5string class=context-specific,tagnum=2
 
 END GeneralName
 
@@ -442,8 +442,8 @@ END issuer
 
 DEFINE validity                         tlv
 BEGIN validity
-DEFINE notBefore                        date subtype=utctime
-DEFINE notAfter                         date subtype=utctime
+DEFINE notBefore                        utctime
+DEFINE notAfter                         utctime
 END validity
 
 DEFINE subject                          tlv sequence_of=set,is_pairs
