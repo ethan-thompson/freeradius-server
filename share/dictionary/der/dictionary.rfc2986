@@ -68,7 +68,7 @@ END Root-2
 
 END Test-Extensions
 
-DEFINE Certificate-Extensions                       group ref=Test-Extensions,subtype=sequence,sequence_of=sequence,class=context-specific,tagnum=3,is_extensions
+DEFINE Certificate-Extensions                       x509_extensions ref=Test-Extensions
 
 DEFINE Issuer         tlv is_pairs
 BEGIN Issuer
@@ -92,7 +92,7 @@ DEFINE Baz                      tlv
 BEGIN Baz
 DEFINE Qux                      tlv
 BEGIN Qux
-DEFINE Quux                     group ref=Test-Extensions,sequence_of=sequence,is_extensions
+DEFINE Quux                     x509_extensions ref=Test-Extensions
 END Qux
 END Baz
 
@@ -116,7 +116,7 @@ DEFINE Baz                      tlv
 BEGIN Baz
 DEFINE Qux                      tlv
 BEGIN Qux
-DEFINE Quux                     group ref=Test-Extensions,sequence_of=sequence,is_extensions
+DEFINE Quux                     x509_extensions ref=Test-Extensions
 END Qux
 END Baz
 END Bar
@@ -131,9 +131,9 @@ DEFINE Test-Extensions-Group-Max     group ref=Test-Extensions,sequence_of=seque
 
 #DEFINE Test-Pair-Group          group ref=Test-Extensions,is_pair
 
-DEFINE Test-Seq-Of              tlv sequence_of=integer
+DEFINE Test-Seq-Of              sequence sequence_of=integer
 BEGIN Test-Seq-Of
-DEFINE Test-First-Integer       int64
+DEFINE Test-First-Integer       integer
 DEFINE Test-Second-Integer      int64
 END Test-Seq-Of
 
@@ -220,19 +220,22 @@ DEFINE Test-String              string
 
 DEFINE Test-String-Max          string max=5
 
-DEFINE Test-String-UTF8         string subtype=utf8string
+#DEFINE Test-String-UTF8         string subtype=utf8string
+DEFINE Test-String-UTF8         utf8string
 
-DEFINE Test-String-Printable    string subtype=printablestring
+DEFINE Test-String-Custom  utf8string
 
-DEFINE Test-String-T61          string subtype=t61string
+DEFINE Test-String-Printable    printablestring
 
-DEFINE Test-String-IA5          string subtype=ia5string
+DEFINE Test-String-T61          t61string
 
-DEFINE Test-String-Visible      string subtype=visiblestring
+DEFINE Test-String-IA5          ia5string
 
-DEFINE Test-String-General      string subtype=generalstring
+DEFINE Test-String-Visible      visiblestring
 
-DEFINE Test-String-Universal    string subtype=universalstring
+DEFINE Test-String-General      generalstring
+
+DEFINE Test-String-Universal    universalstring
 
 DEFINE Seq-String               struct
 BEGIN Seq-String
@@ -241,9 +244,9 @@ END Seq-String
 
 DEFINE Test-Date                date
 
-DEFINE Test-UTC                 date subtype=utctime
+DEFINE Test-UTC                 utctime
 
-DEFINE Test-Generalized-Time    date subtype=generalizedtime
+DEFINE Test-Generalized-Time    generalizedtime
 
 DEFINE Seq-Date                 struct
 BEGIN Seq-Date
@@ -457,7 +460,7 @@ DEFINE algorithm                        group is_pair
 DEFINE subjectPublicKey                 octets subtype=bitstring
 END subjectPublicKeyInfo
 
-DEFINE extensions                       group ref=Test-Extensions,subtype=sequence,sequence_of=sequence,class=context-specific,tagnum=3,is_extensions
+DEFINE extensions                       x509_extensions ref=Test-Extensions
 
 END tbsCertificate
 

@@ -395,6 +395,93 @@ static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("subtype"), { .func = dict_flag_subtype } },
 						    { L("tagnum"), { .func = dict_flag_tagnum } } };
 
+static bool attr_type(fr_type_t *type ,fr_dict_attr_t **da_p, char const *name)
+{
+	static fr_table_num_sorted_t const table[] = {
+		{ L("bitstring"), FR_TYPE_OCTETS },
+		{ L("boolean"), FR_TYPE_BOOL },
+		{ L("choice"), FR_TYPE_TLV },
+		{ L("enumerated"), FR_TYPE_INT64 },
+		{ L("generalizedtime"), FR_TYPE_DATE },
+		{ L("generalstring"), FR_TYPE_STRING },
+		{ L("ia5string"), FR_TYPE_STRING },
+		{ L("null"), FR_TYPE_NULL },
+		{ L("octetstring"), FR_TYPE_OCTETS },
+		{ L("oid"), FR_TYPE_STRING },
+		{ L("printablestring"), FR_TYPE_STRING },
+		{ L("sequence"), FR_TYPE_TLV },
+		{ L("set"), FR_TYPE_TLV },
+		{ L("t61string"), FR_TYPE_STRING },
+		{ L("universalstring"), FR_TYPE_STRING },
+		{ L("utctime"), FR_TYPE_DATE },
+		{ L("utf8string"), FR_TYPE_STRING },
+		{ L("visiblestring"), FR_TYPE_STRING },
+		{ L("x509_extensions"), FR_TYPE_GROUP }
+	};
+
+	static fr_table_num_sorted_t const der_tag_table[] = {
+		{ L("bitstring"), FR_DER_TAG_BITSTRING },
+		{ L("bmpstring"), FR_DER_TAG_BMP_STRING },
+		{ L("boolean"), FR_DER_TAG_BOOLEAN },
+		{ L("choice"), FR_DER_TAG_CHOICE },
+		{ L("enumerated"), FR_DER_TAG_ENUMERATED },
+		{ L("generalizedtime"), FR_DER_TAG_GENERALIZED_TIME },
+		{ L("generalstring"), FR_DER_TAG_GENERAL_STRING },
+		{ L("ia5string"), FR_DER_TAG_IA5_STRING },
+		{ L("integer"), FR_DER_TAG_INTEGER },
+		{ L("null"), FR_DER_TAG_NULL },
+		{ L("octetstring"), FR_DER_TAG_OCTETSTRING },
+		{ L("oid"), FR_DER_TAG_OID },
+		{ L("printablestring"), FR_DER_TAG_PRINTABLE_STRING },
+		{ L("sequence"), FR_DER_TAG_SEQUENCE },
+		{ L("set"), FR_DER_TAG_SET },
+		{ L("t61string"), FR_DER_TAG_T61_STRING },
+		{ L("universalstring"), FR_DER_TAG_UNIVERSAL_STRING },
+		{ L("utctime"), FR_DER_TAG_UTC_TIME },
+		{ L("utf8string"), FR_DER_TAG_UTF8_STRING },
+		{ L("visiblestring"), FR_DER_TAG_VISIBLE_STRING },
+		{ L("x509_extensions"), FR_DER_TAG_SEQUENCE }
+	};
+
+	static size_t table_len = NUM_ELEMENTS(table);
+	static size_t der_tag_table_len = NUM_ELEMENTS(der_tag_table);
+
+	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
+	fr_der_tag_num_t	subtype;
+
+	*type = fr_table_value_by_str(table, name, UINT8_MAX);
+
+	if (*type == UINT8_MAX) {
+		fr_strerror_printf("Invalid type '%s'", name);
+		return false;
+	}
+
+	/*
+	 *	Make sure to set the subtype flag
+	 * 	This will ensure the attribute it encoded with the correct type
+	 */
+	subtype = fr_table_value_by_str(der_tag_table, name, UINT8_MAX);
+	if (subtype == UINT8_MAX) {
+		fr_strerror_printf("Invalid subtype '%s'", name);
+		return false;
+	}
+
+	flags->subtype = subtype;
+
+	/*
+	 *	If it is a collection of x509 extensions, we will set a few other flags
+	 * 	as per RFC 5280.
+	 */
+	if (*type == FR_TYPE_GROUP) {
+		dict_flag_is_extensions(da_p, "true", NULL);
+		dict_flag_tagnum(da_p, "3", NULL);
+		dict_flag_class(da_p, "context-specific", NULL);
+		dict_flag_sequence_of(da_p, "sequence", NULL);
+	}
+
+	return true;
+}
+
 static bool attr_valid(fr_dict_attr_t *da)
 {
 	if (da->flags.subtype && !fr_type_to_der_tag_valid(da->type, da->flags.subtype)) {
@@ -459,6 +546,7 @@ fr_dict_protocol_t	  libfreeradius_der_dict_protocol = {
 			       .table_len = NUM_ELEMENTS(der_flags),
 			       .len	   = sizeof(fr_der_attr_flags_t),
 		       },
+		       .type_parse = attr_type,
 		       .valid = attr_valid
 	       },
 
