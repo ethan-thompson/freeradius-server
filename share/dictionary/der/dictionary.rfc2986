@@ -15,6 +15,13 @@ ATTRIBUTE dNSName       2       ia5string option=2
 
 END GeneralName
 
+DEFINE DirectoryName    choice
+BEGIN DirectoryName
+ATTRIBUTE printableString       19      printablestring
+ATTRIBUTE universalString       28      universalstring
+ATTRIBUTE utf8String            12      utf8string
+END DirectoryName
+
 DEFINE Test-Extensions tlv
 BEGIN Test-Extensions
 DEFINE Critical         group ref=Test-Extensions
@@ -37,24 +44,24 @@ END Leaf-2
 END Branch
 END Root
 
-ATTRIBUTE Root-2        2       tlv
-BEGIN Root-2
-ATTRIBUTE Branch-5      5       tlv
-BEGIN Branch-5
+ATTRIBUTE joint-iso-itu-t        2       tlv
+BEGIN joint-iso-itu-t
+ATTRIBUTE ds      5       tlv
+BEGIN ds
 ATTRIBUTE Branch-4      4       tlv
 BEGIN Branch-4
 ATTRIBUTE commonName        3       string subtype=printablestring,is_oid_leaf
 ATTRIBUTE organizationName   10      string subtype=printablestring,is_oid_leaf
 END Branch-4
-ATTRIBUTE Branch-29     29      tlv
-BEGIN Branch-29
+ATTRIBUTE certificateExtension     29      tlv
+BEGIN certificateExtension
 ATTRIBUTE Leaf-17       17      tlv is_extension
 BEGIN Leaf-17
 ATTRIBUTE subjectAltName        17      group ref=GeneralName,subtype=sequence,sequence_of=choice
 END Leaf-17
-END Branch-29
-END Branch-5
-END Root-2
+END certificateExtension
+END ds
+END joint-iso-itu-t
 
 #     otherName                 [0]  AnotherName,
 #     rfc822Name                [1]  IA5String,
@@ -88,40 +95,28 @@ END Issuer-Set
 
 #DEFINE Issuer-Set         group ref=Test-Extensions,set_of=set,is_pairs
 
-DEFINE Baz                      tlv
-BEGIN Baz
-DEFINE Qux                      tlv
-BEGIN Qux
-DEFINE Quux                     x509_extensions ref=Test-Extensions
-END Qux
-END Baz
+DEFINE OID-Tree       tlv
+BEGIN OID-Tree
+DEFINE Critical         group ref=OID-Tree
+ATTRIBUTE joint-iso-itu-t       2       tlv
+ATTRIBUTE ds    2.5       tlv
 
-DEFINE Foo-thing                tlv
-BEGIN Foo-thing
-DEFINE Bar                      tlv clone=Baz
-END Foo-thing
+ATTRIBUTE attributeType         2.5.4       tlv
+ATTRIBUTE commonName    2.5.4.3 printablestring is_oid_leaf
+ATTRIBUTE countryName   2.5.4.6 string[2]       subtype=printablestring,is_oid_leaf
+ATTRIBUTE serialNumber  2.5.4.5 printablestring
+#ATTRIBUTE stateOrProvinceName   2.5.4.8 group ref=DirectoryName,subtype=sequence,is_oid_leaf
+#ATTRIBUTE stateOrProvinceName   2.5.4.8 printablestring is_oid_leaf
+ATTRIBUTE organizationName      2.5.4.10        printablestring is_oid_leaf
 
-DEFINE Test-Skelly-Cert         tlv
-BEGIN Test-Skelly-Cert
-DEFINE next                     tlv clone=Foo-thing
-END Test-Skelly-Cert
+ATTRIBUTE certificateExtension  2.5.29      tlv
 
-DEFINE Test-Skelly-Cert-No-Clone       tlv
-BEGIN Test-Skelly-Cert-No-Clone
-DEFINE Foo                      tlv
-BEGIN Foo
-DEFINE Bar                      tlv
-BEGIN Bar
-DEFINE Baz                      tlv
-BEGIN Baz
-DEFINE Qux                      tlv
-BEGIN Qux
-DEFINE Quux                     x509_extensions ref=Test-Extensions
-END Qux
-END Baz
-END Bar
-END Foo
-END Test-Skelly-Cert-No-Clone
+ATTRIBUTE subjectAltName        2.5.29.17      sequence is_extension
+BEGIN 2.5.29.17
+DEFINE GeneralNames     group ref=GeneralName,subtype=sequence,sequence_of=choice
+END 2.5.29.17
+
+END OID-Tree
 
 DEFINE Test-Extension-Group     group ref=Test-Extensions,sequence_of=sequence,is_extensions
 
@@ -406,7 +401,7 @@ BEGIN Attributes
 DEFINE Attribute-thing                  tlv
 BEGIN Attribute-thing
 DEFINE OID                              string subtype=oid
-DEFINE Extensions                       group ref=Test-Extensions,subtype=set,is_extensions
+DEFINE Extensions                       group ref=OID-Tree,subtype=set,is_extensions
 END Attribute-thing
 END Attributes
 
@@ -430,13 +425,13 @@ BEGIN version
 DEFINE VersionNum                       integer
 END version
 DEFINE serialNumber                     octets tagnum=2
-DEFINE signature                        group ref=Test-Extensions,is_pair
+DEFINE signature                        group ref=OID-Tree,is_pair
 
 DEFINE issuer                           tlv subtype=sequence,sequence_of=set,is_pairs
 BEGIN issuer
 DEFINE RelativeDistinguishedName        tlv subtype=set
 BEGIN RelativeDistinguishedName
-DEFINE AttributeTypeAndValue            group ref=Test-Extensions,is_pair
+DEFINE AttributeTypeAndValue            group ref=OID-Tree,is_pair
 END RelativeDistinguishedName
 END issuer
 
@@ -450,7 +445,7 @@ DEFINE subject                          tlv sequence_of=set,is_pairs
 BEGIN subject
 DEFINE RelativeDistinguishedName        tlv subtype=set
 BEGIN RelativeDistinguishedName
-DEFINE AttributeTypeandValue            group ref=Test-Extensions,is_pair
+DEFINE AttributeTypeandValue            group ref=OID-Tree,is_pair
 END RelativeDistinguishedName
 END subject
 
@@ -460,11 +455,11 @@ DEFINE algorithm                        group is_pair
 DEFINE subjectPublicKey                 octets subtype=bitstring
 END subjectPublicKeyInfo
 
-DEFINE extensions                       x509_extensions ref=Test-Extensions
+DEFINE extensions                       x509_extensions ref=OID-Tree
 
 END tbsCertificate
 
-DEFINE signatureAlgorithm               group ref=Test-Extensions,is_pair
+DEFINE signatureAlgorithm               group ref=OID-Tree,is_pair
 
 DEFINE signature                        octets subtype=bitstring
 END Certificate-Cloneless
