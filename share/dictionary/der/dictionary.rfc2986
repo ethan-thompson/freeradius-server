@@ -105,8 +105,7 @@ ATTRIBUTE attributeType         2.5.4       tlv
 ATTRIBUTE commonName    2.5.4.3 printablestring is_oid_leaf
 ATTRIBUTE countryName   2.5.4.6 string[2]       subtype=printablestring,is_oid_leaf
 ATTRIBUTE serialNumber  2.5.4.5 printablestring
-#ATTRIBUTE stateOrProvinceName   2.5.4.8 group ref=DirectoryName,subtype=sequence,is_oid_leaf
-#ATTRIBUTE stateOrProvinceName   2.5.4.8 printablestring is_oid_leaf
+ATTRIBUTE stateOrProvinceName   2.5.4.8 string  is_oid_leaf
 ATTRIBUTE organizationName      2.5.4.10        printablestring is_oid_leaf
 
 ATTRIBUTE certificateExtension  2.5.29      tlv
