@@ -1109,7 +1109,6 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 			 *	This will be a list of the number of choices, starting at 0.
 			 */
 			fr_dict_attr_t const *choices;
-			uint8_t		      num_chocies = 0;
 
 			if (unlikely(!fr_type_is_group(parent->type))) {
 				fr_strerror_printf("Sequence-of choice found in incompatible attribute %s of type %s",
@@ -1119,7 +1118,7 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 			}
 
 			while ((choices = fr_dict_attr_iterate_children(fr_dict_attr_ref(parent), &choices))) {
-				restriction_types[num_chocies++] = true;
+				restriction_types[choices->attr] = true;
 			}
 		}
 
