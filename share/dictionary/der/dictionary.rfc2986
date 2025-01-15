@@ -29,13 +29,13 @@ ATTRIBUTE Root 0 tlv
 BEGIN Root
 ATTRIBUTE Branch 1 tlv
 BEGIN Branch
-ATTRIBUTE Leaf 2 tlv subtype=sequence,is_extension
+ATTRIBUTE Leaf 2 tlv subtype=sequence,is_oid_leaf
 BEGIN Leaf
 DEFINE Name string
 DEFINE Version int64
 END Leaf
 
-ATTRIBUTE Leaf-2 3 tlv subtype=sequence,is_extension
+ATTRIBUTE Leaf-2 3 tlv subtype=sequence,is_oid_leaf
 BEGIN Leaf-2
 DEFINE Name string
 DEFINE Version int64
@@ -55,7 +55,7 @@ ATTRIBUTE organizationName   10      string subtype=printablestring,is_oid_leaf
 END Branch-4
 ATTRIBUTE certificateExtension     29      tlv
 BEGIN certificateExtension
-ATTRIBUTE Leaf-17       17      tlv is_extension
+ATTRIBUTE Leaf-17       17      tlv is_oid_leaf
 BEGIN Leaf-17
 ATTRIBUTE subjectAltName        17      group ref=GeneralName,subtype=sequence,sequence_of=choice
 END Leaf-17
@@ -98,23 +98,61 @@ END Issuer-Set
 DEFINE OID-Tree       tlv
 BEGIN OID-Tree
 DEFINE Critical         group ref=OID-Tree
+ATTRIBUTE iso   1       tlv
+ATTRIBUTE member-body   1.2       tlv
+ATTRIBUTE us    1.2.840     tlv
+ATTRIBUTE ansi-x962     1.2.840.10045   tlv
+ATTRIBUTE keyType       1.2.840.10045.2 tlv
+ATTRIBUTE ecPublicKey   1.2.840.10045.2.1       oid     is_oid_leaf
+
+ATTRIBUTE signatures    1.2.840.10045.4 tlv
+ATTRIBUTE ecdsa-with-SHA2       1.2.840.10045.4.3       tlv
+ATTRIBUTE ecdsa-with-SHA384     1.2.840.10045.4.3.3     bool     is_oid_leaf,has_default
+VALUE 1.2.840.10045.4.3.3       DEFAULT false
+
+ATTRIBUTE rsadsi        1.2.840.113549  tlv
+ATTRIBUTE pkcs  1.2.840.113549.1       tlv
+ATTRIBUTE pkcs-1        1.2.840.113549.1.1      tlv
+ATTRIBUTE rsaEncryption 1.2.840.113549.1.1.1    bool    is_oid_leaf,has_default,subtype=null
+VALUE 1.2.840.113549.1.1.1      DEFAULT false
+
+ATTRIBUTE sha256WithRSAEncryption       1.2.840.113549.1.1.11    bool    is_oid_leaf,has_default,subtype=null
+VALUE 1.2.840.113549.1.1.11     DEFAULT false
+
 ATTRIBUTE joint-iso-itu-t       2       tlv
 ATTRIBUTE ds    2.5       tlv
 
 ATTRIBUTE attributeType         2.5.4       tlv
 ATTRIBUTE commonName    2.5.4.3 printablestring is_oid_leaf
 ATTRIBUTE countryName   2.5.4.6 string[2]       subtype=printablestring,is_oid_leaf
-ATTRIBUTE serialNumber  2.5.4.5 printablestring
+ATTRIBUTE serialNumber  2.5.4.5 printablestring is_oid_leaf
 ATTRIBUTE localityName  2.5.4.7 string  is_oid_leaf
 ATTRIBUTE stateOrProvinceName   2.5.4.8 string  is_oid_leaf
 ATTRIBUTE organizationName      2.5.4.10        printablestring is_oid_leaf
 
 ATTRIBUTE certificateExtension  2.5.29      tlv
 
-ATTRIBUTE subjectAltName        2.5.29.17      sequence is_extension
-BEGIN 2.5.29.17
-DEFINE GeneralNames     group ref=GeneralName,subtype=sequence,sequence_of=choice
-END 2.5.29.17
+ATTRIBUTE  keyUsage     2.5.29.15 struct  subtype=bitstring,is_oid_leaf
+BEGIN 2.5.29.15
+MEMBER  digitalSignature        bit[1]
+MEMBER  nonRepudation        bit[1]
+MEMBER  keyEncipherment        bit[1]
+MEMBER  dataEncipherment        bit[1]
+MEMBER  keyAgreement        bit[1]
+MEMBER  keyCertSign        bit[1]
+MEMBER  cRLSign        bit[1]
+MEMBER  encipherOnly        bit[1]
+MEMBER  decipherOnly        bit[1]
+END 2.5.29.15
+
+ATTRIBUTE subjectAltName        2.5.29.17      group ref=GeneralName,subtype=sequence,sequence_of=choice,is_oid_leaf
+
+ATTRIBUTE basicConstraints      2.5.29.19      sequence is_oid_leaf
+BEGIN 2.5.29.19
+DEFINE cA       boolean has_default
+VALUE cA        DEFAULT false
+DEFINE pathLenConstraint        integer
+END 2.5.29.19
 
 END OID-Tree
 
@@ -451,7 +489,7 @@ END subject
 
 DEFINE subjectPublicKeyInfo             tlv
 BEGIN subjectPublicKeyInfo
-DEFINE algorithm                        group is_pair
+DEFINE algorithm                        group ref=OID-Tree,is_pair
 DEFINE subjectPublicKey                 octets subtype=bitstring
 END subjectPublicKeyInfo
 
