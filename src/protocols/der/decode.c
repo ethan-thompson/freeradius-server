@@ -1230,10 +1230,6 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 			talloc_free(vp);
 			return ret;
 		}
-
-		if (unlikely(fr_dbuff_remaining(&our_in) == 0)) {
-			break;
-		}
 	}
 
 	fr_pair_append(out, vp);
@@ -2451,7 +2447,7 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 				fr_strerror_const_push("Failed decoding extension value");
 				goto error;
 			}
-		} else if (unlikely((slen = fr_der_decode_sequence(uctx.ctx, uctx.parent_list, uctx.parent_da, &sub_in,
+		} else if (unlikely((slen = fr_der_decode_pair_dbuff(uctx.ctx, uctx.parent_list, uctx.parent_da, &sub_in,
 								   decode_ctx)) < 0)) {
 			fr_strerror_const_push("Failed decoding extension value");
 			goto error;
@@ -2635,27 +2631,36 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 	 *	If there are no more bytes to read, it is possible that the value was not encoded since
 	 *	it may be using the DEFAULT value
 	 */
-	if ((fr_dbuff_remaining(&our_in) == 0) && fr_der_flag_has_default(parent)) {
-		fr_pair_t	     *vp = fr_pair_afrom_da(ctx, parent);
-		fr_dict_enum_value_t *ev;
+	if ((fr_dbuff_remaining(&our_in) == 0)) {
+		if (fr_der_flag_has_default(parent)) {
+			fr_pair_t	     *vp = fr_pair_afrom_da(ctx, parent);
+			fr_dict_enum_value_t *ev;
 
-		if (unlikely(vp == NULL)) {
-			fr_strerror_const("Out of memory for pair");
-			return -1;
+			if (unlikely(vp == NULL)) {
+				fr_strerror_const("Out of memory for pair");
+				return -1;
+			}
+
+			ev = fr_dict_enum_by_name(parent, "DEFAULT", strlen("DEFAULT"));
+			if (unlikely(ev == NULL)) {
+				fr_strerror_printf("No DEFAULT value for attribute %s", parent->name);
+				return -1;
+			}
+
+			if (fr_value_box_copy(vp, &vp->data, ev->value) < 0) return -1;
+
+			vp->data.enumv = vp->da;
+
+			fr_pair_append(out, vp);
+
+			return 0;
 		}
 
-		ev = fr_dict_enum_by_name(parent, "DEFAULT", strlen("DEFAULT"));
-		if (unlikely(ev == NULL)) {
-			fr_strerror_printf("No DEFAULT value for attribute %s", parent->name);
-			return -1;
-		}
-
-		if (fr_value_box_copy(vp, &vp->data, ev->value) < 0) return -1;
-
-		vp->data.enumv = vp->da;
-
-		fr_pair_append(out, vp);
-
+		/*
+		 *	This may look like a "quiet fail", but this is needed when looping over a sequence
+		 *	and the last attribute has a default value. This will allow the loop to continue
+		 *	without failing.
+		 */
 		return 0;
 	}
 
@@ -2663,7 +2668,7 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
-	if (!fr_type_to_der_tag_valid(parent->type, tag)) {
+	if (unlikely(tag != FR_DER_TAG_NULL) && (!fr_type_to_der_tag_valid(parent->type, tag) || fr_dbuff_remaining(&our_in) == 0)) {
 		if (fr_der_flag_has_default(parent)) {
 			/*
 			 *	If the attribute has a default value, we will use that.
@@ -2690,6 +2695,12 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 
 			fr_pair_append(out, vp);
 
+			/*
+			 *	If we did not consume any bytes (tag didn't match, and DEFAULT was used), we
+			 *	should return 0 to indicate that we successfully decoded the attribute.
+			 */
+			if (fr_dbuff_remaining(&our_in) == 0) return fr_dbuff_set(in, &our_in);
+
 			return 0;
 		}
 
@@ -2698,7 +2709,11 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 			 *	We will store the value as raw octets if indicated by the dictionary
 			 */
 			tag = FR_DER_TAG_OCTETSTRING;
-		} else {
+		} else if (!(fr_type_to_der_tag_valid(parent->type, tag) && fr_type_is_structural(parent->type))) {
+			/*
+			 *	If this is not a sequence/set/structure like thing, then it does not have children that
+			 *	could have defaults.
+			 */
 			fr_strerror_printf("Attribute %s of type %s cannot store type %llu", parent->name,
 					   fr_type_to_str(parent->type), tag);
 			return -1;

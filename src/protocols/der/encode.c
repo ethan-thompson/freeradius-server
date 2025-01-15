@@ -1879,7 +1879,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 		if (is_raw) {
 			slen = fr_der_encode_octetstring(dbuff, &child_cursor, encode_ctx);
 		} else {
-			slen = fr_der_encode_sequence(dbuff, &child_cursor, encode_ctx);
+			slen = der_encode_pair(dbuff, &child_cursor, encode_ctx);
 		}
 		if (slen < 0) return slen;
 
