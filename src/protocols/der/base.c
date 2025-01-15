@@ -326,15 +326,6 @@ static int dict_flag_is_pair(fr_dict_attr_t **da_p, UNUSED char const *value, UN
 	return 0;
 }
 
-static int dict_flag_is_extension(fr_dict_attr_t **da_p, UNUSED char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
-{
-	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
-
-	flags->is_extension = true;
-
-	return 0;
-}
-
 static int dict_flag_is_extensions(fr_dict_attr_t **da_p, UNUSED char const *value, UNUSED fr_dict_flag_parser_rule_t const *rules)
 {
 	fr_der_attr_flags_t *flags = fr_dict_attr_ext(*da_p, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
@@ -395,7 +386,6 @@ static fr_dict_flag_parser_t const der_flags[] = {
 						   { L("class"), { .func = dict_flag_class } },
 						   { L("has_default"), { .func = dict_flag_has_default } },
 						   { L("is_choice"), { .func = dict_flag_is_choice } },
-						   { L("is_extension"), { .func = dict_flag_is_extension } },
 						   { L("is_extensions"), { .func = dict_flag_is_extensions } },
 						   { L("is_oid_leaf"), { .func = dict_flag_is_oid_leaf } },
 						   { L("is_pair"), { .func = dict_flag_is_pair } },
@@ -550,8 +540,8 @@ static bool attr_valid(fr_dict_attr_t *da)
 extern fr_dict_protocol_t libfreeradius_der_dict_protocol;
 fr_dict_protocol_t	  libfreeradius_der_dict_protocol = {
 	       .name		    = "der",
-	       .default_type_size   = 1,
-	       .default_type_length = 1,
+	       .default_type_size   = 4,
+	       .default_type_length = 4,
 	       .attr = {
 		       .flags = {
 			       .table    = der_flags,

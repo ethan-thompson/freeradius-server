@@ -1779,7 +1779,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 				goto next;
 			}
 
-			if (!fr_type_is_structural(child_vp->vp_type) && !fr_der_flag_is_extension(child_vp->da)) {
+			if (!fr_type_is_structural(child_vp->vp_type) && !fr_der_flag_is_oid_leaf(child_vp->da)) {
 				FR_PROTO_TRACE("Found non-structural child %s", child_vp->da->name);
 
 				if (child_vp->da->flags.is_raw) {
@@ -1816,7 +1816,7 @@ static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cu
 
 		next:
 			FR_PROTO_TRACE("OID: %s", oid_buff);
-			if (fr_der_flag_is_extension(child_vp->da)) break;
+			if (fr_der_flag_is_oid_leaf(child_vp->da)) break;
 			fr_pair_dcursor_child_iter_init(&child_cursor, &child_vp->children, &child_cursor);
 		}
 
