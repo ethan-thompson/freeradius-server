@@ -88,7 +88,6 @@ fr_dict_attr_autoload_t	       libfreeradius_der_dict_attr[] = {
 
 	       { .out = &attr_der_utf8, .name = "Test-String-UTF8", .type = FR_TYPE_STRING, .dict = &dict_der },
 	       { .out = &attr_der_context_specific, .name = "Test-Context-Specific", .type = FR_TYPE_BOOL, .dict = &dict_der },
-	       { .out = &attr_der_subject, .name = "CertificationRequest.certificationRequestInfo.subject", .type = FR_TYPE_TLV, .dict = &dict_der },
 	       { NULL }
 };
 
