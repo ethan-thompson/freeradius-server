@@ -1151,7 +1151,8 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 						parent->name, current_tag);
 					goto error;
 				}
-			} else {
+			}
+			else if (child == NULL) {
 				child = fr_dict_attr_iterate_children(parent, &child);
 			}
 
