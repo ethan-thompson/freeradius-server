@@ -1327,12 +1327,17 @@ static ssize_t fr_der_decode_set(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_a
 		 */
 		fr_der_tag_num_t restriction_type = fr_der_flag_set_of(parent);
 
-		while ((child = fr_dict_attr_iterate_children(parent, &child))) {
+		// while ((child = fr_dict_attr_iterate_children(parent, &child))) {
+		while (fr_dbuff_remaining(&our_in) > 0) {
 			fr_dbuff_marker_t current_value_marker;
 			ssize_t		  ret;
 			uint64_t	  current_tag;
 			uint8_t		 *current_marker = fr_dbuff_current(&our_in);
 			size_t		  len;
+
+			if (child == NULL) {
+				child = fr_dict_attr_iterate_children(parent, &child);
+			}
 
 			FR_PROTO_TRACE("decode context %s -> %s", parent->name, child->name);
 
