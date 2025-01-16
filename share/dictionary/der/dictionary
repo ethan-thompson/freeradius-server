@@ -15,7 +15,7 @@ BEGIN-PROTOCOL DER
 
 $INCLUDE dictionary.oids
 $INCLUDE dictionary.rfc2986
-
+$INCLUDE dictionary.rfc5280
 
 
 END-PROTOCOL DER
