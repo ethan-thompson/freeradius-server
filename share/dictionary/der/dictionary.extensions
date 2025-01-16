@@ -42,3 +42,15 @@ DEFINE keyIdentifier    octetstring  option=0
 DEFINE authorityCertIssuer      group   ref=GeneralName,subtype=sequence,sequence_of=choice,option=1
 DEFINE authorityCertSerialNumber        integer option=2
 END 2.5.29.35
+
+ATTRIBUTE policyConstraints     2.5.29.36       sequence        is_oid_leaf
+BEGIN 2.5.29.36
+DEFINE requireExplicitPolicy    integer option=0
+DEFINE inhibitPolicyMapping     integer option=1
+END 2.5.29.36
+
+ATTRIBUTE extKeyUsage           2.5.29.37       sequence        sequence_of=oid,is_oid_leaf
+#DEFINE extKeyUsageSyntax        sequence
+BEGIN 2.5.29.37
+DEFINE keyPurposeId     oid
+END 2.5.29.37
