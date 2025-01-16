@@ -480,6 +480,10 @@ static bool attr_type(fr_type_t *type ,fr_dict_attr_t **da_p, char const *name)
 		dict_flag_sequence_of(da_p, "sequence", NULL);
 	}
 
+	if (strcmp(name, "choice") == 0) {
+		flags->is_choice = true;
+	}
+
 	return true;
 }
 

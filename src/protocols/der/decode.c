@@ -1171,56 +1171,6 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 		return fr_dbuff_set(in, &our_in);
 	}
 
-	if (unlikely(fr_der_flag_is_choice(parent))) {
-		fr_der_tag_class_t tag_class;
-		uint64_t	   tag_num;
-		uint8_t		   tag_byte;
-		uint8_t		  *current_marker = fr_dbuff_current(&our_in);
-
-		if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) {
-			fr_strerror_const("Insufficient data for sequence choice. Missing tag");
-			talloc_free(vp);
-			return -1;
-		}
-
-		tag_class = (tag_byte & DER_TAG_CLASS_MASK);
-
-		if (unlikely(tag_class != FR_DER_CLASS_CONTEXT)) {
-			fr_strerror_printf("Attribute %s is a choice, but received tag class %u", parent->name,
-					   tag_class);
-			talloc_free(vp);
-			return -1;
-		}
-
-		if (unlikely(IS_DER_TAG_CONTINUATION(tag_byte))) {
-			fr_strerror_printf("Attribute %s is a choice, but received tag with continuation bit set",
-					   parent->name);
-			talloc_free(vp);
-			return -1;
-		}
-
-		tag_num = (tag_byte & DER_TAG_CONTINUATION);
-
-		child = fr_dict_attr_child_by_num(parent, tag_num);
-		if (unlikely(child == NULL)) {
-			fr_strerror_printf("Attribute %s is a choice, but received unknown option %llu", parent->name,
-					   tag_num);
-			talloc_free(vp);
-			return -1;
-		}
-
-		fr_dbuff_set(&our_in, current_marker);
-
-		if (unlikely(fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx) < 0)) {
-			talloc_free(vp);
-			return -1;
-		}
-
-		fr_pair_append(out, vp);
-
-		return fr_dbuff_set(in, &our_in);
-	}
-
 	while ((child = fr_dict_attr_iterate_children(parent, &child))) {
 		ssize_t ret;
 
@@ -2224,6 +2174,74 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 	return fr_dbuff_set(in, &our_in);
 }
 
+/** Decode a CHOICE type
+ * This is where the actual decoding of the CHOICE type happens. The CHOICE type is a type that can have multiple
+ * types, but only one of them can be present at a time. The type that is present is determined by the tag of the
+ * data
+ *
+ * @param[in] ctx		Talloc context
+ * @param[in] out		Output list
+ * @param[in] parent		Parent attribute
+ * @param[in] in		Input buffer
+ * @param[in] decode_ctx	Decode context
+ */
+static ssize_t fr_der_decode_choice(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t const *parent,
+				    fr_dbuff_t *in, fr_der_decode_ctx_t *decode_ctx)
+{
+	fr_pair_t	     *vp;
+	fr_dict_attr_t const *child  = NULL;
+	fr_dbuff_t	      our_in = FR_DBUFF(in);
+	uint64_t	   tag_num;
+	uint8_t		   tag_byte;
+	uint8_t		  *current_marker = fr_dbuff_current(&our_in);
+
+	if (!fr_type_is_struct(parent->type) && !fr_type_is_tlv(parent->type) && !fr_type_is_group(parent->type)) {
+		fr_strerror_printf("Sequence found in incompatible attribute %s of type %s", parent->name,
+				   fr_type_to_str(parent->type));
+		return -1;
+	}
+
+	vp = fr_pair_afrom_da(ctx, parent);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("Out of memory for sequence pair");
+		return -1;
+	}
+
+	if (unlikely(fr_dbuff_out(&tag_byte, &our_in) < 0)) {
+		fr_strerror_const("Insufficient data for sequence choice. Missing tag");
+		talloc_free(vp);
+		return -1;
+	}
+
+	if (unlikely(IS_DER_TAG_CONTINUATION(tag_byte))) {
+		fr_strerror_printf("Attribute %s is a choice, but received tag with continuation bit set",
+					parent->name);
+		talloc_free(vp);
+		return -1;
+	}
+
+	tag_num = (tag_byte & DER_TAG_CONTINUATION);
+
+	child = fr_dict_attr_child_by_num(parent, tag_num);
+	if (unlikely(child == NULL)) {
+		fr_strerror_printf("Attribute %s is a choice, but received unknown option %llu", parent->name,
+					tag_num);
+		talloc_free(vp);
+		return -1;
+	}
+
+	fr_dbuff_set(&our_in, current_marker);
+
+	if (unlikely(fr_der_decode_pair_dbuff(vp, &vp->vp_group, child, &our_in, decode_ctx) < 0)) {
+		talloc_free(vp);
+		return -1;
+	}
+
+	fr_pair_append(out, vp);
+
+	return fr_dbuff_set(in, &our_in);
+}
+
 /** Decode an X509 Extentions Field
  *
  * @param[in] ctx		Talloc context
@@ -2668,6 +2686,14 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		 *	without failing.
 		 */
 		return 0;
+	}
+
+	if (unlikely(fr_der_flag_is_choice(parent))) {
+		slen = fr_der_decode_choice(ctx, out, parent, &our_in, decode_ctx);
+
+		if (unlikely(slen < 0)) return slen;
+
+		return fr_dbuff_set(in, &our_in);
 	}
 
 	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) {
