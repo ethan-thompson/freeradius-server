@@ -75,7 +75,9 @@ ATTRIBUTE localityName  2.5.4.7 string  is_oid_leaf
 ATTRIBUTE stateOrProvinceName   2.5.4.8 string  is_oid_leaf
 ATTRIBUTE organizationName      2.5.4.10        printablestring is_oid_leaf
 
-ATTRIBUTE certificateExtension  2.5.29      tlv
+ATTRIBUTE certificateExtension  2.5.29  tlv
+
+ATTRIBUTE subjectKeyIdentifier  2.5.29.14  octetstring     is_oid_leaf
 
 ATTRIBUTE  keyUsage     2.5.29.15 struct  subtype=bitstring,is_oid_leaf
 BEGIN 2.5.29.15
@@ -98,6 +100,13 @@ DEFINE cA       boolean has_default
 VALUE cA        DEFAULT false
 DEFINE pathLenConstraint        integer
 END 2.5.29.19
+
+ATTRIBUTE authorityKeyIdentifier        2.5.29.35       sequence        is_oid_leaf
+BEGIN 2.5.29.35
+DEFINE keyIdentifier    octetstring  option=0
+DEFINE authorityCertIssuer      group   ref=GeneralName,subtype=sequence,sequence_of=choice,option=1
+DEFINE authorityCertSerialNumber        integer option=2
+END 2.5.29.35
 
 END OID-Tree
 
