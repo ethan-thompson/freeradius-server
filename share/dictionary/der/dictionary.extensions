@@ -1,0 +1,44 @@
+DEFINE Critical         group ref=OID-Tree
+
+ATTRIBUTE subjectKeyIdentifier  2.5.29.14  octetstring     is_oid_leaf
+
+ATTRIBUTE  keyUsage     2.5.29.15 struct  subtype=bitstring,is_oid_leaf
+BEGIN 2.5.29.15
+MEMBER  digitalSignature        bit[1]
+MEMBER  nonRepudation        bit[1]
+MEMBER  keyEncipherment        bit[1]
+MEMBER  dataEncipherment        bit[1]
+MEMBER  keyAgreement        bit[1]
+MEMBER  keyCertSign        bit[1]
+MEMBER  cRLSign        bit[1]
+MEMBER  encipherOnly        bit[1]
+MEMBER  decipherOnly        bit[1]
+END 2.5.29.15
+
+ATTRIBUTE subjectAltName        2.5.29.17      group ref=GeneralName,subtype=sequence,sequence_of=choice,is_oid_leaf
+
+ATTRIBUTE basicConstraints      2.5.29.19      sequence is_oid_leaf
+BEGIN 2.5.29.19
+DEFINE cA       boolean has_default
+VALUE cA        DEFAULT false
+DEFINE pathLenConstraint        integer
+END 2.5.29.19
+
+ATTRIBUTE nameConstraints       2.5.29.30       sequence        is_oid_leaf
+BEGIN 2.5.29.30
+DEFINE permittedSubtrees        group   ref=GeneralSubtree,sequence_of=sequence,option=0
+DEFINE excludedSubtrees         group   ref=GeneralSubtree,sequence_of=sequence,option=1
+END 2.5.29.30
+
+ATTRIBUTE policyMappings        2.5.29.33       sequence        is_oid_leaf
+BEGIN 2.5.29.33
+DEFINE issuerDomainPolicy       oid
+DEFINE subjectDomainPolicy      oid
+END 2.5.29.33
+
+ATTRIBUTE authorityKeyIdentifier        2.5.29.35       sequence        is_oid_leaf
+BEGIN 2.5.29.35
+DEFINE keyIdentifier    octetstring  option=0
+DEFINE authorityCertIssuer      group   ref=GeneralName,subtype=sequence,sequence_of=choice,option=1
+DEFINE authorityCertSerialNumber        integer option=2
+END 2.5.29.35

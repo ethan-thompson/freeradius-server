@@ -1,23 +1,48 @@
-DEFINE GeneralName      choice
-BEGIN GeneralName
+DEFINE Certificate-Cloneless tlv
+BEGIN Certificate-Cloneless
 
-ATTRIBUTE otherName     0       sequence option=0
-BEGIN otherName
-DEFINE type-id           string subtype=oid
-DEFINE Value-thing      tlv subtype=sequence,class=context-specific,tagnum=0
-BEGIN Value-thing
-DEFINE userPrincipalName       string subtype=utf8string
-END Value-thing
-END otherName
+DEFINE tbsCertificate tlv
+BEGIN tbsCertificate
+DEFINE version                          tlv class=context-specific,tagnum=0,subtype=sequence
+BEGIN version
+DEFINE VersionNum                       integer
+END version
+DEFINE serialNumber                     octets tagnum=2
+DEFINE signature                        group ref=OID-Tree,is_pair
 
-ATTRIBUTE rfc822Name    1       ia5string option=1
-ATTRIBUTE dNSName       2       ia5string option=2
+DEFINE issuer                           tlv subtype=sequence,sequence_of=set,is_pairs
+BEGIN issuer
+DEFINE RelativeDistinguishedName        tlv subtype=set
+BEGIN RelativeDistinguishedName
+DEFINE AttributeTypeAndValue            group ref=OID-Tree,is_pair
+END RelativeDistinguishedName
+END issuer
 
-END GeneralName
+DEFINE validity                         tlv
+BEGIN validity
+DEFINE notBefore                        utctime
+DEFINE notAfter                         utctime
+END validity
 
-DEFINE DirectoryName    choice
-BEGIN DirectoryName
-ATTRIBUTE printableString       19      printablestring
-ATTRIBUTE universalString       28      universalstring
-ATTRIBUTE utf8String            12      utf8string
-END DirectoryName
+DEFINE subject                          tlv sequence_of=set,is_pairs
+BEGIN subject
+DEFINE RelativeDistinguishedName        tlv subtype=set
+BEGIN RelativeDistinguishedName
+DEFINE AttributeTypeandValue            group ref=OID-Tree,is_pair
+END RelativeDistinguishedName
+END subject
+
+DEFINE subjectPublicKeyInfo             tlv
+BEGIN subjectPublicKeyInfo
+DEFINE algorithm                        group ref=OID-Tree,is_pair
+DEFINE subjectPublicKey                 octets subtype=bitstring
+END subjectPublicKeyInfo
+
+DEFINE extensions                       x509_extensions ref=OID-Tree
+
+END tbsCertificate
+
+DEFINE signatureAlgorithm               group ref=OID-Tree,is_pair
+
+DEFINE signature                        octets subtype=bitstring
+END Certificate-Cloneless
