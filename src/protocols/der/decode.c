@@ -2438,7 +2438,7 @@ static ssize_t fr_der_decode_x509_extensions(TALLOC_CTX *ctx, fr_pair_list_t *ou
 		FR_PROTO_HEX_DUMP(fr_dbuff_current(&sub_in), fr_dbuff_remaining(&sub_in),
 				  "Before decoding extension value");
 
-		if (fr_type_is_octets(uctx.parent_da->type)) {
+		if (uctx.parent_da->flags.is_unknown) {
 			/*
 			 * 	The extension was not found in the dictionary. We will store the value as raw octets
 			 */
@@ -2664,7 +2664,10 @@ static ssize_t fr_der_decode_pair_dbuff(TALLOC_CTX *ctx, fr_pair_list_t *out, fr
 		return 0;
 	}
 
-	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) return -1;
+	if (unlikely(fr_der_decode_hdr(parent, &our_in, &tag, &len) < 0)) {
+		fr_strerror_const_push("Failed decoding header");
+		return -1;
+	}
 
 	FR_PROTO_TRACE("Attribute %s, tag %" PRIu64, parent->name, tag);
 
