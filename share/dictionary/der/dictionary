@@ -13,6 +13,7 @@ BEGIN-PROTOCOL DER
 
 # $INCLUDE ../x509v3/dictionary.extensions
 
+$INCLUDE dictionary.oids
 $INCLUDE dictionary.rfc2986
 
 
