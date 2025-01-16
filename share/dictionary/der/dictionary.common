@@ -13,6 +13,8 @@ END otherName
 ATTRIBUTE rfc822Name    1       ia5string option=1
 ATTRIBUTE dNSName       2       ia5string option=2
 
+ATTRIBUTE uniformResourceIdentifier     6       ia5string option=6
+
 END GeneralName
 
 DEFINE DirectoryName    choice
