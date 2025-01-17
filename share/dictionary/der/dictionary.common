@@ -13,6 +13,17 @@ END otherName
 ATTRIBUTE rfc822Name    1       ia5string option=1
 ATTRIBUTE dNSName       2       ia5string option=2
 
+ATTRIBUTE directoryName 4       sequence  option=4
+BEGIN directoryName
+DEFINE  RDNSequence     sequence        sequence_of=set
+BEGIN RDNSequence
+DEFINE RelativeDistinguishedName        set
+BEGIN RelativeDistinguishedName
+DEFINE AttributeTypeAndValue    group   ref=OID-Tree,is_pair
+END RelativeDistinguishedName
+END RDNSequence
+END directoryName
+
 ATTRIBUTE uniformResourceIdentifier     6       ia5string option=6
 
 END GeneralName
@@ -31,3 +42,14 @@ DEFINE minimum  integer         option=0,has_default
 VALUE minimum   DEFAULT 0
 DEFINE maximum  integer         option=1
 END GeneralSubtree
+
+DEFINE Name     sequence
+BEGIN Name
+DEFINE  RDNSequence     sequence        sequence_of=set
+BEGIN RDNSequence
+DEFINE RelativeDistinguishedName        set
+BEGIN RelativeDistinguishedName
+DEFINE AttributeTypeAndValue    group   ref=OID-Tree,is_pair
+END RelativeDistinguishedName
+END RDNSequence
+END Name
