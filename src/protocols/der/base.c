@@ -521,7 +521,7 @@ static bool attr_valid(fr_dict_attr_t *da)
 
 		uint8_t of_type = fr_der_flag_is_sequence_of(da->parent) ? fr_der_flag_sequence_of(da->parent) : fr_der_flag_set_of(da->parent);
 
-		if (unlikely(fr_type_to_der_tags[da->type][of_type] == false)) {
+		if ((unlikely(of_type != FR_DER_TAG_CHOICE)) && unlikely(fr_type_to_der_tags[da->type][of_type] == false)) {
 			fr_strerror_printf("Attribute %s of type %s is not allowed in a sequence/set-of %s",da->name, fr_type_to_str(da->type), fr_table_str_by_value(table, of_type, "<INVALID>"));
 			return false;
 		}
