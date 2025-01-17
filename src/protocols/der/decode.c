@@ -1109,16 +1109,22 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 			 *	This will be a list of the number of choices, starting at 0.
 			 */
 			fr_dict_attr_t const *choices;
-
-			if (unlikely(!fr_type_is_group(parent->type))) {
+			if (unlikely(!fr_type_is_structural(parent->type))) {
 				fr_strerror_printf("Sequence-of choice found in incompatible attribute %s of type %s",
 						   parent->name, fr_type_to_str(parent->type));
 				talloc_free(vp);
 				return -1;
 			}
 
-			while ((choices = fr_dict_attr_iterate_children(fr_dict_attr_ref(parent), &choices))) {
-				restriction_types[choices->attr] = true;
+			if (fr_type_is_group(parent->type)) {
+				while ((choices = fr_dict_attr_iterate_children(fr_dict_attr_ref(parent), &choices))) {
+					restriction_types[choices->attr] = true;
+				}
+			}
+			else {
+				while ((choices = fr_dict_attr_iterate_children(parent, &choices))) {
+					restriction_types[choices->attr] = true;
+				}
 			}
 		}
 
