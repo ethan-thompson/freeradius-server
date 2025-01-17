@@ -65,6 +65,7 @@ MEMBER  keyCertSign        bit[1]
 MEMBER  cRLSign        bit[1]
 MEMBER  encipherOnly        bit[1]
 MEMBER  decipherOnly        bit[1]
+MEMBER unused_bits        bit[7]
 END 2.5.29.15
 
 ATTRIBUTE subjectAltName        2.5.29.17      group ref=GeneralName,subtype=sequence,sequence_of=choice,is_oid_leaf
@@ -116,23 +117,37 @@ DEFINE cRLIssuer        group   ref=GeneralName,subtype=sequence,sequence_of=cho
 END distributionPoint
 END 2.5.29.31
 
+ATTRIBUTE certificatePolicies      2.5.29.32       sequence        sequence_of=sequence,is_oid_leaf
+BEGIN 2.5.29.32
+DEFINE policyInformation        sequence
+BEGIN policyInformation
+DEFINE policyIdentifier         oid
+
+DEFINE policyQualifiers         sequence        sequence_of=sequence
+BEGIN policyQualifiers
+DEFINE policyQualifierInfo      group           ref=OID-Tree,is_pair
+END policyQualifiers
+
+END policyInformation
+END 2.5.29.32
+
 ATTRIBUTE policyMappings        2.5.29.33       sequence        is_oid_leaf
 BEGIN 2.5.29.33
 DEFINE issuerDomainPolicy       oid
 DEFINE subjectDomainPolicy      oid
 END 2.5.29.33
 
-ATTRIBUTE authorityKeyIdentifier        2.5.29.35       sequence        is_oid_leaf
+ATTRIBUTE authorityKeyIdentifier        2.5.29.35       sequence        sequence_of=choice,is_oid_leaf
 BEGIN 2.5.29.35
-DEFINE keyIdentifier    octetstring  option=0
-DEFINE authorityCertIssuer      group   ref=GeneralName,subtype=sequence,sequence_of=choice,option=1
-DEFINE authorityCertSerialNumber        integer option=2
+ATTRIBUTE keyIdentifier 0    octetstring  option=0
+ATTRIBUTE authorityCertIssuer      1      group   ref=GeneralName,subtype=sequence,sequence_of=choice,option=1
+ATTRIBUTE authorityCertSerialNumber        2        octetstring option=2
 END 2.5.29.35
 
 ATTRIBUTE policyConstraints     2.5.29.36       sequence        is_oid_leaf
 BEGIN 2.5.29.36
-DEFINE requireExplicitPolicy    integer option=0
-DEFINE inhibitPolicyMapping     integer option=1
+DEFINE requireExplicitPolicy    octetstring option=0
+DEFINE inhibitPolicyMapping     octetstring option=1
 END 2.5.29.36
 
 ATTRIBUTE extKeyUsage           2.5.29.37       sequence        sequence_of=oid,is_oid_leaf
