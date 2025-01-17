@@ -297,10 +297,11 @@ static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, 
 		 *	For struct type, we need to encode the struct as a bitstring using the
 		 *	fr_struct_to_network function.
 		 */
-		unsigned int	  depth = 0;
+		unsigned int	  depth = vp->da->depth - 1;
 		fr_da_stack_t	  da_stack;
 		fr_dbuff_t	  work_dbuff = FR_DBUFF(dbuff);
 		fr_dbuff_marker_t unused_bits_marker;
+		uint8_t  	last_byte = 0;
 
 		fr_dbuff_marker(&unused_bits_marker, &work_dbuff);
 		fr_dbuff_advance(&work_dbuff, 1);
@@ -344,10 +345,23 @@ static ssize_t fr_der_encode_bitstring(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, 
 		}
 
 		/*
+		 *	Grab the last octet written to the dbuff and count the number of trailing 0 bits
+		 */
+		if (fr_dbuff_out(&last_byte, &work_dbuff) < 0) {
+			fr_strerror_const("Failed to read last byte");
+			return -1;
+		}
+
+		while ( last_byte != 0 && (last_byte & 0x01) == 0) {
+			unused_bits++;
+			last_byte >>= 1;
+		}
+
+		/*
 		 *	Write the unused bits
 		 */
 		fr_dbuff_set(dbuff, fr_dbuff_current(&unused_bits_marker));
-		fr_dbuff_in(dbuff, unused_bits);
+		fr_dbuff_in_memcpy(dbuff, &unused_bits, 1);
 
 		/*
 		 *	Copy the work dbuff to the output dbuff
@@ -1663,6 +1677,55 @@ static ssize_t fr_der_encode_universal_string(fr_dbuff_t *dbuff, fr_dcursor_t *c
 	return slen;
 }
 
+/** Encode a CHOICE type
+ *
+ * @param[in] dbuff		Buffer to write the encoded data to
+ * @param[in] cursor		Cursor to the pair to encode
+ * @param[in] encode_ctx	Encoding context
+ *
+ * @return	Number of bytes written to the buffer, or -1 on error
+ */
+static ssize_t fr_der_encode_choice(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
+{
+	fr_pair_t const *vp;
+	fr_da_stack_t	      da_stack;
+	fr_dcursor_t	      child_cursor;
+	ssize_t		 slen = 0;
+	unsigned int 	depth = 0;
+
+	vp = fr_dcursor_current(cursor);
+	if (unlikely(vp == NULL)) {
+		fr_strerror_const("No pair to encode choice");
+		return -1;
+	}
+
+	PAIR_VERIFY(vp);
+
+	depth = vp->da->depth - 1;
+
+	fr_proto_da_stack_build(&da_stack, vp->da);
+
+	FR_PROTO_STACK_PRINT(&da_stack, depth);
+
+	fr_pair_dcursor_child_iter_init(&child_cursor, &vp->children, cursor);
+
+	do {
+		ssize_t len_count;
+
+		len_count = fr_pair_cursor_to_network(dbuff, &da_stack, depth, &child_cursor, encode_ctx,
+							encode_pair);
+		if (unlikely(len_count < 0)) {
+			fr_strerror_printf("Failed to encode pair: %s", fr_strerror());
+			return -1;
+		}
+
+		slen += len_count;
+
+	} while (fr_dcursor_next(&child_cursor));
+
+	return slen;
+}
+
 static ssize_t fr_der_encode_X509_extensions(fr_dbuff_t *dbuff, fr_dcursor_t *cursor, fr_der_encode_ctx_t *encode_ctx)
 {
 	fr_dbuff_marker_t marker, outer_seq_len_start;
@@ -2224,6 +2287,12 @@ static ssize_t encode_value(fr_dbuff_t *dbuff, UNUSED fr_da_stack_t *da_stack, U
 			fr_dcursor_next(cursor);
 			return 0;
 		}
+	}
+
+	if (unlikely(fr_der_flag_is_choice(vp->da))) {
+		slen = fr_der_encode_choice(&our_dbuff, cursor, uctx);
+		if (slen < 0) return slen;
+		return fr_dbuff_set(dbuff, &our_dbuff);
 	}
 
 	tag_num = fr_der_flag_subtype(vp->da) ? fr_der_flag_subtype(vp->da) : fr_type_to_der_tag_default(vp->vp_type);
