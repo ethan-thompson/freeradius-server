@@ -11,8 +11,6 @@
 PROTOCOL	DER		11354911
 BEGIN-PROTOCOL DER
 
-# $INCLUDE ../x509v3/dictionary.extensions
-
 $INCLUDE dictionary.test
 $INCLUDE dictionary.common
 $INCLUDE dictionary.oids
