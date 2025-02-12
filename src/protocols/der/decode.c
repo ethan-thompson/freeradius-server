@@ -690,7 +690,7 @@ static ssize_t fr_der_decode_oid_to_da(uint64_t subidentifier, void *uctx, bool 
 		 *	We need to create an unknown attribute for this subidentifier so we can store the raw data
 		 */
 		fr_dict_attr_t *unknown_da =
-			fr_dict_attr_unknown_typed_afrom_num(NULL, parent_da, subidentifier, FR_TYPE_TLV);
+			fr_dict_attr_unknown_typed_afrom_num(decode_ctx->ctx, parent_da, subidentifier, FR_TYPE_TLV);
 
 		if (unlikely(unknown_da == NULL)) {
 		oom:
