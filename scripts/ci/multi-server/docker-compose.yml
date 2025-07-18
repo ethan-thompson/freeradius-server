@@ -1,0 +1,63 @@
+networks:
+  default:
+    name: default_network
+services:
+  freeradius:
+    command: radiusd -X
+    container_name: freeradius
+    depends_on:
+    - mariadb
+    entrypoint:
+    - bash
+    - -c
+    - 'ln -sf /etc/raddb/mods-available/json /etc/raddb/mods-enabled/json
+
+      ln -sf /etc/raddb/mods-available/sql /etc/raddb/mods-enabled/sql
+
+      exec /docker-entrypoint.sh "$@"
+
+      '
+    image: fr-build-ubuntu22
+    ports:
+    - 1812:1812/udp
+    - 1813:1813/udp
+    restart: unless-stopped
+    volumes:
+    - /home/ethompson/devel/freeradius-server/scripts/ci/multi-server/raddb/trigger.conf:/etc/raddb/trigger.conf
+    - /home/ethompson/devel/freeradius-server/scripts/ci/multi-server/raddb/radiusd.conf:/etc/raddb/radiusd.conf
+    - /home/ethompson/devel/freeradius-server/scripts/ci/multi-server/raddb/clients.conf:/etc/raddb/clients.conf
+    - /home/ethompson/devel/freeradius-server/scripts/ci/multi-server/raddb/mods-available/linelog:/etc/raddb/mods-available/linelog
+    - /home/ethompson/devel/freeradius-server/scripts/ci/multi-server/raddb/mods-available/sql:/etc/raddb/mods-available/sql
+    - /home/ethompson/devel/freeradius-server/scripts/ci/multi-server/raddb/mods-config/files/authorize:/etc/raddb/mods-config/files/authorize
+    - /home/ethompson/devel/freeradius-server/scripts/ci/multi-server/raddb/sites-available/default:/etc/raddb/sites-available/default
+    - /var/run/multi-test/test.sock:/var/run/test.sock
+  mariadb:
+    container_name: mariadb
+    environment:
+      MYSQL_DATABASE: radius
+      MYSQL_PASSWORD: radpass
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_USER: radius
+    image: mariadb:10.5
+    restart: unless-stopped
+    volumes:
+    - /home/ethompson/devel/freeradius-server/scripts/ci/multi-server/mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql
+  radius-client:
+    build:
+      context: .
+      dockerfile_inline: 'FROM ubuntu:22.04
+
+        RUN apt-get update && apt-get install -y freeradius-utils wait-for-it && apt-get
+        clean
+
+        '
+    command:
+    - bash
+    - -c
+    - wait-for-it freeradius:1812 -t 30 -- echo 'testpass' | radtest testuser testpass
+      freeradius 0 testing123 || true
+    depends_on:
+    - freeradius
+    restart: 'no'
+    stop_grace_period: 2s
+    tty: false
