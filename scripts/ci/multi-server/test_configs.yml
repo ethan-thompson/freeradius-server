@@ -1,0 +1,24 @@
+state_order: (sequence|random)
+states:
+  <state_name>:
+    host:
+      <host_name>:
+        command:
+        - <cmd0>
+        - <cmd1>
+        - <cmdN>
+        interfaces:
+          <network_id>:
+            packet_delay_ms: 150
+            packet_loss_percent: 50
+    verify:
+      timeout: <how long to wait for all triggers to be received>
+      trigger_mode: (ordered|unordered)
+      triggers:
+      - <trigger_id>:
+          <arg0>: <value0>
+          <arg1>: null
+          <arg2>: null
+          high: <high_value>
+          low: <low_value>
+          pattern: <regex>

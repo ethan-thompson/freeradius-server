@@ -1,0 +1,98 @@
+{% set image_name = "ubuntu:22.04" %}
+{% set network_id = "default_network" %}
+{% set remote_unix_socket_path = "/var/run/test.sock" %}
+{% set local_unix_socket_path = "/var/run/multi-test/test.sock" %}
+{% set local_raddb_path = "/home/ethompson/devel/freeradius-server/scripts/ci/multi-server/raddb" %}
+{% set local_mariadb_path = "/home/ethompson/devel/freeradius-server/scripts/ci/multi-server/mariadb" %}
+
+{% set modules = [
+    "json",
+    "sql",
+] %}
+
+fixtures:
+  networks:
+    default:
+        name: {{ network_id }}
+  hosts:
+    mariadb:
+        image: mariadb:10.5
+        container_name: mariadb
+        environment:
+            MYSQL_ROOT_PASSWORD: rootpass
+            MYSQL_DATABASE: radius
+            MYSQL_USER: radius
+            MYSQL_PASSWORD: radpass
+        restart: unless-stopped
+        volumes:
+            - {{ local_mariadb_path }}/init.sql:/docker-entrypoint-initdb.d/init.sql
+    freeradius:
+        image: fr-build-ubuntu22
+        container_name: freeradius
+        depends_on:
+            - mariadb
+        ports:
+            - "1812:1812/udp"
+            - "1813:1813/udp"
+        volumes:
+            {%- for root, dirs, files in os.walk(local_raddb_path) %}
+              {%- for file in files %}
+              {%- set abs_path = root + '/' + file %}
+              {%- set rel_path = abs_path | replace(local_raddb_path + '/', '') %}
+            - {{ abs_path }}:/etc/raddb/{{ rel_path }}
+              {%- endfor %}
+            {%- endfor %}
+            - {{ local_unix_socket_path }}:{{ remote_unix_socket_path }}
+        command: radiusd -X
+        restart: unless-stopped
+        entrypoint:
+          - "bash"
+          - "-c"
+          - |
+            {%- for module in modules %}
+            ln -sf /etc/raddb/mods-available/{{ module }} /etc/raddb/mods-enabled/{{ module }}
+            {%- endfor %}
+            exec /docker-entrypoint.sh "$@"
+
+    radius-client:
+        build:
+            context: .
+            dockerfile_inline: |
+                FROM {{ image_name }}
+                RUN apt-get update && apt-get install -y freeradius-utils wait-for-it && apt-get clean
+        depends_on:
+            - freeradius
+        tty: false
+        restart: "no"
+        stop_grace_period: 2s
+        command: ["bash", "-c", "wait-for-it freeradius:1812 -t 30 -- echo 'testpass' | radtest testuser testpass freeradius 0 testing123 || true"]
+
+state_order: (sequence|random)
+states:
+  # Test name
+  <state_name>:
+    host:
+      <host_name>:
+        # Commands to execute as we transition state
+        command:
+          - <cmd0>
+          - <cmd1>
+          - <cmdN>
+        interfaces:
+          <network_id>:
+            packet_loss_percent: 50
+            packet_delay_ms: 150
+    verify:
+      timeout: <how long to wait for all triggers to be received>
+
+      # Ordered, triggers must fire in order
+      # Unordered, triggers can fire in any order, so long as they're all observed
+      trigger_mode: (ordered|unordered)
+      triggers:
+        - <trigger_id>:
+            <arg0>: <value0>
+            <arg1>:
+            pattern: <regex>
+            <arg2>:
+            low: <low_value>
+            high: <high_value>
