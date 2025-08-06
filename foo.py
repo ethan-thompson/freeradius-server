@@ -102,6 +102,28 @@ async def unix_server(
         logger.info("Unix server is running...")
         await server.serve_forever()
 
+async def cleanup_and_shutdown() -> None:
+    """
+    Clean up the tasks by cancelling them all and waiting for them to finish.
+    """
+    logger.info("Shutting down the tests...")
+    logger.debug("Cleaning up tasks and shutting down the event loop...")
+    tasks = [
+        task
+        for task in asyncio.all_tasks()
+        if task is not asyncio.current_task()
+    ]
+    for task in tasks:
+        task.cancel()
+    await asyncio.gather(*tasks, return_exceptions=True)
+
+    logger.debug("Cleanup completed.")
+
+    logger.debug("Stopping the event loop...")
+    # Stop the event loop if it's running
+    if asyncio.get_event_loop().is_running():
+        asyncio.get_event_loop().stop()
+    logger.debug("Event loop stopped.")
 
 def main():
     loop = asyncio.get_event_loop()
@@ -120,7 +142,10 @@ def main():
             loop.stop()
 
         for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, shutdown)
+            loop.add_signal_handler(
+                sig, lambda: asyncio.create_task(cleanup_and_shutdown())
+            )
+
 
         loop.run_forever()
     except Exception as e:

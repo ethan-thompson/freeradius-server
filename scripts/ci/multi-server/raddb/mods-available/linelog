@@ -9,30 +9,51 @@ linelog {
         }
 
         pool {
-                start = 0
+                start = 1
                 min = 0
-                spare = 1
+                spare = 2
                 uses = 0
                 retry_delay = 30
                 lifetime = 0
                 idle_timeout = 60
+        }
+
+        unix {
+                filename = "/var/run/test.sock"
+                pool = ${..pool}
         }
 }
+
+linelog log_stdout {
+        destination = stdout
+        format = "foo"
+}
+
 linelog log_unix_sock {
         destination = unix
-        format = "RADIUS log: %{User-Name} -> %{reply.Packet-Type}"
+        # format = "RADIUS log: %{User-Name} -> %{reply.Packet-Type}"
+        format = "bar"
+        # format = "Trigger from %{radiusModuleName} instance %{radiusModuleInstance}"
+        # reference = "messages.%{radiusModuleName || 'default'}"
+
+        #messages {
+        #        default = "This is a default message"
+
+        #        sql = "SQL trigger"
+        #        server = "Server trigger"
+        #}
 
         pool {
-                start = 0
+                start = 1
                 min = 0
-                spare = 1
+                spare = 2
                 uses = 0
                 retry_delay = 30
                 lifetime = 0
                 idle_timeout = 60
         }
 
-        unix{
+        unix {
                 filename = "/var/run/test.sock"
                 pool = ${..pool}
         }

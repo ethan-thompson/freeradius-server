@@ -1274,7 +1274,7 @@ send Access-Accept {
 	#  See `mods-enabled/linelog` for message formats and destinations.
 	#
 #	log_auth_access_accept
-        log_unix_sock
+#        log_unix_sock
 
 	#
 	#  Remove `Reply-Message` if the response contains an
@@ -1320,7 +1320,7 @@ send Access-Reject {
 	#  See `mods-enabled/linelog` for message formats and destinations.
 	#
 #	log_auth_access_reject
-        log_unix_sock
+#        log_unix_sock
 
 	#
 	#  Remove `Reply-Message` if the response contains an

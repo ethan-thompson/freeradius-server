@@ -4,6 +4,7 @@ networks:
 services:
   freeradius:
     command: radiusd -X
+    # command: tail -f /dev/null
     container_name: freeradius
     depends_on:
     - mariadb
@@ -39,6 +40,8 @@ services:
       MYSQL_ROOT_PASSWORD: rootpass
       MYSQL_USER: radius
     image: mariadb:10.5
+    ports:
+    - 3307:3306
     restart: unless-stopped
     volumes:
     - /home/ethompson/devel/freeradius-server/scripts/ci/multi-server/mariadb/init.sql:/docker-entrypoint-initdb.d/init.sql
