@@ -12,6 +12,8 @@ from pathlib import Path
 
 from python_on_whales import DockerClient
 from termcolor import colored
+DEBUG_LEVEL = 0
+VERBOSE_LEVEL = 0
 
 # Add a log handler for the INFO level
 info_handler = logging.StreamHandler(sys.stdout)
@@ -279,8 +281,15 @@ def parse_args(args=None, prog=__package__) -> argparse.Namespace:
         "--debug",
         "-x",
         dest="debug",
-        action="store_true",
+        action="count",
         help="Enable debug logging.",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        dest="verbose",
+        action="count",
+        help="Enable verbose logging.",
     )
     return parser.parse_args(args)
 
@@ -291,6 +300,11 @@ if __name__ == "__main__":
     if parsed_args.debug:
         logging.getLogger(__name__).setLevel(logging.DEBUG)
         logger.addHandler(not_info_handler)
-        print("Debug mode enabled.")
+        DEBUG_LEVEL = parsed_args.debug
+        logger.info("Debug mode enabled. Debug level: %d", DEBUG_LEVEL)
+
+    if parsed_args.verbose:
+        VERBOSE_LEVEL = parsed_args.verbose
+        logger.info("Verbose mode enabled. Verbose level: %d", VERBOSE_LEVEL)
 
     main(compose_file=parsed_args.compose_file)
