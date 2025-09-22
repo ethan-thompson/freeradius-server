@@ -18,6 +18,27 @@ import yaml
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+class NoQuotedMergeDumper(yaml.SafeDumper):
+    """
+    Custom YAML dumper that avoids quoting merge keys (<<).
+    """
+
+
+def no_quoted_merge_key(dumper, data):
+    """
+    Custom representer to avoid quoting merge keys (<<).
+    """
+    if data == "<<":
+        return dumper.represent_scalar(
+            "tag:yaml.org,2002:merge", data, style=""
+        )
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+# Register the custom representer
+NoQuotedMergeDumper.add_representer(str, no_quoted_merge_key)
+
+
 def _parse_config(config: dict) -> Tuple[dict, dict]:
     """
     Parses a configuration dictionary and separates the compose and test configurations.
@@ -30,13 +51,24 @@ def _parse_config(config: dict) -> Tuple[dict, dict]:
     """
     compose_configs = {}
     other_configs = {}
+
+    # Start by adding the default capabilities to the compose configs
+    default_capabilities = {"cap_add": ["NET_ADMIN"]}
+
+    compose_configs["x-common-config"] = default_capabilities
+
     for key, value in config.items():
         if key.startswith("fixtures"):
             for compose_key, compose_value in value.items():
                 if compose_key.startswith(tuple(["services", "hosts"])):
-                    compose_configs["services"] = compose_value
+                    # compose_configs["services"] = compose_value
+                    updated_services = {}
+                    for service_name, service_config in compose_value.items():
+                        service_config["<<"] = default_capabilities
+                        updated_services[service_name] = service_config
+                    compose_configs["services"] = updated_services
                 else:
-                    compose_configs[compose_key] = compose_value
+                    compose_configs["services"] = compose_value
         else:
             other_configs[key] = value
 
@@ -83,11 +115,23 @@ def generate_config_files(
 
     # Write the compose configurations to docker-compose.yml
     with open(compose_output, "w", encoding="utf-8") as compose_file:
-        yaml.dump(compose_configs, compose_file, default_flow_style=False)
+        yaml.dump(
+            compose_configs,
+            compose_file,
+            default_flow_style=False,
+            sort_keys=False,
+            Dumper=NoQuotedMergeDumper,
+        )
 
     # Write the other configurations to test-config.yml
     with open(test_output, "w", encoding="utf-8") as test_config_file:
-        yaml.dump(other_configs, test_config_file, default_flow_style=False)
+        yaml.dump(
+            other_configs,
+            test_config_file,
+            default_flow_style=False,
+            sort_keys=False,
+            Dumper=NoQuotedMergeDumper,
+        )
 
 
 def parse_args(args=None, prog=__package__) -> argparse.Namespace:
