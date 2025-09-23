@@ -11,7 +11,15 @@ import sys
 from pathlib import Path
 
 from python_on_whales import DockerClient
-from termcolor import colored
+
+from events import (
+    NetworkEvents,
+    RADIUSEvents,
+    CommandEvents,
+)  # pylint: disable=import-error
+
+from state import State  # pylint: disable=import-error
+
 DEBUG_LEVEL = 0
 VERBOSE_LEVEL = 0
 
@@ -38,7 +46,7 @@ logger.addHandler(info_handler)
 async def handle_client(
     reader: asyncio.StreamReader,
     writer: asyncio.StreamWriter,
-    validation_func: callable = None,
+    msg_queue: asyncio.Queue,
 ) -> None:
     """
     Handles incoming client connections and processes messages.
@@ -46,7 +54,7 @@ async def handle_client(
     Args:
         reader (asyncio.StreamReader): Reader for the incoming data.
         writer (asyncio.StreamWriter): Writer for sending responses.
-        validation_func (callable, optional): Function to validate incoming messages.
+        msg_queue (asyncio.Queue, optional): Queue to put received messages into.
     """
     logger.debug("Client connected.")
     try:
@@ -54,19 +62,9 @@ async def handle_client(
         message = data.decode().strip()
         logger.debug("Received message: %s", message)
 
-        result = validation_func(message) if validation_func else True
+        trigger_name, trigger_value = message.split(" ", 1)
 
-        logger.info(
-            "Message validation result: %s",
-            colored(
-                "PASSED" if result else "FAILED", "green" if result else "red"
-            ),
-        )
-
-        if result:
-            logger.info("Message validation passed.")
-        else:
-            logger.error("Message validation failed.")
+        msg_queue.put_nowait((trigger_name, trigger_value))
 
     except Exception as e:
         logger.error("Error handling client: %s", e)
@@ -78,7 +76,7 @@ async def handle_client(
 
 async def unix_server(
     socket_path: Path,
-    validation_func: callable = None,
+    msg_queue: asyncio.Queue,
     ready_future: asyncio.Future = None,
 ) -> None:
     """
@@ -95,7 +93,7 @@ async def unix_server(
 
     try:
         server = await asyncio.start_unix_server(
-            lambda r, w: handle_client(r, w, validation_func),
+            lambda r, w: handle_client(r, w, msg_queue),
             path=str(socket_path),
         )
 
@@ -119,7 +117,10 @@ async def unix_server(
 async def run_tests(
     compose_file: Path,
     ready_future: asyncio.Future,
-    validated_result: asyncio.Future,
+    test_timeout: float,
+    msg_queue: asyncio.Queue,
+    states: list[State],
+    loop: asyncio.AbstractEventLoop,
 ) -> None:
     """
     Runs tests in a multi-server setup using Docker Compose.
@@ -127,7 +128,10 @@ async def run_tests(
     Args:
         compose_file (Path): Path to the Docker Compose file.
         ready_future (asyncio.Future): Future to signal when the server is ready.
-        validated_result (asyncio.Future): Future to signal when the validation is complete.
+        test_timeout (float): Timeout for the entire test run.
+        msg_queue (asyncio.Queue): Queue to receive messages from the server.
+        states (list[State]): List of states to process during the test.
+        loop (asyncio.AbstractEventLoop): The event loop to use.
     """
     if not ready_future.done():
         logger.debug("Waiting for server to be ready...")
@@ -140,38 +144,72 @@ async def run_tests(
     client.compose.build(quiet=True)
 
     # Start the Docker Compose services
-    client.compose.up(detach=True)
+    client.compose.up(detach=True, quiet=True)
+
+    # Set the teardown when the test is finished
+    def teardown_containers() -> None:
+        logger.info("Tearing down Docker Compose services...")
+        client.compose.down(quiet=True)
+        logger.info("Docker Compose services stopped.")
+
+    test_finished = loop.create_future()
+    test_finished.add_done_callback(lambda _: teardown_containers())
+
+    # Setup the teardown in case of timeout
+    def on_timeout() -> None:
+        logger.info("Test timeout reached.")
+        if not test_finished.done():
+            test_finished.set_result(True)
+
+    loop.call_later(test_timeout, on_timeout)
 
     logger.info("Docker Compose services started.")
 
-    # # Run the test command
-    # command = (
-    #     "echo 'testpass' | radtest testuser testpass freeradius 0 testing123 | socat - UNIX-CONNECT:%s"
-    #     % output_socket
-    # )
+    logger.info("Waiting for services to initialize...")
+    await asyncio.sleep(2)
 
-    # logger.info("Running command: %s", command)
+    logger.info("Running simulated tests...")
 
-    # # Execute the command in the Docker container
-    # try:
-    #     client.compose.execute(
-    #         service="radius-client",
-    #         command=["bash", "-c", command],
-    #         tty=False,
-    #         detach=True,
-    #     )
+    validation_task: asyncio.Task = None
+    for state in states:
+        logger.debug("Processing next state...")
+        logger.debug("Entering state with %d actions.", len(state.actions))
 
-    #     logger.info("Command executed successfully.")
-    # except DockerException as e:
-    #     logger.info("Command execution failed: %s", e)
+        # Register new validator for state
+        # First, clear the message queue
+        logger.debug("Clearing message queue...")
+        while not msg_queue.empty():
+            msg_queue.get_nowait()
 
-    # Wait for the validation to complete
-    logger.debug("Waiting for validation to complete...")
-    await validated_result
+        # Next, setup the validator to use the message queue
+        logger.debug("Setting up validator for state...")
+        if validation_task:
+            # Swap out the previous validation task
+            validation_task.cancel()
+            try:
+                await validation_task
+            except asyncio.CancelledError:
+                pass
+        validation_task = loop.create_task(
+            state.validator.start_validating(msg_queue)
+        )
 
-    # Clean up the Docker Compose services
-    client.compose.down()
-    logger.info("Docker Compose services stopped.")
+        # Enter the state
+        logger.debug("Entering state...")
+        state.enter_state()
+
+        # Wait for the state to complete
+        logger.debug("Waiting for state to complete...")
+        await state.wait_for_completion()
+        logger.debug("State completed.")
+        # end_test.set_result(True)
+
+        # Print the validation results
+        logger.info(state.validator.get_results_str(VERBOSE_LEVEL))
+
+    if not test_finished.done():
+        # Set the test as finished and trigger the teardown callback
+        test_finished.set_result(True)
 
 
 async def cleanup_and_shutdown() -> None:
@@ -198,6 +236,54 @@ async def cleanup_and_shutdown() -> None:
     logger.debug("Event loop stopped.")
 
 
+def generate_states(loop: asyncio.AbstractEventLoop) -> list[State]:
+    """
+    Generate a list of states for testing.
+
+    Args:
+        loop (asyncio.AbstractEventLoop): The event loop to use.
+
+    Returns:
+        list[State]: List of states to be used in the test.
+    """
+    return [
+        State(
+            actions=[
+                lambda: RADIUSEvents.access_request(
+                    source="radius-client",
+                    target="freeradius",
+                    secret="testing123",
+                    username="testuser",
+                    password="testpass",
+                )
+            ],
+            rules_map={"request_sent": [r"(\w+) request sent"]},
+            loop=loop,
+        ),
+        State(
+            actions=[
+                lambda: NetworkEvents.packet_loss(
+                    targets=["freeradius"],
+                    interface="eth0",
+                    loss=100.00,
+                ),
+                lambda: RADIUSEvents.access_request(
+                    source="radius-client",
+                    target="freeradius",
+                    secret="testing123",
+                    username="testuser",
+                    password="testpass",
+                ),
+            ],
+            rules_map={
+                "request_sent": [r"(\w+) request sent"],
+                "request_state_failed": [r"(\w+) request failed."],
+            },
+            loop=loop,
+        ),
+    ]
+
+
 def main(compose_file: Path) -> None:
     """
     Main function to run the multi-server tests.
@@ -208,24 +294,17 @@ def main(compose_file: Path) -> None:
     # Run a test in an asynchronous event loop
     loop = asyncio.get_event_loop()
 
+    # TODO: Pull this from the config
+    timeout = 40
+
     try:
         # Set up the Unix server
         output_socket = Path("/var/run/multi-test/test.sock")
         ready_future = loop.create_future()
-        validated_result = loop.create_future()
 
-        def validation_func(message: str) -> bool:
-            """
-            Example validation function that checks if the message contains 'testpass'.
-            """
-            try:
-                return "Access-Accept" in message
-            finally:
-                validated_result.set_result(True)
+        msg_queue: asyncio.Queue = asyncio.Queue()
 
-        loop.create_task(
-            unix_server(output_socket, validation_func, ready_future)
-        )
+        loop.create_task(unix_server(output_socket, msg_queue, ready_future))
 
         # Add a signal handler to gracefully handle shutdown
         for sig in (signal.SIGINT, signal.SIGTERM):
@@ -233,9 +312,13 @@ def main(compose_file: Path) -> None:
                 sig, lambda: asyncio.create_task(cleanup_and_shutdown())
             )
 
+        states = generate_states(loop)
+
         # Run the tests
         test_task = loop.create_task(
-            run_tests(compose_file, ready_future, validated_result)
+            run_tests(
+                compose_file, ready_future, timeout, msg_queue, states, loop
+            )
         )
 
         # Start the shutdown when the test completes
