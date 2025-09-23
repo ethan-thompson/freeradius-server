@@ -53,7 +53,7 @@ def _parse_config(config: dict) -> Tuple[dict, dict]:
     other_configs = {}
 
     # Start by adding the default capabilities to the compose configs
-    default_capabilities = {"cap_add": ["NET_ADMIN"]}
+    default_capabilities = {"cap_add": ["NET_ADMIN", "SYS_PTRACE"]}
 
     compose_configs["x-common-config"] = default_capabilities
 
