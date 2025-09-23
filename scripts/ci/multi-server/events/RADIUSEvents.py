@@ -3,6 +3,9 @@
 from typing import Union
 from python_on_whales import Container, docker
 
+import logging
+logger = logging.getLogger("__main__")
+
 ValidContainer = Union[Container, str]
 
 def access_request(
@@ -22,6 +25,12 @@ def access_request(
     Raises:
         python_on_whales.exceptions.NoSuchContainer: If the container does not exist.
     """
+    logger.debug(
+        "Sending RADIUS access request from %s to %s for user %s",
+        source,
+        target,
+        username,
+    )
     command = f"echo {password} | radtest {username} {password} {target} 0 {secret} || true"
 
     docker.execute(source, ["bash", "-c", command], detach=True)
