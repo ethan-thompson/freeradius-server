@@ -58,13 +58,14 @@ async def handle_client(
     """
     logger.debug("Client connected.")
     try:
-        data = await reader.readuntil(b"\n")
-        message = data.decode().strip()
-        logger.debug("Received message: %s", message)
+        while True:
+            data = await reader.readuntil(b"\n")
+            message = data.decode().strip()
+            logger.debug("Received message: %s", message)
 
-        trigger_name, trigger_value = message.split(" ", 1)
+            trigger_name, trigger_value = message.split(" ", 1)
 
-        msg_queue.put_nowait((trigger_name, trigger_value))
+            msg_queue.put_nowait((trigger_name, trigger_value))
 
     except Exception as e:
         logger.error("Error handling client: %s", e)
