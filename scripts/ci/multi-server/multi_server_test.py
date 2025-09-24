@@ -8,6 +8,7 @@ import argparse
 import logging
 import signal
 import sys
+import yaml
 from pathlib import Path
 
 from python_on_whales import DockerClient
@@ -237,6 +238,97 @@ async def cleanup_and_shutdown() -> None:
     logger.debug("Event loop stopped.")
 
 
+def parse_test_configs(config_file: Path) -> list[dict]:
+    """
+    Parse the test configuration file.
+
+    Args:
+        config_file (Path): Path to the configuration file.
+
+    Returns:
+        list[dict]: List of state configurations. Each state configuration is a dictionary with keys:
+            - name (str): Name of the state.
+            - description (str): Description of the state.
+            - timeout (int): Timeout for the state.
+            - actions (list[callable]): List of actions to perform in the state.
+            - rules_map (dict): Mapping of triggers to validation patterns.
+    """
+
+    logger.info("Parsing test configuration file: %s", config_file)
+
+    # Verify the file exists
+    if not config_file.exists():
+        logger.error("Configuration file does not exist: %s", config_file)
+        return []
+
+    # TODO: Build this automatically
+    known_actions = {
+        "access_request": RADIUSEvents.access_request,
+        "network_disconnect": NetworkEvents.disconnect,
+        "network_reconnect": NetworkEvents.reconnect,
+        "packet_loss": NetworkEvents.packet_loss,
+        "execute_command": CommandEvents.run_command,
+        "command": CommandEvents.run_command,
+    }
+
+    raw_configs = {}
+
+    with open(config_file, "r", encoding="utf-8") as f:
+        raw_configs = yaml.safe_load(f)
+
+    configs = []
+    for state_name, state in raw_configs.get("states", {}).items():
+        state_config = {}
+
+        state_config["name"] = state_name
+        state_config["description"] = state.get("description", "")
+        state_config["timeout"] = state.get("verify", []).get("timeout", 15)
+
+        # Parse the actions
+        actions = []
+        for host, host_config in state.get("host", {}).items():
+            for action in host_config.get("actions", []):
+                action_name = list(action.keys())[0]
+                if action_name not in known_actions:
+                    logger.warning("Unknown action: %s", action_name)
+                    continue
+
+                action_func = known_actions[action_name]
+
+                # Build the action with its parameters
+                def build_action(func, params, host):
+                    # if the function takes a source parameter, add it
+                    if "source" in func.__code__.co_varnames:
+                        params["source"] = host
+
+                    return lambda: func(**params)
+
+                action_params = action.get(action_name, {})
+                actions.append(build_action(action_func, action_params, host))
+
+        # Parse the rules map
+        # TODO: Handle ordered vs unordered triggers
+        # trigger_mode = state.get("verify", {}).get("trigger_mode", "unordered")
+        rules_map = {}
+        for trigger in state.get("verify", {}).get("triggers", []):
+            trigger_name = list(trigger.keys())[0]
+            pattern = trigger.get(trigger_name, {}).get("pattern", None)
+            if not pattern:
+                logger.warning("No pattern for trigger: %s", trigger_name)
+                continue
+
+            if trigger_name not in rules_map:
+                rules_map[trigger_name] = []
+
+            rules_map[trigger_name].append(pattern)
+
+        state_config["actions"] = actions
+        state_config["rules_map"] = rules_map
+
+        configs.append(state_config)
+    return configs
+
+
 def generate_states(loop: asyncio.AbstractEventLoop) -> list[State]:
     """
     Generate a list of states for testing.
@@ -247,42 +339,53 @@ def generate_states(loop: asyncio.AbstractEventLoop) -> list[State]:
     Returns:
         list[State]: List of states to be used in the test.
     """
-    return [
-        State(
-            actions=[
-                lambda: RADIUSEvents.access_request(
-                    source="radius-client",
-                    target="freeradius",
-                    secret="testing123",
-                    username="testuser",
-                    password="testpass",
-                )
-            ],
-            rules_map={"request_sent": [r"(\w+) request sent"]},
-            loop=loop,
-        ),
-        State(
-            actions=[
-                lambda: NetworkEvents.packet_loss(
-                    targets=["freeradius"],
-                    interface="eth0",
-                    loss=100.00,
-                ),
-                lambda: RADIUSEvents.access_request(
-                    source="radius-client",
-                    target="freeradius",
-                    secret="testing123",
-                    username="testuser",
-                    password="testpass",
-                ),
-            ],
-            rules_map={
-                "request_sent": [r"(\w+) request sent"],
-                "request_state_failed": [r"(\w+) request failed."],
-            },
-            loop=loop,
-        ),
-    ]
+    # return [
+    #     State(
+    #         actions=[
+    #             lambda: RADIUSEvents.access_request(
+    #                 source="radius-client",
+    #                 target="freeradius",
+    #                 secret="testing123",
+    #                 username="testuser",
+    #                 password="testpass",
+    #             )
+    #         ],
+    #         rules_map={"request_sent": [r"(\w+) request sent"]},
+    #         loop=loop,
+    #     ),
+    #     State(
+    #         actions=[
+    #             lambda: NetworkEvents.packet_loss(
+    #                 targets=["freeradius"],
+    #                 interface="eth0",
+    #                 loss=100.00,
+    #             ),
+    #             lambda: RADIUSEvents.access_request(
+    #                 source="radius-client",
+    #                 target="freeradius",
+    #                 secret="testing123",
+    #                 username="testuser",
+    #                 password="testpass",
+    #             ),
+    #         ],
+    #         rules_map={
+    #         },
+    #         loop=loop,
+    #     ),
+    # ]
+    config_file = Path(__file__).parent / "test_configs.yml"
+    state_configs = parse_test_configs(config_file)
+    states = []
+    for state_config in state_configs:
+        states.append(
+            State(
+                actions=state_config.get("actions", []),
+                rules_map=state_config.get("rules_map", {}),
+                timeout=state_config.get("timeout", 15),
+                loop=loop,
+            )
+        )
+    return states
 
 
 def main(compose_file: Path) -> None:
