@@ -47,7 +47,7 @@ class State:
             self.timeout,
         )
 
-    def enter_state(self) -> None:
+    async def enter_state(self) -> None:
         """
         Enter the state and execute all actions.
         """
@@ -65,7 +65,8 @@ class State:
 
         for action in self.actions:
             logger.debug("Executing action: %s", action.__name__)
-            action()
+
+            await loop.run_in_executor(None, action)
 
     async def wait_for_completion(self) -> None:
         """
