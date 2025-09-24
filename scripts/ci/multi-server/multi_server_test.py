@@ -174,7 +174,7 @@ async def run_tests(
 
     validation_task: asyncio.Task = None
     for state in states:
-        logger.debug("Processing next state...")
+        logger.debug("Processing state: %s - %s", state.name, state.description)
         logger.debug("Entering state with %d actions.", len(state.actions))
 
         # Register new validator for state
@@ -379,6 +379,8 @@ def generate_states(loop: asyncio.AbstractEventLoop) -> list[State]:
     for state_config in state_configs:
         states.append(
             State(
+                name=state_config.get("name", "Unnamed State"),
+                description=state_config.get("description", ""),
                 actions=state_config.get("actions", []),
                 rules_map=state_config.get("rules_map", {}),
                 timeout=state_config.get("timeout", 15),
