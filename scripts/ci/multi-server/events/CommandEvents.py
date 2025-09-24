@@ -7,7 +7,7 @@ ValidContainer = Union[Container, str]
 
 
 def run_command(
-    container: ValidContainer,
+    source: ValidContainer,
     command: str,
     detach: bool = False,
 ) -> None:
@@ -22,4 +22,4 @@ def run_command(
     Raises:
         python_on_whales.exceptions.NoSuchContainer: If the container does not exist.
     """
-    docker.execute(container, ["bash", "-c", command], detach=detach)
+    docker.execute(source, ["bash", "-c", command], detach=detach)
