@@ -1,6 +1,7 @@
 """A state class to manage the state of the multi-server test environment."""
 
 import asyncio
+from collections.abc import Callable
 import logging
 from Validator import Validator  # pylint: disable=import-error
 
@@ -22,7 +23,8 @@ class State:
         timeout: int = 15,
         loop: asyncio.AbstractEventLoop | None = None,
     ) -> None:
-        self.actions = actions if actions is not None else []
+        # actions is a list of callables that take no arguments and return None
+        self.actions: list[Callable[[], None]] = actions if actions is not None else []
 
         self.timeout = timeout
         self._timeout_handle = None
