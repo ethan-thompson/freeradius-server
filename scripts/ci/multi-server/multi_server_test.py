@@ -197,7 +197,7 @@ async def run_tests(
 
         # Enter the state
         logger.debug("Entering state...")
-        state.enter_state()
+        await state.enter_state()
 
         # Wait for the state to complete
         logger.debug("Waiting for state to complete...")
