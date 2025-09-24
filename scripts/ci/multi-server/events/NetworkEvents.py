@@ -52,7 +52,7 @@ def reconnect(network: ValidNetwork, targets: list[ValidContainer]) -> None:
 
 # TODO: the interface that tc operates on may be different for different containers
 #       we may need to pass that in as an argument or determine it dynamically
-def packet_loss(targets: list[ValidContainer], interface: str, loss: float) -> None:
+def packet_loss(source: ValidContainer, interface: str, loss: float) -> None:
     """
     Simulate packet loss on specified containers.
 
@@ -61,21 +61,22 @@ def packet_loss(targets: list[ValidContainer], interface: str, loss: float) -> N
         interface (str): The network interface to apply packet loss on.
         loss (float): Percentage of packet loss to simulate.
     """
-    for target in targets:
-        docker.execute(
-            target,
-            [
-                "bash",
-                "-c",
-                "tc",
-                "qdisc",
-                "add",
-                "dev",
-                interface,
-                "root",
-                "netem",
-                "loss",
-                f"{loss}%",
-            ],
-            detach=True,
-        )
+    docker.execute(
+        source,
+        [
+            "bash",
+            "-c",
+            "tc",
+            "qdisc",
+            "add",
+            "dev",
+            interface,
+            "root",
+            "netem",
+            "loss",
+            f"{loss}%",
+        ],
+        detach=True,
+    )
+
+    logger.debug(f"Applied {loss}% packet loss on {source} ({interface})")
