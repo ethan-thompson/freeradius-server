@@ -334,52 +334,25 @@ def parse_test_configs(config: Path | dict) -> list[dict]:
     return configs
 
 
-def generate_states(loop: asyncio.AbstractEventLoop) -> list[State]:
+def generate_states(
+    loop: asyncio.AbstractEventLoop, config: Path | dict
+) -> list[State]:
     """
     Generate a list of states for testing.
 
     Args:
         loop (asyncio.AbstractEventLoop): The event loop to use.
+        config (Path | dict): Path to the configuration file/directory or a dictionary
+          containing the config.
 
     Returns:
         list[State]: List of states to be used in the test.
     """
-    # return [
-    #     State(
-    #         actions=[
-    #             lambda: RADIUSEvents.access_request(
-    #                 source="radius-client",
-    #                 target="freeradius",
-    #                 secret="testing123",
-    #                 username="testuser",
-    #                 password="testpass",
-    #             )
-    #         ],
-    #         rules_map={"request_sent": [r"(\w+) request sent"]},
-    #         loop=loop,
-    #     ),
-    #     State(
-    #         actions=[
-    #             lambda: NetworkEvents.packet_loss(
-    #                 targets=["freeradius"],
-    #                 interface="eth0",
-    #                 loss=100.00,
-    #             ),
-    #             lambda: RADIUSEvents.access_request(
-    #                 source="radius-client",
-    #                 target="freeradius",
-    #                 secret="testing123",
-    #                 username="testuser",
-    #                 password="testpass",
-    #             ),
-    #         ],
-    #         rules_map={
-    #         },
-    #         loop=loop,
-    #     ),
-    # ]
-    config_file = Path(__file__).parent / "test_configs.yml"
-    state_configs = parse_test_configs(config_file)
+    if isinstance(config, Path) and config.is_dir():
+        for cfg in config.iterdir():
+            state_configs = parse_test_configs(cfg)
+    else:
+        state_configs = parse_test_configs(config)
     states = []
     for state_config in state_configs:
         states.append(
@@ -395,12 +368,14 @@ def generate_states(loop: asyncio.AbstractEventLoop) -> list[State]:
     return states
 
 
-def main(compose_file: Path) -> None:
+def main(compose_file: Path, configs: Path | dict) -> None:
     """
     Main function to run the multi-server tests.
 
     Args:
         compose_file (Path): Path to the Docker Compose file.
+        configs (Path | dict): Path to the test configuration file or a dictionary
+            containing the config.
     """
     # Run a test in an asynchronous event loop
     loop = asyncio.get_event_loop()
@@ -423,7 +398,8 @@ def main(compose_file: Path) -> None:
                 sig, lambda: asyncio.create_task(cleanup_and_shutdown())
             )
 
-        states = generate_states(loop)
+        # Generate the states from the config
+        states = generate_states(loop, configs)
 
         # Run the tests
         test_task = loop.create_task(
@@ -480,6 +456,14 @@ def parse_args(args=None, prog=__package__) -> argparse.Namespace:
         default=None,
     )
     parser.add_argument(
+        "-t",
+        "--test",
+        dest="test",
+        type=Path,
+        help="Path to the test configuration file.",
+        default=Path(Path(__file__).parent, "tests"),
+    )
+    parser.add_argument(
         "--debug",
         "-x",
         dest="debug",
@@ -512,11 +496,33 @@ if __name__ == "__main__":
     if parsed_args.config_file:
         try:
             # Generate the compose and test config files
-            from config_parser import generate_config_files  # pylint: disable=import-error
+            from config_parser import ( # pylint: disable=import-error
+                generate_configs,
+                write_yaml_to_file,
+            )
 
-            generate_config_files(Path(parsed_args.config_file))
+            compose_configs, test_configs = generate_configs(
+                Path(parsed_args.config_file)
+            )
         except (FileNotFoundError, ValueError) as e:
             logger.error("Error generating config files: %s", e)
             sys.exit(1)
 
-    main(compose_file=parsed_args.compose_file)
+        if compose_configs:
+            write_yaml_to_file(
+                compose_configs,
+                Path(Path(__file__).parent, "docker-compose.yml"),
+            )
+        if test_configs:
+            main(
+                compose_file=Path(Path(__file__).parent, "docker-compose.yml"),
+                configs=test_configs,
+            )
+        else:
+            main(
+                compose_file=Path(Path(__file__).parent, "docker-compose.yml"),
+                configs=parsed_args.test,
+            )
+
+    else:
+        main(compose_file=parsed_args.compose_file, configs=parsed_args.test)
