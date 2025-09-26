@@ -174,7 +174,9 @@ async def run_tests(
 
     validation_task: asyncio.Task = None
     for state in states:
-        logger.debug("Processing state: %s - %s", state.name, state.description)
+        logger.debug(
+            "Processing state: %s - %s", state.name, state.description
+        )
         logger.debug("Entering state with %d actions.", len(state.actions))
 
         # Register new validator for state
