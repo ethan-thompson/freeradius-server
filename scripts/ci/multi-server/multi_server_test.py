@@ -8,16 +8,16 @@ import argparse
 import logging
 import signal
 import sys
-import yaml
 from pathlib import Path
 
+import yaml
 from python_on_whales import DockerClient
 
-from events import (
+from events import (  # pylint: disable=import-error
     NetworkEvents,
     RADIUSEvents,
     CommandEvents,
-)  # pylint: disable=import-error
+)
 
 from state import State  # pylint: disable=import-error
 
