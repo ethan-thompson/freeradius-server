@@ -52,13 +52,12 @@ def _parse_config(config: dict) -> Tuple[dict, dict]:
     compose_configs = {}
     other_configs = {}
 
-    # Start by adding the default capabilities to the compose configs
-    default_capabilities = {"cap_add": ["NET_ADMIN", "SYS_PTRACE"]}
-
-    compose_configs["x-common-config"] = default_capabilities
-
     for key, value in config.items():
         if key.startswith("fixtures"):
+            # Start by adding the default capabilities to the compose configs
+            default_capabilities = {"cap_add": ["NET_ADMIN", "SYS_PTRACE"]}
+            compose_configs["x-common-config"] = default_capabilities
+
             for compose_key, compose_value in value.items():
                 if compose_key.startswith(tuple(["services", "hosts"])):
                     # compose_configs["services"] = compose_value
@@ -113,25 +112,27 @@ def generate_config_files(
     # Parse the configuration
     compose_configs, other_configs = _parse_config(config)
 
-    # Write the compose configurations to docker-compose.yml
-    with open(compose_output, "w", encoding="utf-8") as compose_file:
-        yaml.dump(
-            compose_configs,
-            compose_file,
-            default_flow_style=False,
-            sort_keys=False,
-            Dumper=NoQuotedMergeDumper,
-        )
+    # Write the compose configurations to docker-compose.yml if there are any
+    if compose_configs:
+        with open(compose_output, "w", encoding="utf-8") as compose_file:
+            yaml.dump(
+                compose_configs,
+                compose_file,
+                default_flow_style=False,
+                sort_keys=False,
+                Dumper=NoQuotedMergeDumper,
+            )
 
-    # Write the other configurations to test-config.yml
-    with open(test_output, "w", encoding="utf-8") as test_config_file:
-        yaml.dump(
-            other_configs,
-            test_config_file,
-            default_flow_style=False,
-            sort_keys=False,
-            Dumper=NoQuotedMergeDumper,
-        )
+    # Write the other configurations to test-config.yml if there are any
+    if other_configs:
+        with open(test_output, "w", encoding="utf-8") as test_config_file:
+            yaml.dump(
+                other_configs,
+                test_config_file,
+                default_flow_style=False,
+                sort_keys=False,
+                Dumper=NoQuotedMergeDumper,
+            )
 
 
 def parse_args(args=None, prog=__package__) -> argparse.Namespace:
