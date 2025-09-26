@@ -77,8 +77,17 @@ def generate_config_files(
 ) -> None:
     """
     Generates configuration files for multi-server setup.
+
     Args:
         file_path (Path): The path to the configuration file.
+        compose_output (Path, optional): The path to output the Docker Compose file.
+            Defaults to 'docker-compose.yml' in the current directory.
+        test_output (Path, optional): The path to output the test configs.
+            Defaults to 'test-config.yml' in the current directory.
+
+    Raises:
+        FileNotFoundError: If the configuration file does not exist.
+        ValueError: If the configuration file has an unsupported file type.
     """
     # If the config file does not exist, raise an error
     if not file_path.exists():
