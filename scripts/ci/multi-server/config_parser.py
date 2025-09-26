@@ -72,14 +72,10 @@ def _parse_config(config: dict) -> Tuple[dict, dict]:
 
 def generate_configs(file_path: Path) -> None:
     """
-    Generates configuration files for multi-server setup.
+    Generates config data for multi-server setup.
 
     Args:
         file_path (Path): The path to the configuration file.
-        compose_output (Path, optional): The path to output the Docker Compose file.
-            Defaults to 'docker-compose.yml' in the current directory.
-        test_output (Path, optional): The path to output the test configs.
-            Defaults to 'test-config.yml' in the current directory.
 
     Raises:
         FileNotFoundError: If the configuration file does not exist.
