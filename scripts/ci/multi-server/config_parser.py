@@ -7,16 +7,12 @@ for a multi-server test, and generates two output files:
 """
 
 import argparse
-import logging
 import os
 import sys
 from pathlib import Path
 from typing import Tuple
 import jinja2
 import yaml
-
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class NoQuotedMergeDumper(yaml.SafeDumper):
