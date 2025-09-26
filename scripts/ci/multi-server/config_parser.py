@@ -70,11 +70,7 @@ def _parse_config(config: dict) -> Tuple[dict, dict]:
     return compose_configs, other_configs
 
 
-def generate_config_files(
-    file_path: Path,
-    compose_output: Path = Path(Path(__file__).parent, "docker-compose.yml"),
-    test_output: Path = Path(Path(__file__).parent, "test-config.yml"),
-) -> None:
+def generate_configs(file_path: Path) -> None:
     """
     Generates configuration files for multi-server setup.
 
@@ -115,29 +111,58 @@ def generate_config_files(
         )
 
     # Parse the configuration
-    compose_configs, other_configs = _parse_config(config)
+    return _parse_config(config)
+
+
+def write_yaml_to_file(data: dict, output_path: Path) -> None:
+    """
+    Writes a dictionary to a YAML file.
+
+    Args:
+        data (dict): The data to write to the YAML file.
+        output_path (Path): The path to the output YAML file.
+    """
+    with open(output_path, "w", encoding="utf-8") as file:
+        yaml.dump(
+            data,
+            file,
+            default_flow_style=False,
+            sort_keys=False,
+            Dumper=NoQuotedMergeDumper,
+        )
+
+
+def generate_config_files(
+    file_path: Path,
+    compose_output: Path = Path(Path(__file__).parent, "docker-compose.yml"),
+    test_output: Path = Path(
+        Path(__file__).parent, "tests", "test-config.yml"
+    ),
+) -> None:
+    """
+    Generates configuration files for multi-server setup.
+
+    Args:
+        file_path (Path): The path to the configuration file.
+        compose_output (Path, optional): The path to output the Docker Compose file.
+            Defaults to 'docker-compose.yml' in the current directory.
+        test_output (Path, optional): The path to output the test configs.
+            Defaults to 'test-config.yml' in the current directory.
+
+    Raises:
+        FileNotFoundError: If the configuration file does not exist.
+        ValueError: If the configuration file has an unsupported file type.
+    """
+
+    compose_configs, other_configs = generate_configs(file_path)
 
     # Write the compose configurations to docker-compose.yml if there are any
     if compose_configs:
-        with open(compose_output, "w", encoding="utf-8") as compose_file:
-            yaml.dump(
-                compose_configs,
-                compose_file,
-                default_flow_style=False,
-                sort_keys=False,
-                Dumper=NoQuotedMergeDumper,
-            )
+        write_yaml_to_file(compose_configs, compose_output)
 
     # Write the other configurations to test-config.yml if there are any
     if other_configs:
-        with open(test_output, "w", encoding="utf-8") as test_config_file:
-            yaml.dump(
-                other_configs,
-                test_config_file,
-                default_flow_style=False,
-                sort_keys=False,
-                Dumper=NoQuotedMergeDumper,
-            )
+        write_yaml_to_file(other_configs, test_output)
 
 
 def parse_args(args=None, prog=__package__) -> argparse.Namespace:
@@ -168,7 +193,7 @@ def parse_args(args=None, prog=__package__) -> argparse.Namespace:
         dest="test_output",
         type=str,
         help="Path to output the test configs.",
-        default=Path(Path(__file__).parent, "test_configs.yml"),
+        default=Path(Path(__file__).parent, "tests", "test_configs.yml"),
     )
     return parser.parse_args(args)
 
