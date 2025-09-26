@@ -240,12 +240,12 @@ async def cleanup_and_shutdown() -> None:
     logger.debug("Event loop stopped.")
 
 
-def parse_test_configs(config_file: Path) -> list[dict]:
+def parse_test_configs(config: Path | dict) -> list[dict]:
     """
     Parse the test configuration file.
 
     Args:
-        config_file (Path): Path to the configuration file.
+        config (Path | dict): Path to the configuration file or a dictionary containing the config.
 
     Returns:
         list[dict]: List of state configurations. Each state configuration is a dictionary with keys:
@@ -256,11 +256,11 @@ def parse_test_configs(config_file: Path) -> list[dict]:
             - rules_map (dict): Mapping of triggers to validation patterns.
     """
 
-    logger.info("Parsing test configuration file: %s", config_file)
+    logger.info("Parsing test configuration file: %s", config)
 
     # Verify the file exists
-    if not config_file.exists():
-        logger.error("Configuration file does not exist: %s", config_file)
+    if isinstance(config, Path) and not config.exists():
+        logger.error("Configuration file does not exist: %s", config)
         return []
 
     # TODO: Build this automatically
@@ -275,8 +275,11 @@ def parse_test_configs(config_file: Path) -> list[dict]:
 
     raw_configs = {}
 
-    with open(config_file, "r", encoding="utf-8") as f:
-        raw_configs = yaml.safe_load(f)
+    if isinstance(config, Path):
+        with open(config, "r", encoding="utf-8") as f:
+            raw_configs = yaml.safe_load(f)
+    else:
+        raw_configs = config
 
     configs = []
     for state_name, state in raw_configs.get("states", {}).items():
