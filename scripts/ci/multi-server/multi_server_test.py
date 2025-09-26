@@ -467,6 +467,14 @@ def parse_args(args=None, prog=__package__) -> argparse.Namespace:
         default=Path(Path(__file__).parent, "docker-compose.yml"),
     )
     parser.add_argument(
+        "-c",
+        "--config",
+        dest="config_file",
+        type=str,
+        help="Path to the configuration file.",
+        default=None,
+    )
+    parser.add_argument(
         "--debug",
         "-x",
         dest="debug",
@@ -495,5 +503,15 @@ if __name__ == "__main__":
     if parsed_args.verbose:
         VERBOSE_LEVEL = parsed_args.verbose
         logger.info("Verbose mode enabled. Verbose level: %d", VERBOSE_LEVEL)
+
+    if parsed_args.config_file:
+        try:
+            # Generate the compose and test config files
+            from config_parser import generate_config_files  # pylint: disable=import-error
+
+            generate_config_files(Path(parsed_args.config_file))
+        except (FileNotFoundError, ValueError) as e:
+            logger.error("Error generating config files: %s", e)
+            sys.exit(1)
 
     main(compose_file=parsed_args.compose_file)
