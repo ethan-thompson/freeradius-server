@@ -1,7 +1,7 @@
 {% set image_name = "ubuntu:22.04" %}
 {% set network_id = "default_network" %}
 {% set remote_unix_socket_path = "/var/run/test.sock" %}
-{% set local_unix_socket_path = "/var/run/multi-test/test.sock" %}
+{% set local_unix_socket_path = "/var/run/multi-test/${COMPOSE_PROJECT_NAME}.sock" %}
 {% set local_raddb_path = "/home/ethompson/devel/freeradius-server/scripts/ci/multi-server/raddb" %}
 {% set local_mariadb_path = "/home/ethompson/devel/freeradius-server/scripts/ci/multi-server/mariadb" %}
 
@@ -17,7 +17,6 @@ fixtures:
   hosts:
     mariadb:
         image: mariadb:10.5
-        container_name: mariadb
         environment:
             MYSQL_ROOT_PASSWORD: rootpass
             MYSQL_DATABASE: radius
@@ -28,12 +27,8 @@ fixtures:
             - {{ local_mariadb_path }}/init.sql:/docker-entrypoint-initdb.d/init.sql
     freeradius:
         image: fr-build-ubuntu22
-        container_name: freeradius
         depends_on:
             - mariadb
-        ports:
-            - "1812:1812/udp"
-            - "1813:1813/udp"
         volumes:
             {%- for root, dirs, files in os.walk(local_raddb_path) %}
               {%- for file in files %}
@@ -65,34 +60,65 @@ fixtures:
         tty: false
         restart: "no"
         stop_grace_period: 2s
-        command: ["bash", "-c", "wait-for-it freeradius:1812 -t 30 -- echo 'testpass' | radtest testuser testpass freeradius 0 testing123 || true"]
+        command: ["sleep", "infinity"]
 
-state_order: (sequence|random)
+timeout: 35
+# state_order: (sequence|random)
+state_order: sequence
 states:
   # Test name
-  <state_name>:
+  state_1:
+    description: Basic access-request test
     host:
-      <host_name>:
+      radius-client:
         # Commands to execute as we transition state
-        command:
-          - <cmd0>
-          - <cmd1>
-          - <cmdN>
-        interfaces:
-          <network_id>:
-            packet_loss_percent: 50
-            packet_delay_ms: 150
+        actions:
+          - access_request:
+              target: freeradius
+              secret: testing123
+              username: testuser
+              password: testpass
+          - execute_command:
+              command: echo testpass | radtest testuser testpass freeradius 0 testing123 || true
     verify:
-      timeout: <how long to wait for all triggers to be received>
+      timeout: 15  # How long to wait for all triggers to be received
 
       # Ordered, triggers must fire in order
       # Unordered, triggers can fire in any order, so long as they're all observed
-      trigger_mode: (ordered|unordered)
+      # trigger_mode: (ordered|unordered)
+      trigger_mode: unordered
+      # triggers:
+      #   - <trigger_id>:
+      #       <arg0>: <value0>
+      #       <arg1>:
+      #       pattern: <regex>
+      #       <arg2>:
+      #       low: <low_value>
+      #       high: <high_value>
       triggers:
-        - <trigger_id>:
-            <arg0>: <value0>
-            <arg1>:
-            pattern: <regex>
-            <arg2>:
-            low: <low_value>
-            high: <high_value>
+        - request_sent:
+            pattern: (\w+) request sent
+        - request_complete:
+            pattern: (\w+) request complete
+
+  state_2:
+    description: Introduce 100% packet loss on the radius server
+    host:
+      freeradius:
+        actions:
+          - packet_loss:
+              interface: eth0
+              loss: 100
+      radius-client:
+        actions:
+          - access_request:
+              target: freeradius
+              secret: testing123
+              username: testuser
+              password: testpass
+    verify:
+      timeout: 15
+      trigger_mode: unordered
+      triggers:
+        - request_backlog:
+            pattern: (\w+) request_backlog
