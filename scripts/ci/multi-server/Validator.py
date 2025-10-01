@@ -9,18 +9,22 @@ import re
 
 from termcolor import colored
 
-logger = logging.getLogger("__main__")
-
 
 class Validator:
     """
     Validator class that will take care of all of the trigger validation
     """
 
-    def __init__(self, rules_map: dict, state_completed: asyncio.Future):
+    def __init__(
+        self,
+        rules_map: dict,
+        state_completed: asyncio.Future,
+        logger: logging.Logger = logging.getLogger("__main__"),
+    ) -> None:
         self.__rules_map = rules_map
         self.__rules_tracking = copy.deepcopy(rules_map)
         self.__state_completed = state_completed
+        self.__logger = logger
 
     @property
     def complete(self) -> bool:
@@ -54,7 +58,8 @@ class Validator:
             str: A string representation of the validation results.
         """
         header = "Validation Results\n"
-        output = "-" * (len(header) - 1) + "\n"
+        output = "\n"
+        output += "-" * (len(header) - 1) + "\n"
         output += header
         output += "-" * (len(header) - 1) + "\n"
 
@@ -110,11 +115,11 @@ class Validator:
             bool: True if the attribute-value pair is valid, False otherwise.
         """
         if attribute not in self.__rules_map:
-            logger.debug("No validation rules for attribute: %s", attribute)
+            self.__logger.debug("No validation rules for attribute: %s", attribute)
             return False
 
-        logger.debug("Validating attribute: %s, value: %s", attribute, value)
-        logger.debug("Checking rules: %s", self.__rules_map[attribute])
+        self.__logger.debug("Validating attribute: %s, value: %s", attribute, value)
+        self.__logger.debug("Checking rules: %s", self.__rules_map[attribute])
         for pattern in self.__rules_map[attribute]:
             if re.match(pattern, value):
                 if attribute in self.__rules_tracking:
@@ -127,7 +132,7 @@ class Validator:
 
                         if self.__rules_tracking == {}:
                             # All rules have been satisfied
-                            logger.info(
+                            self.__logger.info(
                                 "All validation rules have been satisfied."
                             )
                             if not self.__state_completed.done():
@@ -145,14 +150,14 @@ class Validator:
         while not self.complete and not self.__state_completed.done():
             try:
                 msg = await asyncio.wait_for(msg_queue.get(), timeout=None)
-                logger.debug(
+                self.__logger.debug(
                     "Validating message with trigger: %s and value: %s",
                     msg[0],
                     msg[1],
                 )
                 result = self.validate(msg[0], msg[1])
 
-                logger.debug(
+                self.__logger.debug(
                     "Message validation result: %s",
                     colored(
                         "PASSED" if result else "FAILED",
@@ -162,4 +167,4 @@ class Validator:
             except asyncio.TimeoutError:
                 continue
 
-        logger.debug("Validator finished processing messages.")
+        self.__logger.debug("Validator finished processing messages.")
