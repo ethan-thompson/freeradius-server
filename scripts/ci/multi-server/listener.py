@@ -60,7 +60,12 @@ class Listener:
         self.logger.debug("Starting listener on %s", self.socket_path)
 
         if self.socket_path.exists():
-            self.socket_path.unlink()
+            # The path may be a directory if compose tried to mount it as a volume before
+            # we created it
+            if self.socket_path.is_dir():
+                self.socket_path.rmdir()
+            else:
+                self.socket_path.unlink()
 
         try:
             server = await asyncio.start_unix_server(
