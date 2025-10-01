@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 import yaml
-from python_on_whales import DockerClient
+from termcolor import colored
 
 from events import (  # pylint: disable=import-error
     NetworkEvents,
@@ -20,6 +20,10 @@ from events import (  # pylint: disable=import-error
 )
 
 from state import State  # pylint: disable=import-error
+from custom_test import (  # pylint: disable=import-error
+    Test,
+    create_test_logger,
+)
 
 DEBUG_LEVEL = 0
 VERBOSE_LEVEL = 0
@@ -30,11 +34,38 @@ info_handler.setLevel(logging.INFO)
 info_handler.addFilter(lambda record: record.levelno == logging.INFO)
 info_handler.setFormatter(logging.Formatter("%(message)s"))
 
-not_info_handler = logging.StreamHandler(sys.stderr)
-not_info_handler.setLevel(logging.DEBUG)
-not_info_handler.addFilter(lambda record: record.levelno != logging.INFO)
-not_info_handler.setFormatter(
-    logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+debug_handler = logging.StreamHandler(sys.stderr)
+debug_handler.setLevel(logging.DEBUG)
+debug_handler.addFilter(lambda record: record.levelno == logging.DEBUG)
+debug_handler.setFormatter(
+    logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+)
+
+# Create a handler that will make all Warning messages yellow
+warning_handler = logging.StreamHandler(sys.stderr)
+warning_handler.setLevel(logging.WARNING)
+warning_handler.addFilter(lambda record: record.levelno == logging.WARNING)
+warning_handler.setFormatter(
+    logging.Formatter(
+        colored(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s", "yellow"
+        ),
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+)
+
+# Create a handler that will make all Error messages red
+error_handler = logging.StreamHandler(sys.stderr)
+error_handler.setLevel(logging.ERROR)
+error_handler.addFilter(lambda record: record.levelno >= logging.ERROR)
+error_handler.setFormatter(
+    logging.Formatter(
+        colored("%(asctime)s - %(name)s - %(levelname)s - %(message)s", "red"),
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
 )
 
 logger = logging.getLogger(__name__)
@@ -42,178 +73,8 @@ logger.setLevel(logging.INFO)
 
 # Add the handlers to the logger
 logger.addHandler(info_handler)
-
-
-async def handle_client(
-    reader: asyncio.StreamReader,
-    writer: asyncio.StreamWriter,
-    msg_queue: asyncio.Queue,
-) -> None:
-    """
-    Handles incoming client connections and processes messages.
-
-    Args:
-        reader (asyncio.StreamReader): Reader for the incoming data.
-        writer (asyncio.StreamWriter): Writer for sending responses.
-        msg_queue (asyncio.Queue, optional): Queue to put received messages into.
-    """
-    logger.debug("Client connected.")
-    try:
-        while True:
-            data = await reader.readuntil(b"\n")
-            message = data.decode().strip()
-            logger.debug("Received message: %s", message)
-
-            trigger_name, trigger_value = message.split(" ", 1)
-
-            msg_queue.put_nowait((trigger_name, trigger_value))
-
-    except Exception as e:
-        logger.error("Error handling client: %s", e)
-    finally:
-        writer.close()
-        await writer.wait_closed()
-        logger.debug("Client disconnected.")
-
-
-async def unix_server(
-    socket_path: Path,
-    msg_queue: asyncio.Queue,
-    ready_future: asyncio.Future = None,
-) -> None:
-    """
-    Asynchronous server that listens on a Unix socket and processes incoming messages.
-
-    Args:
-        socket_path (Path): Path to the Unix socket.
-        validation_func (callable, optional): Function to validate incoming messages.
-        ready_future (asyncio.Future, optional): Future to signal when the server is ready.
-    """
-    logger.debug("Starting Unix server on %s", socket_path)
-    if socket_path.exists():
-        socket_path.unlink()
-
-    try:
-        server = await asyncio.start_unix_server(
-            lambda r, w: handle_client(r, w, msg_queue),
-            path=str(socket_path),
-        )
-
-        # Make sure the socket is world writable
-        socket_path.chmod(0o777)
-    except PermissionError:
-        logger.error("Permission denied for socket path: %s", socket_path)
-        return
-
-    logger.debug("Unix server started on %s", socket_path)
-
-    # Signal that the server is ready
-    if ready_future:
-        ready_future.set_result(True)
-
-    async with server:
-        logger.debug("Unix server is running...")
-        await server.serve_forever()
-
-
-async def run_tests(
-    compose_file: Path,
-    ready_future: asyncio.Future,
-    test_timeout: float,
-    msg_queue: asyncio.Queue,
-    states: list[State],
-    loop: asyncio.AbstractEventLoop,
-) -> None:
-    """
-    Runs tests in a multi-server setup using Docker Compose.
-
-    Args:
-        compose_file (Path): Path to the Docker Compose file.
-        ready_future (asyncio.Future): Future to signal when the server is ready.
-        test_timeout (float): Timeout for the entire test run.
-        msg_queue (asyncio.Queue): Queue to receive messages from the server.
-        states (list[State]): List of states to process during the test.
-        loop (asyncio.AbstractEventLoop): The event loop to use.
-    """
-    if not ready_future.done():
-        logger.debug("Waiting for server to be ready...")
-        await ready_future
-
-    logger.info("Running tests with compose file: %s", compose_file)
-
-    # Build the Docker Compose services
-    client = DockerClient(compose_files=[compose_file])
-    client.compose.build(quiet=True)
-
-    # Start the Docker Compose services
-    client.compose.up(detach=True, quiet=True)
-
-    # Set the teardown when the test is finished
-    def teardown_containers() -> None:
-        logger.info("Tearing down Docker Compose services...")
-        client.compose.down(quiet=True)
-        logger.info("Docker Compose services stopped.")
-
-    test_finished = loop.create_future()
-    test_finished.add_done_callback(lambda _: teardown_containers())
-
-    # Setup the teardown in case of timeout
-    def on_timeout() -> None:
-        logger.info("Test timeout reached.")
-        if not test_finished.done():
-            test_finished.set_result(True)
-
-    loop.call_later(test_timeout, on_timeout)
-
-    logger.info("Docker Compose services started.")
-
-    logger.info("Waiting for services to initialize...")
-    await asyncio.sleep(2)
-
-    logger.info("Running simulated tests...")
-
-    validation_task: asyncio.Task = None
-    for state in states:
-        logger.debug(
-            "Processing state: %s - %s", state.name, state.description
-        )
-        logger.debug("Entering state with %d actions.", len(state.actions))
-
-        # Register new validator for state
-        # First, clear the message queue
-        logger.debug("Clearing message queue...")
-        while not msg_queue.empty():
-            msg_queue.get_nowait()
-
-        # Next, setup the validator to use the message queue
-        logger.debug("Setting up validator for state...")
-        if validation_task:
-            # Swap out the previous validation task
-            validation_task.cancel()
-            try:
-                await validation_task
-            except asyncio.CancelledError:
-                pass
-        validation_task = loop.create_task(
-            state.validator.start_validating(msg_queue)
-        )
-
-        # Enter the state
-        logger.debug("Entering state...")
-        await state.enter_state()
-
-        # Wait for the state to complete
-        logger.debug("Waiting for state to complete...")
-        await state.wait_for_completion()
-        logger.debug("State completed.")
-        # end_test.set_result(True)
-
-        # Print the validation results
-        logger.info(state.validator.get_results_str(VERBOSE_LEVEL))
-
-    if not test_finished.done():
-        # Set the test as finished and trigger the teardown callback
-        test_finished.set_result(True)
+logger.addHandler(error_handler)
+logger.addHandler(warning_handler)
 
 
 async def cleanup_and_shutdown() -> None:
@@ -228,6 +89,7 @@ async def cleanup_and_shutdown() -> None:
         if task is not asyncio.current_task()
     ]
     for task in tasks:
+        logger.debug("Cancelling task: %s", task.get_name())
         task.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -240,20 +102,28 @@ async def cleanup_and_shutdown() -> None:
     logger.debug("Event loop stopped.")
 
 
-def parse_test_configs(config: Path | dict) -> list[dict]:
+def parse_test_configs(
+    config: Path | dict, test_name: str
+) -> tuple[float, list[dict]]:
     """
     Parse the test configuration file.
 
     Args:
         config (Path | dict): Path to the configuration file or a dictionary containing the config.
+        test_name (str): Name of the test.
 
     Returns:
-        list[dict]: List of state configurations. Each state configuration is a dictionary with keys:
+        float: Timeout for the test.
+        list[dict]: List of state configurations. Each state configuration is a dictionary
+            with keys:
             - name (str): Name of the state.
             - description (str): Description of the state.
             - timeout (int): Timeout for the state.
             - actions (list[callable]): List of actions to perform in the state.
             - rules_map (dict): Mapping of triggers to validation patterns.
+
+    Raises:
+        ValueError: If the configuration file is invalid.
     """
 
     logger.info("Parsing test configuration file: %s", config)
@@ -263,15 +133,11 @@ def parse_test_configs(config: Path | dict) -> list[dict]:
         logger.error("Configuration file does not exist: %s", config)
         return []
 
-    # TODO: Build this automatically
-    known_actions = {
-        "access_request": RADIUSEvents.access_request,
-        "network_disconnect": NetworkEvents.disconnect,
-        "network_reconnect": NetworkEvents.reconnect,
-        "packet_loss": NetworkEvents.packet_loss,
-        "execute_command": CommandEvents.run_command,
-        "command": CommandEvents.run_command,
-    }
+    known_actions = {}
+
+    for event_class in [RADIUSEvents, NetworkEvents, CommandEvents]:
+        events = event_class.get_events()
+        known_actions.update(events)
 
     raw_configs = {}
 
@@ -281,6 +147,7 @@ def parse_test_configs(config: Path | dict) -> list[dict]:
     else:
         raw_configs = config
 
+    timeout: float = raw_configs.get("timeout", 40.0)
     configs = []
     for state_name, state in raw_configs.get("states", {}).items():
         state_config = {}
@@ -304,8 +171,26 @@ def parse_test_configs(config: Path | dict) -> list[dict]:
                 def build_action(func, params, host):
                     # if the function takes a source parameter, add it
                     if "source" in func.__code__.co_varnames:
-                        params["source"] = host
+                        params["source"] = f"{test_name}-{host}-1"
 
+                    # if the function takes a target parameter, update it
+                    if "target" in func.__code__.co_varnames:
+                        if "target" not in params:
+                            raise ValueError(
+                                f"Action {action_name} requires a target parameter."
+                            )
+                        # Update the target to include the full container name
+                        params["target"] = f"{test_name}-{params['target']}-1"
+
+                    # if the function takes a test_name parameter, add it
+                    if "test_name" in func.__code__.co_varnames:
+                        params["test_name"] = test_name
+
+                    # If the function takes a logger parameter, set a default logger
+                    if "logger" in func.__code__.co_varnames:
+                        return lambda logger=logging.getLogger(
+                            "__main__"
+                        ): func(**params, logger=logger)
                     return lambda: func(**params)
 
                 action_params = action.get(action_name, {})
@@ -331,28 +216,35 @@ def parse_test_configs(config: Path | dict) -> list[dict]:
         state_config["rules_map"] = rules_map
 
         configs.append(state_config)
-    return configs
+    return timeout, configs
 
 
 def generate_states(
-    loop: asyncio.AbstractEventLoop, config: Path | dict
-) -> list[State]:
+    loop: asyncio.AbstractEventLoop,
+    config: Path | dict,
+    test_name: str,
+    test_logger: logging.Logger,
+) -> tuple[float, list[State]]:
     """
     Generate a list of states for testing.
 
     Args:
         loop (asyncio.AbstractEventLoop): The event loop to use.
-        config (Path | dict): Path to the configuration file/directory or a dictionary
+        config (Path | dict): Path to the configuration file or a dictionary
           containing the config.
 
     Returns:
-        list[State]: List of states to be used in the test.
+        timeout (float): Timeout for the test.
+        states (list[State]): List of State objects created from the configuration.
+
+    Raises:
+        ValueError: If the configuration file is invalid.
     """
-    if isinstance(config, Path) and config.is_dir():
-        for cfg in config.iterdir():
-            state_configs = parse_test_configs(cfg)
-    else:
-        state_configs = parse_test_configs(config)
+    try:
+        timeout, state_configs = parse_test_configs(config, test_name)
+    except ValueError as e:
+        raise ValueError(f"Invalid configuration file: {e}") from e
+
     states = []
     for state_config in state_configs:
         states.append(
@@ -363,9 +255,94 @@ def generate_states(
                 rules_map=state_config.get("rules_map", {}),
                 timeout=state_config.get("timeout", 15),
                 loop=loop,
+                logger=test_logger,
             )
         )
-    return states
+    return timeout, states
+
+
+def build_tests(
+    loop: asyncio.AbstractEventLoop, config: Path | dict, compose_file: Path
+) -> list[Test]:
+    """
+    Build a list of Test objects from the configuration.
+
+    Args:
+        loop (asyncio.AbstractEventLoop): The event loop to use.
+        config (Path | dict): Path to the configuration file/directory or a dictionary
+          containing the config.
+
+    Returns:
+        list[Test]: List of Test objects.
+
+    Raises:
+        ValueError: If the configuration is invalid.
+    """
+    logger.debug("Building tests")
+
+    tests = []
+
+    if isinstance(config, Path) and config.is_dir():
+        for test_file in config.glob("*.yml"):
+            test_name = test_file.stem
+            test_logger = create_test_logger(test_name)
+            try:
+                timeout, states = generate_states(
+                    loop, test_file, test_name, test_logger
+                )
+                tests.append(
+                    Test(
+                        name=test_name,
+                        states=states,
+                        compose_file=compose_file,
+                        timeout=timeout,
+                        detail_level=VERBOSE_LEVEL,
+                        loop=loop,
+                        logger=test_logger,
+                    )
+                )
+            except ValueError as e:
+                logger.error("Invalid configuration in %s: %s", test_file, e)
+                logger.debug("Skipping invalid test configuration.")
+    else:
+        try:
+            test_name = "custom_test"
+            test_logger = create_test_logger(test_name)
+            timeout, states = generate_states(
+                loop, config, test_name, test_logger
+            )
+            tests.append(
+                Test(
+                    name=test_name,
+                    states=states,
+                    compose_file=compose_file,
+                    timeout=timeout,
+                    detail_level=VERBOSE_LEVEL,
+                    loop=loop,
+                    logger=test_logger,
+                )
+            )
+        except ValueError as e:
+            raise ValueError(f"Invalid configuration: {e}") from e
+
+    return tests
+
+
+async def run_tests(tests: list[Test]) -> None:
+    """
+    Run the provided tests.
+
+    Args:
+        tests (list[Test]): List of Test objects to run.
+    """
+    try:
+        async with asyncio.TaskGroup() as tg:
+            for test in tests:
+                tg.create_task(test.run(VERBOSE_LEVEL == 3))
+    except Exception as e:
+        logger.error("An error occurred while running tests: %s", e)
+
+    logger.info("All tests completed.")
 
 
 def main(compose_file: Path, configs: Path | dict) -> None:
@@ -380,18 +357,7 @@ def main(compose_file: Path, configs: Path | dict) -> None:
     # Run a test in an asynchronous event loop
     loop = asyncio.get_event_loop()
 
-    # TODO: Pull this from the config
-    timeout = 40
-
     try:
-        # Set up the Unix server
-        output_socket = Path("/var/run/multi-test/test.sock")
-        ready_future = loop.create_future()
-
-        msg_queue: asyncio.Queue = asyncio.Queue()
-
-        loop.create_task(unix_server(output_socket, msg_queue, ready_future))
-
         # Add a signal handler to gracefully handle shutdown
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(
@@ -399,14 +365,10 @@ def main(compose_file: Path, configs: Path | dict) -> None:
             )
 
         # Generate the states from the config
-        states = generate_states(loop, configs)
+        tests = build_tests(loop, configs, compose_file)
 
-        # Run the tests
-        test_task = loop.create_task(
-            run_tests(
-                compose_file, ready_future, timeout, msg_queue, states, loop
-            )
-        )
+        # Create the test task group
+        test_task = loop.create_task(run_tests(tests))
 
         # Start the shutdown when the test completes
         test_task.add_done_callback(
@@ -418,9 +380,7 @@ def main(compose_file: Path, configs: Path | dict) -> None:
     except Exception as e:
         logger.error("An error occurred while running tests: %s", e)
     finally:
-        logger.debug("Removing output socket if it exists...")
-        if output_socket.exists():
-            output_socket.unlink()
+        logger.debug("Closing the event loop...")
         loop.close()
 
     logger.info("Multi-server tests completed.")
@@ -464,6 +424,13 @@ def parse_args(args=None, prog=__package__) -> argparse.Namespace:
         default=Path(Path(__file__).parent, "tests"),
     )
     parser.add_argument(
+        "--filter",
+        dest="filter",
+        type=str,
+        help="Filter test logs by name. Format is a comma separated list of test names.",
+        default=None,
+    )
+    parser.add_argument(
         "--debug",
         "-x",
         dest="debug",
@@ -485,7 +452,7 @@ if __name__ == "__main__":
 
     if parsed_args.debug:
         logging.getLogger(__name__).setLevel(logging.DEBUG)
-        logger.addHandler(not_info_handler)
+        logger.addHandler(debug_handler)
         DEBUG_LEVEL = parsed_args.debug
         logger.info("Debug mode enabled. Debug level: %d", DEBUG_LEVEL)
 
@@ -493,10 +460,29 @@ if __name__ == "__main__":
         VERBOSE_LEVEL = parsed_args.verbose
         logger.info("Verbose mode enabled. Verbose level: %d", VERBOSE_LEVEL)
 
+    if parsed_args.filter:
+        filter_names = [
+            f"Test.{name.strip()}" for name in parsed_args.filter.split(",")
+        ]
+
+        # Add a filter to the logger to only show messages that contain the filter string
+        class FilterByName(logging.Filter):
+            """
+            Filter log records by name.
+            """
+
+            def filter(self, record: logging.LogRecord) -> bool:
+                return record.name in filter_names
+
+        logger.addFilter(FilterByName())
+        for handler in logger.handlers:
+            handler.addFilter(FilterByName())
+        logger.info("Filtering logs by name: %s", parsed_args.filter)
+
     if parsed_args.config_file:
         try:
             # Generate the compose and test config files
-            from config_parser import ( # pylint: disable=import-error
+            from config_parser import (  # pylint: disable=import-error
                 generate_configs,
                 write_yaml_to_file,
             )
