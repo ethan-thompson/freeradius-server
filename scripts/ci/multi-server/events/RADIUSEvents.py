@@ -4,7 +4,6 @@ from typing import Union
 from python_on_whales import Container, docker
 
 import logging
-logger = logging.getLogger("__main__")
 
 ValidContainer = Union[Container, str]
 
@@ -14,6 +13,7 @@ def access_request(
     secret: str,
     username: str,
     password: str,
+    logger: logging.Logger,
 ) -> None:
     """
     Simulate a RADIUS access request.
@@ -34,3 +34,15 @@ def access_request(
     command = f"echo {password} | radtest {username} {password} {target} 0 {secret} || true"
 
     docker.execute(source, ["bash", "-c", command], detach=True)
+
+def get_events() -> dict[str, callable]:
+    """
+    Returns a dictionary of available RADIUS events.
+
+    Returns:
+        dict[str, callable]: A dictionary mapping event names to their corresponding functions.
+    """
+    return {
+        "access_request": access_request,
+        "radius_request": access_request,
+    }
