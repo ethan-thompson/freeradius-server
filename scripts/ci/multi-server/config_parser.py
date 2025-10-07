@@ -20,6 +20,14 @@ class NoQuotedMergeDumper(yaml.SafeDumper):
     Custom YAML dumper that avoids quoting merge keys (<<).
     """
 
+    def represent_scalar(self, tag, value, style=None):
+        """
+        Custom representer for scalar values to handle multi-line strings as block style.
+        """
+        if isinstance(value, str) and "\n" in value:
+            style = "|"
+        return super().represent_scalar(tag, value, style)
+
 
 def no_quoted_merge_key(dumper, data):
     """
@@ -30,6 +38,7 @@ def no_quoted_merge_key(dumper, data):
             "tag:yaml.org,2002:merge", data, style=""
         )
     return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
 
 # Register the custom representer
 NoQuotedMergeDumper.add_representer(str, no_quoted_merge_key)
