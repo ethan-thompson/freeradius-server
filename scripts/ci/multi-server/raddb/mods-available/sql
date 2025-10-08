@@ -225,7 +225,7 @@ sql {
 		#  Set to `0` to allow the server to start without the
 		#  external service being available.
 		#
-		start = 0
+		start = 1
 
 		#
 		#  min:: Minimum number of connections to keep open.
@@ -284,7 +284,14 @@ sql {
 		#
 		#  manage_interval:: How often to manage the connection pool.
 		#
-#		manage_interval = 0.2
+		manage_interval = 0.2
+
+		triggers = yes
+
+		trigger {
+			connection_connecting = %log_unix_sock("connection_connecting ${...:name} connection to ${...server} connecting")
+			connection_closed = %log_unix_sock("connection_closed ${...:name} connection to ${...server} closed")
+		}
 
 		#
 		#  request:: Options specific to requests handled by this connection pool
@@ -294,6 +301,23 @@ sql {
 		#  SQL database connections.
 		#
 		request {
+			triggers = yes
+
+			trigger {
+				request_init = %log_unix_sock("request_init ${....:name} request init")
+				request_unassigned = %log_unix_sock("request_unassigned ${....:name} request unassigned")
+				request_backlog = %log_unix_sock("request_backlog ${....:name} request backlog")
+				request_pending = %log_unix_sock("request_pending ${....:name} request pending")
+				request_partial = %log_unix_sock("request_partial ${....:name} request partial")
+				request_sent = %log_unix_sock("request_sent ${....:name} request sent: 5")
+				request_state_reapable = %log_unix_sock("request_state_reapable ${....:name} request reapable")
+				request_complete = %log_unix_sock("request_complete ${....:name} request complete.")
+				request_state_failed = %log_unix_sock("request_state_failed ${....:name} request failed.")
+				request_state_cancel = %log_unix_sock("request_state_cancel ${....:name} request cancelled.")
+				request_state_cancel_sent = %log_unix_sock("request_state_cancel_sent ${....:name} request cancel sent.")
+				request_state_cancel_partial = %log_unix_sock("request_state_cancel_partial ${....:name} request cancel partial.")
+				request_state_cancel_complete = %log_unix_sock("request_state_cancel_complete ${....:name} request cancel complete.")
+			}
 
 			#
 			#  free_delay:: How long must a request in the unassigned (free) list not have been
