@@ -6,9 +6,11 @@ from functools import singledispatch
 import logging
 
 from python_on_whales import Network, Container, docker
+from python_on_whales.exceptions import DockerException
 
 ValidNetwork = Union[Network, str]
 ValidContainer = Union[Container, str]
+
 
 @singledispatch
 def disconnect(network: ValidNetwork, targets: list[ValidContainer]) -> None:
@@ -22,6 +24,7 @@ def disconnect(network: ValidNetwork, targets: list[ValidContainer]) -> None:
     for target in targets:
         docker.network.disconnect(network, target)
 
+
 @disconnect.register
 def _(network: ValidNetwork, source: ValidContainer) -> None:
     """
@@ -33,8 +36,11 @@ def _(network: ValidNetwork, source: ValidContainer) -> None:
     """
     docker.network.disconnect(network, source)
 
+
 @disconnect.register
-async def _(network: ValidNetwork, targets: list[ValidContainer], timeout: int) -> None:
+async def _(
+    network: ValidNetwork, targets: list[ValidContainer], timeout: int
+) -> None:
     """
     Simulate network disconnection with a timeout.
 
@@ -49,8 +55,11 @@ async def _(network: ValidNetwork, targets: list[ValidContainer], timeout: int) 
     await asyncio.sleep(timeout)
     reconnect(network, targets)
 
+
 @disconnect.register
-async def _(network: ValidNetwork, source: ValidContainer, timeout: int) -> None:
+async def _(
+    network: ValidNetwork, source: ValidContainer, timeout: int
+) -> None:
     """
     Simulate network disconnection with a timeout.
 
@@ -60,6 +69,7 @@ async def _(network: ValidNetwork, source: ValidContainer, timeout: int) -> None
         timeout (int): Time in seconds to wait before reconnecting.
     """
     await disconnect(network, source, timeout=timeout)
+
 
 def reconnect(network: ValidNetwork, targets: list[ValidContainer]) -> None:
     """
@@ -72,9 +82,12 @@ def reconnect(network: ValidNetwork, targets: list[ValidContainer]) -> None:
     for target in targets:
         docker.network.connect(network, target)
 
+
 # TODO: the interface that tc operates on may be different for different containers
 #       we may need to pass that in as an argument or determine it dynamically
-def packet_loss(source: ValidContainer, interface: str, loss: float, logger: logging.Logger) -> None:
+def packet_loss(
+    source: ValidContainer, interface: str, loss: float, logger: logging.Logger
+) -> None:
     """
     Simulate packet loss on specified containers.
 
@@ -88,20 +101,49 @@ def packet_loss(source: ValidContainer, interface: str, loss: float, logger: log
         [
             "bash",
             "-c",
-            "tc",
-            "qdisc",
-            "add",
-            "dev",
-            interface,
-            "root",
-            "netem",
-            "loss",
-            f"{loss}%",
+            f"tc qdisc replace dev {interface} root netem loss {loss}%",
         ],
         detach=True,
     )
 
+    try:
+        result = docker.execute(
+            source,
+            ["bash", "-c", "ping -c 10 -W 2 8.8.8.8 || true"],
+            detach=False,
+        )
+    except DockerException as e:
+        # Extract the stdout content from the exception
+        stdout = e.stdout or ""
+        stderr = e.stderr or ""
+        exit_code = e.return_code or None
+
+        # Check if it's the expected 100% loss case
+        if f"{loss}% packet loss" in stdout:
+            result = stdout
+        else:
+            logger.error(
+                f"Unexpected ping failure (code {exit_code}): {stdout}\n{stderr}"
+            )
+            return
+    else:
+        # Success case: capture output
+        stdout = result
+        result = stdout
+
+    # Now continue processing result
+    if "100% packet loss" in result or f"{loss}% packet loss" in result:
+        logger.debug(
+            f"Packet loss of {loss}% verified on {source} ({interface})"
+        )
+    else:
+        logger.error(
+            f"Unexpected packet loss result on {source} ({interface})"
+        )
+        logger.debug(f"Ping output:\n{result}")
+
     logger.debug(f"Applied {loss}% packet loss on {source} ({interface})")
+
 
 def get_events() -> dict[str, callable]:
     """
