@@ -1,0 +1,51 @@
+timeout: 10
+state_order: sequence
+states:
+  state_1:
+    description: Basic access-request test
+    host:
+      radius-client:
+        actions:
+        - access_request:
+            # target: freeradius
+            secret: testing123
+            username: testuser
+            password: testpass
+        # - execute_command:
+        #     command: echo testpass | radtest testuser testpass ${freeradius} 0 testing123
+        #       || true
+    verify:
+      timeout: 15
+      trigger_mode: unordered
+      triggers:
+      - request_sent:
+          range:
+            minimum: 6
+            maximum: 10
+          # pattern:
+          #   reg_pattern: (\w+) request sent
+      - request_complete:
+          pattern:
+            reg_pattern: (\w+) request complete
+  state_2:
+    description: Introduce 100% packet loss on the radius server
+    host:
+      freeradius:
+        actions:
+        - packet_loss:
+            interface: eth0
+            loss: 100
+      radius-client:
+        actions:
+        - access_request:
+            target: freeradius
+            secret: testing123
+            username: testuser
+            password: testpass
+    verify:
+      timeout: 15
+      trigger_mode: unordered
+      triggers:
+      - request_backlog:
+          pattern:
+            reg_pattern: (\w+) request_backlog
