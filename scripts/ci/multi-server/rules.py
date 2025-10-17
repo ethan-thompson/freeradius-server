@@ -138,6 +138,53 @@ def within_range(
     logger.debug("Number is out of range: %f", string)
     return False
 
+def is_code_safe(source: str, logger: logging.Logger) -> bool:
+    """
+    Check if the provided code block is safe to execute.
+
+    Args:
+        source (str): The code block to check.
+        logger (logging.Logger): Logger for debug output.
+    Returns:
+        bool: True if the code is safe, False otherwise.
+    """
+    logger.warning("Code safety check is not implemented. Proceeding without checks.")
+    return True
+
+def code(
+        block: str, logger: logging.Logger, string: str
+) -> bool:
+    """
+    Execute a custom code block for validation.
+
+    Args:
+        block (str): The code block to execute.
+        logger (logging.Logger): Logger for debug output.
+        string (str): The string to be validated.
+
+    Returns:
+        bool: The result of the executed code block.
+    """
+    logger.debug("Evaluating custom code block.")
+    if not is_code_safe(block, logger):
+        logger.error("Unsafe code block detected. Execution aborted.")
+        return False
+
+    logger.debug("Executing custom code block.")
+
+    indented_block = "\n".join(f"    {line}" for line in block.splitlines())
+    wrapped_code = f"def _wrapped_func():\n{indented_block}"
+
+    local_vars = {"string": string, "logger": logger}
+    try:
+        exec(wrapped_code, local_vars)
+        result = local_vars.get("_wrapped_func", lambda: False)()
+        logger.debug("Custom code block executed with result: %s", result)
+        return result
+    except Exception as e:
+        logger.error("Error executing custom code block: %s", e)
+        return False
+
 def rule_methods() -> dict[str, callable]:
     """
     Returns a dictionary of available rule methods.
@@ -152,6 +199,7 @@ def rule_methods() -> dict[str, callable]:
         "within_range": within_range,
         "fail": never_fire,
         "never_fire": never_fire,
+        "code": code,
     }
 
 def control_methods() -> dict[str, callable]:
