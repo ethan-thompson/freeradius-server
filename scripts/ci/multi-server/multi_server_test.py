@@ -24,6 +24,7 @@ from custom_test import (  # pylint: disable=import-error
     Test,
     create_test_logger,
 )
+import rules  # pylint: disable=import-error
 
 DEBUG_LEVEL = 0
 VERBOSE_LEVEL = 0
@@ -100,6 +101,76 @@ async def cleanup_and_shutdown() -> None:
     if asyncio.get_event_loop().is_running():
         asyncio.get_event_loop().stop()
     logger.debug("Event loop stopped.")
+
+def build_rule(condition: str, params: dict) -> callable:
+    """
+    Build a rule function that can be used to validate events.
+
+    Args:
+        condition (str): The condition to build the rule for.
+        params (dict): The parameters for the condition.
+
+    Returns:
+        callable: A function that takes a string and returns True if the rule passes, False otherwise.
+    """
+    known_rules = rules.rule_methods()
+    controls = rules.control_methods()
+
+    if condition in known_rules:
+        func = known_rules[condition]
+        rule_params = params
+
+        method = lambda x: func(**rule_params, logger=logging.getLogger("__main__"), string=x)
+        method.rule_params = rule_params
+        method.friendly_str = f"{condition}: {', '.join(f'{k}={v}' for k, v in rule_params.items())}"
+
+        return method
+
+    if condition in controls:
+        func = controls[condition]
+
+        methods = []
+
+        for sub_condition in params.keys():
+            logger.debug("Sub-condition: %s", sub_condition)
+            methods.append(build_rule(sub_condition, params[sub_condition]))
+
+        logger.debug("Control methods: %s", methods)
+
+        method = lambda x: func(methods=methods, logger=logging.getLogger("__main__"), string=x)
+        method.rule_params = {"methods": methods}
+        method.friendly_str = f"{condition}: {', '.join(m.friendly_str for m in methods)}"
+
+        return method
+
+    return lambda x: False
+
+def generate_rules_map(state: dict) -> dict:
+    """
+    Generate a mapping of triggers to their corresponding validation functions.
+    Returns:
+        dict: A mapping of triggers to validation functions.
+    """
+
+    rules_map = {}
+    for trigger in state.get("verify", {}).get("triggers", []):
+        trigger_name = list(trigger.keys())[0]
+
+        try:
+            for condition in list(trigger.get(trigger_name, {})):
+                logger.info("Condition: %s", condition)
+                if trigger_name not in rules_map:
+                    rules_map[trigger_name] = []
+                rules_map[trigger_name].append(build_rule(condition, trigger.get(trigger_name, {}).get(condition, {})))
+                logger.info(
+                    "Added rule for trigger %s: %s", trigger_name, condition
+                )
+        except Exception as e:
+            logger.error(
+                "Error adding rule for trigger %s: %s", trigger_name, e
+            )
+            continue
+    return rules_map
 
 
 def parse_test_configs(
@@ -199,18 +270,7 @@ def parse_test_configs(
         # Parse the rules map
         # TODO: Handle ordered vs unordered triggers
         # trigger_mode = state.get("verify", {}).get("trigger_mode", "unordered")
-        rules_map = {}
-        for trigger in state.get("verify", {}).get("triggers", []):
-            trigger_name = list(trigger.keys())[0]
-            pattern = trigger.get(trigger_name, {}).get("pattern", None)
-            if not pattern:
-                logger.warning("No pattern for trigger: %s", trigger_name)
-                continue
-
-            if trigger_name not in rules_map:
-                rules_map[trigger_name] = []
-
-            rules_map[trigger_name].append(pattern)
+        rules_map = generate_rules_map(state=state)
 
         state_config["actions"] = actions
         state_config["rules_map"] = rules_map

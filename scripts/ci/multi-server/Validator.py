@@ -5,9 +5,19 @@ Validator object
 import asyncio
 import copy
 import logging
-import re
 
 from termcolor import colored
+from rules import SingleRuleFailure
+
+
+class MissingRuleError(Exception):
+    """
+    Exception raised when a rule is missing for a given attribute.
+    """
+
+    def __init__(self, attribute: str) -> None:
+        super().__init__(f"No rules defined for attribute: {attribute}")
+        self.attribute = attribute
 
 
 class Validator:
@@ -23,9 +33,22 @@ class Validator:
     ) -> None:
         self.__rules_map = rules_map
         self.__rules_tracking = copy.deepcopy(rules_map)
+        self.__passed_rules = {}
+
+        for key in self.__rules_map.keys():
+            for rule in self.__rules_map[key]:
+                if rule.friendly_str.startswith(
+                    "never_fire"
+                ) or rule.friendly_str.startswith("fail"):
+                    if key not in self.__passed_rules:
+                        self.__passed_rules[key] = []
+                    self.__passed_rules[key].append(rule.friendly_str)
+
+        self.__failed_rules = {}
         self.__state_completed = state_completed
         self.__logger = logger
 
+    # TODO: Can probably remove this method
     @property
     def complete(self) -> bool:
         """
@@ -65,37 +88,38 @@ class Validator:
 
         total = 0
         matched = 0
-        for key, values in self.__rules_map.items():
-            flag = False
+        for key, value in self.__passed_rules.items():
             key_color = "green"
 
-            if key in self.__rules_tracking:
+            if key in self.__failed_rules:
                 key_color = "red"
 
-                if len(self.__rules_tracking[key]) < len(values):
+                if len(self.__failed_rules[key]) < len(self.__rules_map[key]):
                     key_color = "yellow"
 
-            for value in values:
-                total += 1
-                if (
-                    key in self.__rules_tracking
-                    and value in self.__rules_tracking[key]
-                ):
-                    if flag:
+            total += len(self.__rules_map[key])
+            matched += len(value)
+
+            if detailed:
+                output += f"{colored(key, key_color)}:\n"
+                for v in value:
+                    output += f"{' ' * (len(key) + 2)}{colored(v, 'green')}\n"
+                if key in self.__failed_rules:
+                    for v in self.__failed_rules[key]:
                         output += (
-                            f"{' ' * (len(key) + 2)}{colored(value, 'red')}\n"
+                            f"{' ' * (len(key) + 2)}{colored(v, 'red')}\n"
                         )
-                    else:
-                        output += f"{colored(key, key_color)}: {colored(value, 'red')}\n"
-                        flag = True
-                else:
-                    matched += 1
-                    if detailed:
-                        if flag:
-                            output += f"{' ' * (len(key) + 2)}{colored(value, 'green')}\n"
-                        else:
-                            output += f"{colored(key, key_color)}: {colored(value, 'green')}\n"
-                            flag = True
+            else:
+                output += f"{colored(key, key_color)}: {colored(f'{len(value)}/{len(self.__rules_map[key])}', key_color)}\n"
+
+        for key, values in self.__failed_rules.items():
+            if key not in self.__passed_rules:
+                key_color = "red"
+                total += len(self.__rules_map[key])
+
+                output += f"{colored(key, key_color)}:\n"
+                for v in values:
+                    output += f"{' ' * (len(key) + 2)}{colored(v, 'red')}\n"
 
         output += "-" * (len(header) - 1) + "\n"
         output += f"Matched: {colored(matched, 'green')} / {total} "
@@ -113,31 +137,58 @@ class Validator:
 
         Returns:
             bool: True if the attribute-value pair is valid, False otherwise.
+
+        Raises:
+            MissingRuleError: If there are no rules defined for the given attribute.
         """
         if attribute not in self.__rules_map:
-            self.__logger.debug("No validation rules for attribute: %s", attribute)
-            return False
+            self.__logger.debug(
+                "No validation rules for attribute: %s", attribute
+            )
+            raise MissingRuleError(attribute)
 
-        self.__logger.debug("Validating attribute: %s, value: %s", attribute, value)
+        self.__logger.debug(
+            "Validating attribute: %s, value: %s", attribute, value
+        )
         self.__logger.debug("Checking rules: %s", self.__rules_map[attribute])
-        for pattern in self.__rules_map[attribute]:
-            if re.match(pattern, value):
-                if attribute in self.__rules_tracking:
-                    # Remove the matched condition
-                    self.__rules_tracking[attribute].remove(pattern)
+        for rule in self.__rules_map[attribute]:
+            if hasattr(rule, "friendly_str"):
+                self.__logger.debug("rule params: %s", rule.friendly_str)
+                friendly_str = rule.friendly_str
+            else:
+                friendly_str = {}
 
-                    # If no more patterns are left for this rule, remove it from tracking
-                    if not self.__rules_tracking[attribute]:
-                        del self.__rules_tracking[attribute]
+            try:
+                if rule(value):
+                    # self.__rules_map[attribute] = rule_params
+                    if attribute not in self.__passed_rules:
+                        self.__passed_rules[attribute] = []
 
-                        if self.__rules_tracking == {}:
-                            # All rules have been satisfied
-                            self.__logger.info(
-                                "All validation rules have been satisfied."
-                            )
-                            if not self.__state_completed.done():
-                                self.__state_completed.set_result(True)
-                return True
+                    if friendly_str not in self.__passed_rules[attribute]:
+                        self.__passed_rules[attribute].append(friendly_str)
+
+                    return True
+            except SingleRuleFailure as e:
+                # Add the failed rule to the failed rules list
+                if attribute not in self.__failed_rules:
+                    self.__failed_rules[attribute] = []
+                if e not in self.__failed_rules[attribute]:
+                    self.__failed_rules[attribute].append(e)
+                continue
+
+            # self.__rules_tracking[attribute] = rule_params
+            if attribute not in self.__failed_rules:
+                self.__failed_rules[attribute] = []
+            if friendly_str not in self.__failed_rules[attribute]:
+                self.__failed_rules[attribute].append(friendly_str)
+
+                # Remove from passed rules if it was previously marked as passed
+                if (
+                    attribute in self.__passed_rules
+                    and friendly_str in self.__passed_rules[attribute]
+                ):
+                    self.__passed_rules[attribute].remove(friendly_str)
+
         return False
 
     async def start_validating(self, msg_queue: asyncio.Queue) -> None:
@@ -147,7 +198,7 @@ class Validator:
         Args:
             msg_queue (asyncio.Queue): The msg_queue to get messages from.
         """
-        while not self.complete and not self.__state_completed.done():
+        while not self.__state_completed.done():
             try:
                 msg = await asyncio.wait_for(msg_queue.get(), timeout=None)
                 self.__logger.debug(
@@ -155,15 +206,20 @@ class Validator:
                     msg[0],
                     msg[1],
                 )
-                result = self.validate(msg[0], msg[1])
+                try:
+                    result = self.validate(msg[0], msg[1])
 
-                self.__logger.debug(
-                    "Message validation result: %s",
-                    colored(
-                        "PASSED" if result else "FAILED",
-                        "green" if result else "red",
-                    ),
-                )
+                    self.__logger.debug(
+                        "Message validation result: %s",
+                        colored(
+                            "PASSED" if result else "FAILED",
+                            "green" if result else "red",
+                        ),
+                    )
+                except MissingRuleError as e:
+                    self.__logger.debug(
+                        "Message validation skipped (no rules): %s", e
+                    )
             except asyncio.TimeoutError:
                 continue
 
