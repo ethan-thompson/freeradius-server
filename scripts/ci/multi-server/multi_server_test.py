@@ -122,7 +122,11 @@ def build_rule(condition: str, params: dict) -> callable:
 
         method = lambda x: func(**rule_params, logger=logging.getLogger("__main__"), string=x)
         method.rule_params = rule_params
-        method.friendly_str = f"{condition}: {', '.join(f'{k}={v}' for k, v in rule_params.items())}"
+
+        if condition == "code":
+            method.friendly_str = f"{condition}: code block"
+        else:
+            method.friendly_str = f"{condition}: {', '.join(f'{k}={v}' for k, v in rule_params.items())}"
 
         return method
 
