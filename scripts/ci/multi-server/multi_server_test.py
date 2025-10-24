@@ -495,6 +495,14 @@ def parse_args(args=None, prog=__package__) -> argparse.Namespace:
         default=None,
     )
     parser.add_argument(
+        "-o",
+        "--output",
+        dest="output",
+        type=str,
+        help="Path to output log file.",
+        default=Path(Path(__file__).parent, "multi_server_test.log"),
+    )
+    parser.add_argument(
         "--debug",
         "-x",
         dest="debug",
@@ -513,6 +521,18 @@ def parse_args(args=None, prog=__package__) -> argparse.Namespace:
 
 if __name__ == "__main__":
     parsed_args = parse_args()
+
+    # Create the file logger
+    file_logger = logging.getLogger("file")
+    file_logger.setLevel(logging.INFO)
+    file_handler = logging.FileHandler(parsed_args.output, mode="w")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(
+        logging.Formatter(
+            "%(message)s",
+        )
+    )
+    file_logger.addHandler(file_handler)
 
     if parsed_args.debug:
         logging.getLogger(__name__).setLevel(logging.DEBUG)
@@ -541,6 +561,18 @@ if __name__ == "__main__":
         logger.addFilter(FilterByName())
         for handler in logger.handlers:
             handler.addFilter(FilterByName())
+
+        class FilterByMessage(logging.Filter):
+            """
+            Filter log records by message content.
+            """
+
+            def filter(self, record: logging.LogRecord) -> bool:
+                return any(name in record.getMessage() for name in filter_names)
+
+        # Add the filter to the file logger as well
+        file_logger.addFilter(FilterByMessage())
+
         logger.info("Filtering logs by name: %s", parsed_args.filter)
 
     if parsed_args.config_file:

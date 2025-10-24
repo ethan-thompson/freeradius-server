@@ -4,6 +4,7 @@ import asyncio
 from functools import partial
 import logging
 from pathlib import Path
+import re
 
 from python_on_whales import DockerClient
 
@@ -213,6 +214,7 @@ class Test:
         self.logger.info("Starting test: %s", self.name)
 
         self.logger.info("Starting test states for %s.", self.name)
+        test_results = []
         for state in self.states:
             self.logger.debug(
                 "Processing state: %s - %s", state.name, state.description
@@ -249,8 +251,23 @@ class Test:
             await state.wait_for_completion()
 
             self.logger.info("State completed: %s", state.name)
+            test_results.append(
+                state.validator.get_results_str(self.detail_level)
+            )
             self.logger.info(
                 " %s %s",
                 f"Test.{self.name}",
                 state.validator.get_results_str(self.detail_level),
             )
+        self.logger.info("Test completed: %s", self.name)
+
+        # Remove the coloring from the test results before logging to file
+        def strip_ansi(text):
+            ansi_escape = re.compile(r'\x1B\[[0-?]*[ -/]*[@-~]')
+            return ansi_escape.sub('', text)
+
+        test_results = [strip_ansi(r) for r in test_results]
+
+        file_logger = logging.getLogger("file")
+        for result in test_results:
+            file_logger.info("%s %s", f"Test.{self.name}", result)
