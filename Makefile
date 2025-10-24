@@ -563,3 +563,10 @@ endif
 ifneq "$(findstring docker,$(MAKECMDGOALS))" ""
   include scripts/docker/docker.mk
 endif
+
+#
+# Include the multi-server test framework makefile
+#
+ifneq "$(findstring test-framework,$(MAKECMDGOALS))" ""
+  include scripts/ci/multi-server/test-framework.mk
+endif
