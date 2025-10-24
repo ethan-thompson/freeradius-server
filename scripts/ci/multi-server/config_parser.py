@@ -65,7 +65,6 @@ def _parse_config(config: dict) -> Tuple[dict, dict]:
 
             for compose_key, compose_value in value.items():
                 if compose_key.startswith(tuple(["services", "hosts"])):
-                    # compose_configs["services"] = compose_value
                     updated_services = {}
                     for service_name, service_config in compose_value.items():
                         service_config["<<"] = default_capabilities
