@@ -34,25 +34,10 @@ def foo(x: str, logger: logging.Logger, string: str) -> bool:
         return False
 ```
 
-Then, to allow your rule to be used in the test framework, you will need to add it to the list of known rules returned by `rule_methods` in `rules.py`:
+Then, to allow your rule to be used in the test framework, you will need to add it to the global map of known rules `RULES_MAP`:
 ```
-def rule_methods() -> dict[str, callable]:
-    """
-    Returns a dictionary of available rule methods.
+RULES_MAP.update({"foo": foo, "example": foo})
+```
+This can be done on the next line after your rule method.
 
-    Returns:
-        dict[str, callable]: A dictionary mapping rule names to their corresponding functions.
-    """
-    return {
-        "pattern": pattern,
-        "regex": pattern,
-        "range": within_range,
-        "within_range": within_range,
-        "fail": never_fire,
-        "never_fire": never_fire,
-        "code": code,
-        "foo": foo,
-        "example": foo
-    }
-```
 Note: You can add multiple aliases for your rule, but I would recommend adding the name of the method as a bare minimum.
