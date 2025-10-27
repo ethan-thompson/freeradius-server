@@ -5,6 +5,10 @@ import logging
 
 # All rule methods should return True if the rule passes, False otherwise.
 
+CONTROL_MAP = {}  # A mapping of control rule names to their functions.
+RULES_MAP = {}  # A mapping of rule names to their functions.
+
+
 class SingleRuleFailure(Exception):
     """Exception raised when a single rule fails from a set of rules."""
 
@@ -39,6 +43,10 @@ def all_pass(
     logger.debug("'all' rule passed.")
     return True
 
+
+CONTROL_MAP.update({"all_pass": all_pass, "all": all_pass})
+
+
 def any_pass(
     methods: list[callable], logger: logging.Logger, string: str
 ) -> bool:
@@ -61,9 +69,11 @@ def any_pass(
     logger.debug("'any' rule failed.")
     return False
 
-def never_fire(
-        logger: logging.Logger, *args, **kwargs
-) -> bool:
+
+CONTROL_MAP.update({"any_pass": any_pass, "any": any_pass})
+
+
+def never_fire(logger: logging.Logger, string: str) -> bool:
     """
     A rule that should never pass.
 
@@ -76,6 +86,10 @@ def never_fire(
     """
     logger.debug("Evaluating 'never_fire' rule, which always fails.")
     return False
+
+
+RULES_MAP.update({"never_fire": never_fire, "fail": never_fire})
+
 
 def pattern(
     reg_pattern: str | re.Pattern[str], logger: logging.Logger, string: str
@@ -100,6 +114,10 @@ def pattern(
         return True
     logger.debug("Pattern did not match: %s", reg_pattern.pattern)
     return False
+
+
+RULES_MAP.update({"pattern": pattern, "regex": pattern})
+
 
 def within_range(
     minimum: float, maximum: float, logger: logging.Logger, string: float | str
@@ -138,12 +156,16 @@ def within_range(
     logger.debug("Number is out of range: %f", string)
     return False
 
-def is_code_safe(source: str, logger: logging.Logger) -> bool:
+
+RULES_MAP.update({"range": within_range, "within_range": within_range})
+
+
+def is_code_safe(_source: str, logger: logging.Logger) -> bool:
     """
     Check if the provided code block is safe to execute.
 
     Args:
-        source (str): The code block to check.
+        _source (str): The code block to check.
         logger (logging.Logger): Logger for debug output.
     Returns:
         bool: True if the code is safe, False otherwise.
@@ -186,6 +208,10 @@ def code(block: str, logger: logging.Logger, string: str) -> bool:
         logger.error("Error executing custom code block: %s", e)
         return False
 
+
+RULES_MAP.update({"code": code})
+
+
 def rule_methods() -> dict[str, callable]:
     """
     Returns a dictionary of available rule methods.
@@ -193,15 +219,8 @@ def rule_methods() -> dict[str, callable]:
     Returns:
         dict[str, callable]: A dictionary mapping rule names to their corresponding functions.
     """
-    return {
-        "pattern": pattern,
-        "regex": pattern,
-        "range": within_range,
-        "within_range": within_range,
-        "fail": never_fire,
-        "never_fire": never_fire,
-        "code": code,
-    }
+    return RULES_MAP
+
 
 def control_methods() -> dict[str, callable]:
     """
@@ -210,9 +229,4 @@ def control_methods() -> dict[str, callable]:
     Returns:
         dict[str, callable]: A dictionary mapping control names to their corresponding functions.
     """
-    return {
-        "all": all_pass,
-        "any": any_pass,
-        "all_pass": all_pass,
-        "any_pass": any_pass,
-    }
+    return CONTROL_MAP
