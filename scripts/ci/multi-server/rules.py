@@ -12,6 +12,7 @@ class SingleRuleFailure(Exception):
         super().__init__(message)
         self.message = message
 
+
 def all_pass(
     methods: list[callable], logger: logging.Logger, string: str
 ) -> bool:
@@ -35,7 +36,6 @@ def all_pass(
         if not method(string):
             logger.debug("'all' rule failed on method: %s", method.__name__)
             raise SingleRuleFailure(f"all: {method.friendly_str}")
-            # return False
     logger.debug("'all' rule passed.")
     return True
 
@@ -48,8 +48,7 @@ def any_pass(
     Args:
         methods (list[callable]): List of functions to be called.
         logger (logging.Logger): Logger for debug output.
-        *args: Positional arguments to pass to each method.
-        **kwargs: Keyword arguments to pass to each method.
+        string (str): The string to be validated.
 
     Returns:
         bool: True if any method returns True, False otherwise.
@@ -70,8 +69,7 @@ def never_fire(
 
     Args:
         logger (logging.Logger): Logger for debug output.
-        *args: Positional arguments (not used).
-        **kwargs: Keyword arguments (not used).
+        string (str): The string to be validated.
 
     Returns:
         bool: Always returns False.
@@ -87,8 +85,8 @@ def pattern(
 
     Args:
         pattern (str | re.Pattern[str]): The regex pattern to match against.
-        string (str): The string to be checked.
         logger (logging.Logger): Logger for debug output.
+        string (str): The string to be checked.
 
     Returns:
         bool: True if the string matches the pattern, False otherwise.
@@ -104,7 +102,7 @@ def pattern(
     return False
 
 def within_range(
-        minimum: float, maximum: float, logger: logging.Logger, string: float | str
+    minimum: float, maximum: float, logger: logging.Logger, string: float | str
 ) -> bool:
     """
     Check if a number is within a specified range.
@@ -112,18 +110,20 @@ def within_range(
     Args:
         minimum (float): The minimum value of the range.
         maximum (float): The maximum value of the range.
-        number (float | str): The number to be checked.
         logger (logging.Logger): Logger for debug output.
+        string (float | str): The number to be checked.
 
     Returns:
         bool: True if the number is within the range, False otherwise.
     """
-    logger.debug("Checking if number is within range: %f - %f", minimum, maximum)
+    logger.debug(
+        "Checking if number is within range: %f - %f", minimum, maximum
+    )
     logger.debug("Number to check: %s", string)
 
     if isinstance(string, str):
         try:
-            string_parts = string.split(':')
+            string_parts = string.split(":")
             if len(string_parts) == 1:
                 string = float(string_parts[0])
             else:
@@ -148,12 +148,13 @@ def is_code_safe(source: str, logger: logging.Logger) -> bool:
     Returns:
         bool: True if the code is safe, False otherwise.
     """
-    logger.warning("Code safety check is not implemented. Proceeding without checks.")
+    logger.warning(
+        "Code safety check is not implemented. Proceeding without checks."
+    )
     return True
 
-def code(
-        block: str, logger: logging.Logger, string: str
-) -> bool:
+
+def code(block: str, logger: logging.Logger, string: str) -> bool:
     """
     Execute a custom code block for validation.
 
