@@ -73,7 +73,7 @@ def any_pass(
 CONTROL_MAP.update({"any_pass": any_pass, "any": any_pass})
 
 
-def never_fire(logger: logging.Logger, string: str) -> bool:
+def never_fire(msg: str, logger: logging.Logger, string: str) -> bool:
     """
     A rule that should never pass.
 
@@ -90,6 +90,22 @@ def never_fire(logger: logging.Logger, string: str) -> bool:
 
 RULES_MAP.update({"never_fire": never_fire, "fail": never_fire})
 
+
+def must_fire(msg: str, logger: logging.Logger, string: str) -> bool:
+    """
+    A rule that should always pass.
+
+    Args:
+        logger (logging.Logger): Logger for debug output.
+        string (str): The string to be validated.
+
+    Returns:
+        bool: Always returns True.
+    """
+    logger.debug("Evaluating 'must_fire' rule, which always passes.")
+    return True
+
+RULES_MAP.update({"must_fire": must_fire, "pass": must_fire, "fire": must_fire})
 
 def pattern(
     reg_pattern: str | re.Pattern[str], logger: logging.Logger, string: str

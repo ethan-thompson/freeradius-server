@@ -116,22 +116,29 @@ def build_rule(condition: str, params: dict) -> callable:
     known_rules = rules.rule_methods()
     controls = rules.control_methods()
 
-    if condition in known_rules:
-        func = known_rules[condition]
+    normalized_condition = condition.lower()
+    normalized_condition = normalized_condition.removeprefix("must_")
+
+    logger.debug("Normalized condition: %s", normalized_condition)
+
+    if normalized_condition in known_rules:
+        func = known_rules[normalized_condition]
         rule_params = params
 
-        method = lambda x: func(**rule_params, logger=logging.getLogger("__main__"), string=x)
+        method = lambda x: func(
+            **rule_params, logger=logging.getLogger("__main__"), string=x
+        )
         method.rule_params = rule_params
 
-        if condition == "code":
-            method.friendly_str = f"{condition}: code block"
+        if normalized_condition == "code":
+            method.friendly_str = f"{condition.lower()}: code block"
         else:
-            method.friendly_str = f"{condition}: {', '.join(f'{k}={v}' for k, v in rule_params.items())}"
+            method.friendly_str = f"{condition.lower()}: {', '.join(f'{k}={v}' for k, v in rule_params.items())}"
 
         return method
 
-    if condition in controls:
-        func = controls[condition]
+    if normalized_condition in controls:
+        func = controls[normalized_condition]
 
         methods = []
 
@@ -141,9 +148,11 @@ def build_rule(condition: str, params: dict) -> callable:
 
         logger.debug("Control methods: %s", methods)
 
-        method = lambda x: func(methods=methods, logger=logging.getLogger("__main__"), string=x)
+        method = lambda x: func(
+            methods=methods, logger=logging.getLogger("__main__"), string=x
+        )
         method.rule_params = {"methods": methods}
-        method.friendly_str = f"{condition}: {', '.join(m.friendly_str for m in methods)}"
+        method.friendly_str = f"{condition.lower()}: {', '.join(m.friendly_str for m in methods)}"
 
         return method
 

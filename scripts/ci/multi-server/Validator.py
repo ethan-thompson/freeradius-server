@@ -34,6 +34,7 @@ class Validator:
         self.__rules_map = rules_map
         self.__rules_tracking = copy.deepcopy(rules_map)
         self.__passed_rules = {}
+        self.__failed_rules = {}
 
         for key in self.__rules_map.keys():
             for rule in self.__rules_map[key]:
@@ -43,21 +44,15 @@ class Validator:
                     if key not in self.__passed_rules:
                         self.__passed_rules[key] = []
                     self.__passed_rules[key].append(rule.friendly_str)
+                elif rule.friendly_str.startswith(
+                    "must_"
+                ) or rule.friendly_str.startswith("pass") or rule.friendly_str.startswith("fire"):
+                    if key not in self.__failed_rules:
+                        self.__failed_rules[key] = []
+                    self.__failed_rules[key].append(rule.friendly_str)
 
-        self.__failed_rules = {}
         self.__state_completed = state_completed
         self.__logger = logger
-
-    # TODO: Can probably remove this method
-    @property
-    def complete(self) -> bool:
-        """
-        Check if all rules have been matched.
-
-        Returns:
-            bool: True if all rules have been matched, False otherwise.
-        """
-        return self.__rules_tracking == {}
 
     @property
     def unmatched_rules(self) -> dict:
@@ -166,6 +161,19 @@ class Validator:
 
                     if friendly_str not in self.__passed_rules[attribute]:
                         self.__passed_rules[attribute].append(friendly_str)
+
+                    # If this is a must_fire rule, remove it from failed rules
+                    if (
+                        type(friendly_str) is str
+                        and (friendly_str.startswith("must_") or friendly_str.startswith("pass") or friendly_str.startswith("fire"))
+                        and attribute in self.__failed_rules
+                        and friendly_str in self.__failed_rules[attribute]
+                    ):
+                        self.__failed_rules[attribute].remove(friendly_str)
+
+                        # Clean up if no more failed rules for this attribute
+                        if len(self.__failed_rules[attribute]) == 0:
+                            del self.__failed_rules[attribute]
 
                     return True
             except SingleRuleFailure as e:
