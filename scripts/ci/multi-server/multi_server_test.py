@@ -6,6 +6,7 @@ It uses Docker Compose to set up the environment and runs tests against it.
 import asyncio
 import argparse
 import logging
+import random
 import signal
 import sys
 from pathlib import Path
@@ -102,6 +103,7 @@ async def cleanup_and_shutdown() -> None:
         asyncio.get_event_loop().stop()
     logger.debug("Event loop stopped.")
 
+
 def build_rule(condition: str, params: dict) -> callable:
     """
     Build a rule function that can be used to validate events.
@@ -158,6 +160,7 @@ def build_rule(condition: str, params: dict) -> callable:
 
     return lambda x: False
 
+
 def generate_rules_map(state: dict) -> dict:
     """
     Generate a mapping of triggers to their corresponding validation functions.
@@ -188,7 +191,7 @@ def generate_rules_map(state: dict) -> dict:
 
 def parse_test_configs(
     config: Path | dict, test_name: str
-) -> tuple[float, list[dict]]:
+) -> tuple[float, str, list[dict]]:
     """
     Parse the test configuration file.
 
@@ -198,6 +201,7 @@ def parse_test_configs(
 
     Returns:
         float: Timeout for the test.
+        str: State order for the test.
         list[dict]: List of state configurations. Each state configuration is a dictionary
             with keys:
             - name (str): Name of the state.
@@ -232,6 +236,7 @@ def parse_test_configs(
         raw_configs = config
 
     timeout: float = raw_configs.get("timeout", 40.0)
+    state_order: str = raw_configs.get("state_order", "sequence")
     configs = []
     for state_name, state in raw_configs.get("states", {}).items():
         state_config = {}
@@ -289,7 +294,7 @@ def parse_test_configs(
         state_config["rules_map"] = rules_map
 
         configs.append(state_config)
-    return timeout, configs
+    return timeout, state_order, configs
 
 
 def generate_states(
@@ -297,6 +302,7 @@ def generate_states(
     config: Path | dict,
     test_name: str,
     test_logger: logging.Logger,
+    seed: int | None = None,
 ) -> tuple[float, list[State]]:
     """
     Generate a list of states for testing.
@@ -305,6 +311,9 @@ def generate_states(
         loop (asyncio.AbstractEventLoop): The event loop to use.
         config (Path | dict): Path to the configuration file or a dictionary
           containing the config.
+        test_name (str): Name of the test.
+        test_logger (logging.Logger): Logger for the test.
+        seed (int | None): Seed for randomizing test states.
 
     Returns:
         timeout (float): Timeout for the test.
@@ -314,7 +323,9 @@ def generate_states(
         ValueError: If the configuration file is invalid.
     """
     try:
-        timeout, state_configs = parse_test_configs(config, test_name)
+        timeout, state_order, state_configs = parse_test_configs(
+            config, test_name
+        )
     except ValueError as e:
         raise ValueError(f"Invalid configuration file: {e}") from e
 
@@ -331,11 +342,31 @@ def generate_states(
                 logger=test_logger,
             )
         )
+
+    if state_order in ["random", "unordered", "shuffle"]:
+        # Shuffle the states randomly
+        if not seed:
+            seed = random.randint(0, 2**32 - 1)
+
+        test_logger.info("Shuffling states with seed: %d", seed)
+
+        # Log to the file logger as well
+        file_logger = logging.getLogger("file")
+        file_logger.info(
+            "Shuffling test %s states with seed: %d", test_name, seed
+        )
+
+        random.seed(seed)
+        random.shuffle(states)
+
     return timeout, states
 
 
 def build_tests(
-    loop: asyncio.AbstractEventLoop, config: Path | dict, compose_file: Path
+    loop: asyncio.AbstractEventLoop,
+    config: Path | dict,
+    compose_file: Path,
+    seed: int | None = None,
 ) -> list[Test]:
     """
     Build a list of Test objects from the configuration.
@@ -344,6 +375,8 @@ def build_tests(
         loop (asyncio.AbstractEventLoop): The event loop to use.
         config (Path | dict): Path to the configuration file/directory or a dictionary
           containing the config.
+        compose_file (Path): Path to the Docker Compose file.
+        seed (int | None): Seed for randomizing test states.
 
     Returns:
         list[Test]: List of Test objects.
@@ -361,7 +394,7 @@ def build_tests(
             test_logger = create_test_logger(test_name)
             try:
                 timeout, states = generate_states(
-                    loop, test_file, test_name, test_logger
+                    loop, test_file, test_name, test_logger, seed=seed
                 )
                 tests.append(
                     Test(
@@ -382,7 +415,7 @@ def build_tests(
             test_name = "custom_test"
             test_logger = create_test_logger(test_name)
             timeout, states = generate_states(
-                loop, config, test_name, test_logger
+                loop, config, test_name, test_logger, seed=seed
             )
             tests.append(
                 Test(
@@ -418,7 +451,7 @@ async def run_tests(tests: list[Test]) -> None:
     logger.info("All tests completed.")
 
 
-def main(compose_file: Path, configs: Path | dict) -> None:
+def main(compose_file: Path, configs: Path | dict, **kwargs) -> None:
     """
     Main function to run the multi-server tests.
 
@@ -426,6 +459,7 @@ def main(compose_file: Path, configs: Path | dict) -> None:
         compose_file (Path): Path to the Docker Compose file.
         configs (Path | dict): Path to the test configuration file or a dictionary
             containing the config.
+        **kwargs: Additional keyword arguments.
     """
     # Run a test in an asynchronous event loop
     loop = asyncio.get_event_loop()
@@ -438,7 +472,9 @@ def main(compose_file: Path, configs: Path | dict) -> None:
             )
 
         # Generate the states from the config
-        tests = build_tests(loop, configs, compose_file)
+        tests = build_tests(
+            loop, configs, compose_file, seed=kwargs.get("seed")
+        )
 
         # Create the test task group
         test_task = loop.create_task(run_tests(tests))
@@ -510,6 +546,14 @@ def parse_args(args=None, prog=__package__) -> argparse.Namespace:
         type=str,
         help="Path to output log file.",
         default=Path(Path(__file__).parent, "multi_server_test.log"),
+    )
+    parser.add_argument(
+        "-s",
+        "--seed",
+        dest="seed",
+        type=int,
+        help="Random seed for shuffling test states.",
+        default=None,
     )
     parser.add_argument(
         "--debug",
@@ -608,12 +652,18 @@ if __name__ == "__main__":
             main(
                 compose_file=Path(Path(__file__).parent, "docker-compose.yml"),
                 configs=test_configs,
+                seed=parsed_args.seed,
             )
         else:
             main(
                 compose_file=Path(Path(__file__).parent, "docker-compose.yml"),
                 configs=parsed_args.test,
+                seed=parsed_args.seed,
             )
 
     else:
-        main(compose_file=parsed_args.compose_file, configs=parsed_args.test)
+        main(
+            compose_file=parsed_args.compose_file,
+            configs=parsed_args.test,
+            seed=parsed_args.seed,
+        )
