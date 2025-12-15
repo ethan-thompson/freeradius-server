@@ -1,0 +1,56 @@
+string test_string
+
+#  Remove old log files
+%file.rm("$ENV{MODULE_TEST_DIR}/test_batch.log")
+
+parallel {
+        %linelog_batch('bob')
+        %linelog_batch('bob')
+        %linelog_batch('bob')
+        %linelog_batch('bob')
+        %linelog_batch('bob')
+        %linelog_batch('bob')
+}
+
+
+test_string := %file.tail("$ENV{MODULE_TEST_DIR}/test_batch.log")
+
+if (test_string == 'bob') {
+	test_pass
+}
+else {
+        test_fail
+}
+
+# Some interpreter thing to advance time
+#%time.advance(5s)
+
+parallel {
+        linelog_batch
+        linelog_batch
+}
+
+test_string := %file.tail("$ENV{MODULE_TEST_DIR}/test_batch.log")
+
+if (test_string == 'bob') {
+        test_pass
+}
+else {
+        test_fail
+}
+
+# Test timeouts/partial writes
+parallel {
+        linelog_batch
+        linelog_batch
+        linelog_batch
+        timeout 1s {
+                linelog_batch
+                %time.advance(5s)
+                linelog_batch
+        }
+        linelog_batch
+}
+
+#  Remove the file
+%file.rm("$ENV{MODULE_TEST_DIR}/test_batch.log")
