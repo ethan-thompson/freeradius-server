@@ -1,0 +1,250 @@
+#
+#  Error condition tests for HTTP decode and encode
+#
+proto http
+proto-dictionary http
+fuzzer-out http
+
+#
+#  Request line with no CRLF terminator.
+#
+#  GET / HTTP/1.1   (no \r\n)
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31
+match ERROR: HTTP packet has no CRLF after request line
+
+#
+#  Unknown HTTP method.
+#
+#  BLAH / HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 42 4c 41 48 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match ERROR: Unknown HTTP method: BLAH
+
+#
+#  Unknown HTTP version.
+#
+#  GET / HTTP/2.0\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 32 2e 30 0d 0a 0d 0a
+match ERROR: Unknown HTTP version: HTTP/2.0 (supported: HTTP/1.0, HTTP/1.1)
+
+#
+#  Request line missing the second SP (no path/version separation).
+#
+#  GET /no-version\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 6e 6f 2d 76 65 72 73 69 6f 6e 0d 0a 0d 0a
+match ERROR: Malformed HTTP request line: missing SP after path
+
+#
+#  Request line with an empty path (two spaces after the method).
+#
+#  GET  HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match ERROR: Malformed HTTP request line: empty request path
+
+#
+#  Header line with no colon.
+#
+#  GET / HTTP/1.1\r\n
+#  BadHeader\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 42 61 64 48 65 61 64 65 72 0d 0a 0d 0a
+match ERROR: Malformed HTTP header line (no colon): BadHeader
+
+#
+#  Header line with empty field name (colon is the first character).
+#
+#  GET / HTTP/1.1\r\n
+#  : value\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 3a 20 76 61 6c 75 65 0d 0a 0d 0a
+match ERROR: Malformed HTTP header line: empty field name
+
+#
+#  Header section not terminated with a blank line (headers but no CRLF CRLF).
+#
+#  GET / HTTP/1.1\r\n
+#  Host: example.com    (no trailing \r\n\r\n)
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 65 78 61 6d 70 6c 65 2e 63 6f 6d
+match ERROR: HTTP header section is not terminated with a blank line
+
+#
+#  Duplicate Content-Length headers with conflicting values.
+#
+#  RFC 9110 §5.2 treats multiple same-name header fields as equivalent to a
+#  single field with their values joined as a comma-separated list.  RFC 9112
+#  §6.3(5) requires a recipient to reject a message with an invalid
+#  Content-Length, which includes a combined list whose values are not all
+#  identical (e.g. "5, 10").  A server MUST reject such a message as malformed.
+#
+#  POST /test HTTP/1.1\r\n
+#  Content-Length: 5\r\n
+#  Content-Length: 10\r\n
+#  \r\n
+#  hello
+#
+decode-proto 50 4f 53 54 20 2f 74 65 73 74 20 48 54 54 50 2f 31 2e 31 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 35 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 31 30 0d 0a 0d 0a 68 65 6c 6c 6f
+match ERROR: Duplicate Content-Length headers with conflicting values
+
+#
+#  RFC 9112 §2.2: "A recipient of such a bare CR MUST consider that element
+#  to be invalid".  A bare CR (not immediately followed by LF) embedded in
+#  the request line must be rejected, not silently absorbed into the path.
+#
+#  GET /pa<CR>th HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 70 61 0d 74 68 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match ERROR: Malformed HTTP request line: contains a bare CR
+
+#
+#  Same rule, but the bare CR is embedded in a header line instead of the
+#  request line.  Without this check, "bar<CR>Evil: header" would be decoded
+#  as a single Header Value containing a raw CR byte.
+#
+#  GET / HTTP/1.1\r\n
+#  X-Foo: bar<CR>Evil: header\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 58 2d 46 6f 6f 3a 20 62 61 72 0d 45 76 69 6c 3a 20 68 65 61 64 65 72 0d 0a 0d 0a
+match ERROR: Malformed HTTP header line: contains a bare CR
+
+#
+#  RFC 9112 §2.2: "A sender MUST NOT generate a bare CR ... within any
+#  protocol elements".  We reject LF too, since a full CRLF embedded in a
+#  policy-controlled value would let it forge an extra header/status line
+#  on the wire (response splitting).  Each field that reaches the wire is
+#  checked: Path, Header Name, Header Value, and Reason-Phrase.
+#
+encode-proto Request = { Method = GET, Path = "/a\r\nX-Injected: evil", Version = HTTP-1-1 }
+match ERROR: HTTP Request Path contains a CR or LF
+
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 200, Reason-Phrase = "OK\r\nX-Injected: evil" }
+match ERROR: HTTP Response Reason-Phrase contains a CR or LF
+
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 200, Reason-Phrase = "OK" }, Header = { Name = "X-Foo\r\nX-Injected", Value = "bar" }
+match ERROR: HTTP Header Name contains a CR or LF
+
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 200, Reason-Phrase = "OK" }, Header = { Name = "X-Foo", Value = "bar\r\nX-Injected: evil" }
+match ERROR: HTTP Header Value contains a CR or LF
+
+#
+#  RFC 9112 §5.1: a header line beginning with whitespace is obsolete line
+#  folding.  It MUST be rejected (or ignored entirely) rather than parsed as
+#  an ordinary header field with a leading space folded into the name, since
+#  a downstream recipient that instead treats it as a continuation of the
+#  previous field's value would parse this message differently.
+#
+#  GET / HTTP/1.1\r\n
+#  X-Foo: bar\r\n
+#  <SP>X-Injected: evil\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 58 2d 46 6f 6f 3a 20 62 61 72 0d 0a 20 58 2d 49 6e 6a 65 63 74 65 64 3a 20 65 76 69 6c 0d 0a 0d 0a
+match ERROR: Malformed HTTP header line: begins with whitespace (obsolete line folding)
+
+#
+#  Same rule, with a leading HTAB instead of SP.
+#
+#  GET / HTTP/1.1\r\n
+#  X-Foo: bar\r\n
+#  <TAB>X-Injected: evil\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 58 2d 46 6f 6f 3a 20 62 61 72 0d 0a 09 58 2d 49 6e 6a 65 63 74 65 64 3a 20 65 76 69 6c 0d 0a 0d 0a
+match ERROR: Malformed HTTP header line: begins with whitespace (obsolete line folding)
+
+#
+#  A packet containing nothing but empty lines has no request-line to find,
+#  even after RFC 9112 §2.2's leading-empty-line tolerance consumes them.
+#
+decode-proto 0d 0a 0d 0a
+match ERROR: HTTP packet is empty
+
+#
+#  RFC 9112 §5.1: "No whitespace is allowed between the field name and
+#  colon.  In the past, differences in the handling of such whitespace have
+#  led to security vulnerabilities in request routing and response
+#  handling.  A server MUST reject ... any received request message that
+#  contains whitespace between a header field name and colon."
+#
+#  GET / HTTP/1.1\r\n
+#  X-Foo : bar\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 58 2d 46 6f 6f 20 3a 20 62 61 72 0d 0a 0d 0a
+match ERROR: Malformed HTTP header line: whitespace between field name and colon
+
+#
+#  Same rule, with a HTAB instead of a SP before the colon.
+#
+#  GET / HTTP/1.1\r\n
+#  X-Foo\t: bar\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 58 2d 46 6f 6f 09 3a 20 62 61 72 0d 0a 0d 0a
+match ERROR: Malformed HTTP header line: whitespace between field name and colon
+
+#
+#  RFC 9112 §3.2: "A server MUST respond with a 400 (Bad Request) status
+#  code to any HTTP/1.1 request message that lacks a Host header field
+#  and to any request message that contains more than one Host header
+#  field line or a Host header field with an invalid field value."
+#
+#  GET / HTTP/1.1\r\n
+#  \r\n
+#  (no Host header at all)
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match ERROR: Missing required Host header
+
+#
+#  Two Host header field lines.
+#
+#  GET / HTTP/1.1\r\n
+#  Host: example.com\r\n
+#  Host: evil.com\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 65 78 61 6d 70 6c 65 2e 63 6f 6d 0d 0a 48 6f 73 74 3a 20 65 76 69 6c 2e 63 6f 6d 0d 0a 0d 0a
+match ERROR: Duplicate Host header
+
+#
+#  Invalid Host field value: embedded whitespace.
+#
+#  GET / HTTP/1.1\r\n
+#  Host: exa mple.com\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 65 78 61 20 6d 70 6c 65 2e 63 6f 6d 0d 0a 0d 0a
+match ERROR: Invalid Host header value
+
+#
+#  Invalid Host field value: non-numeric port.
+#
+#  GET / HTTP/1.1\r\n
+#  Host: example.com:abc\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 65 78 61 6d 70 6c 65 2e 63 6f 6d 3a 61 62 63 0d 0a 0d 0a
+match ERROR: Invalid Host header value
+
+#
+#  Invalid Host field value: empty (OWS-only value).
+#
+#  GET / HTTP/1.1\r\n
+#  Host: \r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 0d 0a 0d 0a
+match ERROR: Invalid Host header value

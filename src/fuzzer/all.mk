@@ -5,7 +5,7 @@
 #  source / makefile are generated from src/fuzzer/fuzzer.c and
 #  src/fuzzer/fuzzer.mk via FUZZ_PROTOCOL below.
 #
-FUZZER_PROTOCOLS = radius dhcpv4 dhcpv6 dns tacacs vmps tftp bfd cbor arp
+FUZZER_PROTOCOLS = radius dhcpv4 dhcpv6 dns tacacs vmps tftp bfd cbor arp http
 
 #
 #  Standalone fuzzer targets - each has a hand-written fuzzer_<name>.c
