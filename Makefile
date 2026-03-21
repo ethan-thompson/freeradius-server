@@ -107,6 +107,7 @@ PROTOCOLS    := \
 	eap/psk \
 	ethernet \
 	freeradius \
+	http \
 	ldap \
 	radius \
 	redis \

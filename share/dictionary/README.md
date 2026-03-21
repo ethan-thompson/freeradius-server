@@ -50,6 +50,7 @@ PROTOCOL        LDAP            12
 PROTOCOL        BFD		13
 PROTOCOL        CRL             14
 PROTOCOL        REDIS		15
+PROTOCOL        HTTP            16
 PROTOCOL        EAP-SIM         101
 PROTOCOL        EAP-AKA         102
 PROTOCOL        EAP-FAST         103

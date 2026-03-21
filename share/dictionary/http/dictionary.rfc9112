@@ -1,0 +1,48 @@
+# -*- text -*-
+# Copyright (C) 2026 The FreeRADIUS Server project and contributors
+# This work is licensed under CC-BY version 4.0 https://creativecommons.org/licenses/by/4.0
+# Version $Id$
+#
+# Attributes for HTTP as defined by:
+#   RFC 9112 - HTTP/1.1
+#
+
+#
+#  HTTP request line:  METHOD SP Request-URI SP HTTP-Version CRLF
+#
+DEFINE	Request					struct
+MEMBER	Method  				uint32
+VALUE	Method			GET		1
+VALUE	Method			POST		2
+VALUE	Method			PUT		3
+VALUE	Method			DELETE		4
+VALUE	Method			PATCH		5
+VALUE	Method			HEAD		6
+VALUE	Method			OPTIONS		7
+VALUE	Method			CONNECT		8
+VALUE	Method			TRACE		9
+
+MEMBER	Version	        			uint8
+VALUE	Version			HTTP-1-0	0
+VALUE	Version			HTTP-1-1	1
+MEMBER	Path    				string
+
+#
+#  HTTP response (status) line:  HTTP-Version SP Status-Code SP Reason-Phrase CRLF
+#
+DEFINE	Response				struct
+MEMBER	Version 				uint8	enum=@.Request.Version
+MEMBER	Status-Code     			uint16
+VALUE	Status-Code		Continue		100
+VALUE	Status-Code		Switching-Protocols	101
+VALUE	Status-Code		OK			200
+VALUE	Status-Code		Created			201
+VALUE	Status-Code		No-Content		204
+VALUE	Status-Code		Not-Modified		304
+VALUE	Status-Code		Bad-Request		400
+VALUE	Status-Code		Forbidden		403
+VALUE	Status-Code		Not-Found		404
+VALUE	Status-Code		Gone			410
+VALUE	Status-Code		Internal-Server-Error	500
+VALUE	Status-Code		Service-Unavailable	503
+MEMBER	Reason-Phrase   			string

@@ -8,6 +8,7 @@ der
 dhcpv4
 dhcpv6
 dns
+http
 json
 radius
 tacacs
