@@ -1,0 +1,107 @@
+#
+#  Tests for fr_http_length() framing scenarios.
+#
+#  fr_http_length() is called by the TCP transport (proto_http_tcp) to
+#  determine how many bytes constitute one complete HTTP message before
+#  passing the buffer to fr_http_decode().  It cannot be called directly
+#  from this test framework; these tests use decode-proto to exercise the
+#  same byte sequences that fr_http_length() must correctly frame.
+#
+#  A C unit test covering fr_http_length() directly (partial buffers,
+#  Content-Length accumulation, return value semantics) is still needed.
+#
+proto http
+proto-dictionary http
+
+#
+#  ----------------------------------------------------------------
+#  No body: fr_http_length() should return exactly headers_end.
+#  ----------------------------------------------------------------
+
+#
+#  Minimal GET — no headers, no body.
+#  fr_http_length() result: len("GET / HTTP/1.1\r\n\r\n") = 18
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match Request = { Method = ::GET, Path = "/", Version = ::HTTP-1-1 }
+
+#
+#  GET with headers but no body.
+#  fr_http_length() result: headers_end + 0 (no Content-Length present).
+#
+#  GET / HTTP/1.1\r\n
+#  Host: example.com\r\n
+#  Accept: */*\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 65 78 61 6d 70 6c 65 2e 63 6f 6d 0d 0a 41 63 63 65 70 74 3a 20 2a 2f 2a 0d 0a 0d 0a
+match Request = { Method = ::GET, Path = "/", Version = ::HTTP-1-1 }, Header = { Name = "Host", Value = "example.com" }, Header = { Name = "Accept", Value = "*/*" }
+
+#
+#  ----------------------------------------------------------------
+#  Body present: fr_http_length() must add Content-Length to headers_end.
+#  ----------------------------------------------------------------
+
+#
+#  POST with Content-Length: 4 and a 4-byte body.
+#  fr_http_length() result: headers_end + 4.
+#
+#  POST /api HTTP/1.1\r\n
+#  Content-Length: 4\r\n
+#  \r\n
+#  data
+#
+decode-proto 50 4f 53 54 20 2f 61 70 69 20 48 54 54 50 2f 31 2e 31 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 34 0d 0a 0d 0a 64 61 74 61
+match Request = { Method = ::POST, Path = "/api", Version = ::HTTP-1-1 }, Header = { Name = "Content-Length", Value = "4" }, Body = 0x64617461
+
+#
+#  PUT with Content-Length: 0 — body field present in headers, but zero bytes.
+#  fr_http_length() result: headers_end + 0.
+#
+#  PUT /resource HTTP/1.1\r\n
+#  Content-Length: 0\r\n
+#  \r\n
+#
+decode-proto 50 55 54 20 2f 72 65 73 6f 75 72 63 65 20 48 54 54 50 2f 31 2e 31 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 30 0d 0a 0d 0a
+match Request = { Method = ::PUT, Path = "/resource", Version = ::HTTP-1-1 }, Header = { Name = "Content-Length", Value = "0" }
+
+#
+#  POST with Content-Length after another header — fr_http_length() must
+#  scan past the first header to find it.
+#
+#  POST /acme/new-order HTTP/1.1\r\n
+#  Content-Type: application/jose+json\r\n
+#  Content-Length: 2\r\n
+#  \r\n
+#  {}
+#
+decode-proto 50 4f 53 54 20 2f 61 63 6d 65 2f 6e 65 77 2d 6f 72 64 65 72 20 48 54 54 50 2f 31 2e 31 0d 0a 43 6f 6e 74 65 6e 74 2d 54 79 70 65 3a 20 61 70 70 6c 69 63 61 74 69 6f 6e 2f 6a 6f 73 65 2b 6a 73 6f 6e 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 32 0d 0a 0d 0a 7b 7d
+match Request = { Method = ::POST, Path = "/acme/new-order", Version = ::HTTP-1-1 }, Header = { Name = "Content-Type", Value = "application/jose+json" }, Header = { Name = "Content-Length", Value = "2" }, Body = 0x7b7d
+
+#
+#  ----------------------------------------------------------------
+#  Case-insensitive Content-Length header name (RFC 9110 §5.1).
+#  fr_http_length() uses strncasecmp so must match lowercase too.
+#  ----------------------------------------------------------------
+
+#
+#  GET with "content-length" (all lowercase) and a 3-byte body.
+#
+#  GET / HTTP/1.1\r\n
+#  content-length: 3\r\n
+#  \r\n
+#  abc
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 63 6f 6e 74 65 6e 74 2d 6c 65 6e 67 74 68 3a 20 33 0d 0a 0d 0a 61 62 63
+match Request = { Method = ::GET, Path = "/", Version = ::HTTP-1-1 }, Header = { Name = "content-length", Value = "3" }, Body = 0x616263
+
+#
+#  GET with "CONTENT-LENGTH" (all uppercase).
+#
+#  GET / HTTP/1.1\r\n
+#  CONTENT-LENGTH: 3\r\n
+#  \r\n
+#  abc
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 43 4f 4e 54 45 4e 54 2d 4c 45 4e 47 54 48 3a 20 33 0d 0a 0d 0a 61 62 63
+match Request = { Method = ::GET, Path = "/", Version = ::HTTP-1-1 }, Header = { Name = "CONTENT-LENGTH", Value = "3" }, Body = 0x616263

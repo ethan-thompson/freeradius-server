@@ -1,0 +1,325 @@
+#
+#  Test vectors for HTTP encode/decode
+#
+proto http
+proto-dictionary http
+fuzzer-out http
+
+#
+#  ----------------------------------------------------------------
+#  Decode: requests
+#  ----------------------------------------------------------------
+
+#
+#  Minimal GET request with no headers or body.
+#
+#  GET / HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match Request = { Method = ::GET, Path = "/", Version = ::HTTP-1-1 }
+
+#
+#  Round-trip: encode the decoded result back to bytes.
+#
+encode-proto -
+match 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+
+#
+#  GET request with one header.
+#
+#  GET /path HTTP/1.1\r\n
+#  Host: example.com\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 70 61 74 68 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 65 78 61 6d 70 6c 65 2e 63 6f 6d 0d 0a 0d 0a
+match Request = { Method = ::GET, Path = "/path", Version = ::HTTP-1-1 }, Header = { Name = "Host", Value = "example.com" }
+
+encode-proto -
+match 47 45 54 20 2f 70 61 74 68 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 65 78 61 6d 70 6c 65 2e 63 6f 6d 0d 0a 0d 0a
+
+#
+#  GET using HTTP/1.0
+#
+#  GET / HTTP/1.0\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 30 0d 0a 0d 0a
+match Request = { Method = ::GET, Path = "/", Version = ::HTTP-1-0 }
+
+#
+#  HEAD request
+#
+#  HEAD /health HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 48 45 41 44 20 2f 68 65 61 6c 74 68 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match Request = { Method = ::HEAD, Path = "/health", Version = ::HTTP-1-1 }
+
+#
+#  POST request with Content-Type header and JSON body.
+#
+#  POST /acme/new-order HTTP/1.1\r\n
+#  Content-Type: application/jose+json\r\n
+#  \r\n
+#  {"hello":"world"}
+#
+decode-proto 50 4f 53 54 20 2f 61 63 6d 65 2f 6e 65 77 2d 6f 72 64 65 72 20 48 54 54 50 2f 31 2e 31 0d 0a 43 6f 6e 74 65 6e 74 2d 54 79 70 65 3a 20 61 70 70 6c 69 63 61 74 69 6f 6e 2f 6a 6f 73 65 2b 6a 73 6f 6e 0d 0a 0d 0a 7b 22 68 65 6c 6c 6f 22 3a 22 77 6f 72 6c 64 22 7d
+match Request = { Method = ::POST, Path = "/acme/new-order", Version = ::HTTP-1-1 }, Header = { Name = "Content-Type", Value = "application/jose+json" }, Body = 0x7b2268656c6c6f223a22776f726c64227d
+
+#
+#  GET request with multiple headers (round-trip).
+#
+#  GET /path HTTP/1.1\r\n
+#  Host: example.com\r\n
+#  Content-Type: application/json\r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 70 61 74 68 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 65 78 61 6d 70 6c 65 2e 63 6f 6d 0d 0a 43 6f 6e 74 65 6e 74 2d 54 79 70 65 3a 20 61 70 70 6c 69 63 61 74 69 6f 6e 2f 6a 73 6f 6e 0d 0a 0d 0a
+match Request = { Method = ::GET, Path = "/path", Version = ::HTTP-1-1 }, Header = { Name = "Host", Value = "example.com" }, Header = { Name = "Content-Type", Value = "application/json" }
+
+encode-proto -
+match 47 45 54 20 2f 70 61 74 68 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 65 78 61 6d 70 6c 65 2e 63 6f 6d 0d 0a 43 6f 6e 74 65 6e 74 2d 54 79 70 65 3a 20 61 70 70 6c 69 63 61 74 69 6f 6e 2f 6a 73 6f 6e 0d 0a 0d 0a
+
+#
+#  Header value whitespace stripping (RFC 9112 §5.1 OWS).
+#  Extra spaces around the header value must be stripped.
+#
+#  GET / HTTP/1.1\r\n
+#  Host:  example.com  \r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 48 6f 73 74 3a 20 20 65 78 61 6d 70 6c 65 2e 63 6f 6d 20 20 0d 0a 0d 0a
+match Request = { Method = ::GET, Path = "/", Version = ::HTTP-1-1 }, Header = { Name = "Host", Value = "example.com" }
+
+#
+#  Header with a whitespace-only value: OWS stripping produces an empty value.
+#
+#  GET / HTTP/1.1\r\n
+#  X-Empty:   \r\n
+#  \r\n
+#
+decode-proto 47 45 54 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 58 2d 45 6d 70 74 79 3a 20 20 20 0d 0a 0d 0a
+match Request = { Method = ::GET, Path = "/", Version = ::HTTP-1-1 }, Header = { Name = "X-Empty", Value = "" }
+
+#
+#  ----------------------------------------------------------------
+#  Encode: responses
+#  ----------------------------------------------------------------
+
+#
+#  Minimal 200 OK response with no headers or body.
+#
+#  HTTP/1.1 200 OK\r\n
+#  Content-Length: 0\r\n
+#  \r\n
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 200, Reason-Phrase = "OK" }
+match 48 54 54 50 2f 31 2e 31 20 32 30 30 20 4f 4b 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 30 0d 0a 0d 0a
+
+#
+#  200 OK response with Content-Type header and JSON body.
+#  Content-Length is auto-injected after the explicit headers.
+#
+#  HTTP/1.1 200 OK\r\n
+#  Content-Type: application/json\r\n
+#  Content-Length: 2\r\n
+#  \r\n
+#  {}
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 200, Reason-Phrase = "OK" }, Header = { Name = "Content-Type", Value = "application/json" }, Body = 0x7b7d
+match 48 54 54 50 2f 31 2e 31 20 32 30 30 20 4f 4b 0d 0a 43 6f 6e 74 65 6e 74 2d 54 79 70 65 3a 20 61 70 70 6c 69 63 61 74 69 6f 6e 2f 6a 73 6f 6e 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 32 0d 0a 0d 0a 7b 7d
+
+#
+#  200 OK response with multiple headers, no body.
+#  Content-Length: 0 is auto-injected after the explicit headers.
+#
+#  HTTP/1.1 200 OK\r\n
+#  Content-Type: application/json\r\n
+#  X-Custom: hello\r\n
+#  Content-Length: 0\r\n
+#  \r\n
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 200, Reason-Phrase = "OK" }, Header = { Name = "Content-Type", Value = "application/json" }, Header = { Name = "X-Custom", Value = "hello" }
+match 48 54 54 50 2f 31 2e 31 20 32 30 30 20 4f 4b 0d 0a 43 6f 6e 74 65 6e 74 2d 54 79 70 65 3a 20 61 70 70 6c 69 63 61 74 69 6f 6e 2f 6a 73 6f 6e 0d 0a 58 2d 43 75 73 74 6f 6d 3a 20 68 65 6c 6c 6f 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 30 0d 0a 0d 0a
+
+#
+#  404 Not Found response.
+#
+#  HTTP/1.1 404 Not Found\r\n
+#  Content-Length: 0\r\n
+#  \r\n
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 404, Reason-Phrase = "Not Found" }
+match 48 54 54 50 2f 31 2e 31 20 34 30 34 20 4e 6f 74 20 46 6f 75 6e 64 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 30 0d 0a 0d 0a
+
+#
+#  HTTP/1.0 200 OK response (version 0 in the enum).
+#
+#  HTTP/1.0 200 OK\r\n
+#  Content-Length: 0\r\n
+#  \r\n
+#
+encode-proto Response = { Version = HTTP-1-0, Status-Code = 200, Reason-Phrase = "OK" }
+match 48 54 54 50 2f 31 2e 30 20 32 30 30 20 4f 4b 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 30 0d 0a 0d 0a
+
+#
+#  201 Created response.
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 201, Reason-Phrase = "Created" }
+match 48 54 54 50 2f 31 2e 31 20 32 30 31 20 43 72 65 61 74 65 64 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 30 0d 0a 0d 0a
+
+#
+#  500 Internal Server Error response.
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 500, Reason-Phrase = "Internal Server Error" }
+match 48 54 54 50 2f 31 2e 31 20 35 30 30 20 49 6e 74 65 72 6e 61 6c 20 53 65 72 76 65 72 20 45 72 72 6f 72 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 30 0d 0a 0d 0a
+
+#
+#  ----------------------------------------------------------------
+#  1xx informational responses: no Content-Length, no body.
+#  ----------------------------------------------------------------
+
+#
+#  100 Continue — Content-Length MUST NOT be sent (RFC 9110 §8.2.1).
+#
+#  Expected: HTTP/1.1 100 Continue\r\n\r\n   (no Content-Length)
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 100, Reason-Phrase = "Continue" }
+match 48 54 54 50 2f 31 2e 31 20 31 30 30 20 43 6f 6e 74 69 6e 75 65 0d 0a 0d 0a
+
+#
+#  101 Switching Protocols — same rule, different 1xx code.
+#
+#  Expected: HTTP/1.1 101 Switching Protocols\r\n\r\n
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 101, Reason-Phrase = "Switching Protocols" }
+match 48 54 54 50 2f 31 2e 31 20 31 30 31 20 53 77 69 74 63 68 69 6e 67 20 50 72 6f 74 6f 63 6f 6c 73 0d 0a 0d 0a
+
+#
+#  ----------------------------------------------------------------
+#  Responses without Reason-Phrase: RFC 9112 §4 makes it optional.
+#  ----------------------------------------------------------------
+
+#
+#  Response with status code not in the auto-reason table (418 I'm a Teapot).
+#  Reason-Phrase is absent — encoder must NOT hard-fail.
+#  Produces: HTTP/1.1 418 \r\n  (SP before CRLF is required by the grammar)
+#  followed by Content-Length: 0 as usual.
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 418 }
+match 48 54 54 50 2f 31 2e 31 20 34 31 38 20 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 30 0d 0a 0d 0a
+
+#
+#  204 No Content response — body and Content-Length both suppressed.
+#
+#  RFC 9110 §8.6: "A server MUST NOT send a Content-Length header field
+#  in any response with a status code of 204 (No Content)."
+#
+#  Expected: HTTP/1.1 204 No Content\r\n\r\n   (no Content-Length, no body)
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 204, Reason-Phrase = "No Content" }
+match 48 54 54 50 2f 31 2e 31 20 32 30 34 20 4e 6f 20 43 6f 6e 74 65 6e 74 0d 0a 0d 0a
+
+#
+#  204 response where operator accidentally sets a body — body must be suppressed.
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 204, Reason-Phrase = "No Content" }, Body = 0x68656c6c6f
+match 48 54 54 50 2f 31 2e 31 20 32 30 34 20 4e 6f 20 43 6f 6e 74 65 6e 74 0d 0a 0d 0a
+
+#
+#  304 Not Modified response — body and Content-Length both suppressed.
+#
+#  RFC 9110 §15.4.5: "The server MUST NOT send a message body in a 304 response."
+#
+#  Expected: HTTP/1.1 304 Not Modified\r\n\r\n
+#
+encode-proto Response = { Version = HTTP-1-1, Status-Code = 304, Reason-Phrase = "Not Modified" }
+match 48 54 54 50 2f 31 2e 31 20 33 30 34 20 4e 6f 74 20 4d 6f 64 69 66 69 65 64 0d 0a 0d 0a
+
+#
+#  ----------------------------------------------------------------
+#  Decode: remaining request methods
+#  ----------------------------------------------------------------
+
+#
+#  PUT request.
+#
+#  PUT /resource HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 50 55 54 20 2f 72 65 73 6f 75 72 63 65 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match Request = { Method = ::PUT, Path = "/resource", Version = ::HTTP-1-1 }
+
+encode-proto -
+match 50 55 54 20 2f 72 65 73 6f 75 72 63 65 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+
+#
+#  DELETE request.
+#
+#  DELETE /resource HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 44 45 4c 45 54 45 20 2f 72 65 73 6f 75 72 63 65 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match Request = { Method = ::DELETE, Path = "/resource", Version = ::HTTP-1-1 }
+
+encode-proto -
+match 44 45 4c 45 54 45 20 2f 72 65 73 6f 75 72 63 65 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+
+#
+#  PATCH request.
+#
+#  PATCH /resource HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 50 41 54 43 48 20 2f 72 65 73 6f 75 72 63 65 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match Request = { Method = ::PATCH, Path = "/resource", Version = ::HTTP-1-1 }
+
+encode-proto -
+match 50 41 54 43 48 20 2f 72 65 73 6f 75 72 63 65 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+
+#
+#  OPTIONS request.
+#
+#  OPTIONS / HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 4f 50 54 49 4f 4e 53 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match Request = { Method = ::OPTIONS, Path = "/", Version = ::HTTP-1-1 }
+
+encode-proto -
+match 4f 50 54 49 4f 4e 53 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+
+#
+#  CONNECT request (used for proxy tunnelling).
+#
+#  CONNECT host:443 HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 43 4f 4e 4e 45 43 54 20 68 6f 73 74 3a 34 34 33 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match Request = { Method = ::CONNECT, Path = "host:443", Version = ::HTTP-1-1 }
+
+#
+#  TRACE request.
+#
+#  TRACE / HTTP/1.1\r\n
+#  \r\n
+#
+decode-proto 54 52 41 43 45 20 2f 20 48 54 54 50 2f 31 2e 31 0d 0a 0d 0a
+match Request = { Method = ::TRACE, Path = "/", Version = ::HTTP-1-1 }
+
+#
+#  POST with Content-Length header and a 4-byte body (round-trip).
+#  This also exercises the fr_http_length() framing path in the TCP
+#  transport: headers_end + content_length must equal the total message.
+#
+#  POST /submit HTTP/1.1\r\n
+#  Content-Length: 4\r\n
+#  \r\n
+#  test
+#
+decode-proto 50 4f 53 54 20 2f 73 75 62 6d 69 74 20 48 54 54 50 2f 31 2e 31 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 34 0d 0a 0d 0a 74 65 73 74
+match Request = { Method = ::POST, Path = "/submit", Version = ::HTTP-1-1 }, Header = { Name = "Content-Length", Value = "4" }, Body = 0x74657374
+
+encode-proto -
+match 50 4f 53 54 20 2f 73 75 62 6d 69 74 20 48 54 54 50 2f 31 2e 31 0d 0a 43 6f 6e 74 65 6e 74 2d 4c 65 6e 67 74 68 3a 20 34 0d 0a 0d 0a 74 65 73 74

@@ -1,0 +1,20 @@
+# -*- text -*-
+# Copyright (C) 2026 The FreeRADIUS Server project and contributors
+# This work is licensed under CC-BY version 4.0 https://creativecommons.org/licenses/by/4.0
+# Version $Id$
+#
+# Attributes for HTTP as defined by:
+#   RFC 9110 - HTTP Semantics
+#
+
+#
+#  HTTP header fields: repeated "Name: Value" lines
+#
+DEFINE	Header					struct
+MEMBER	Name    				string length=uint16
+MEMBER	Value   				string
+
+#
+#  HTTP body: raw octets following the blank line after headers
+#
+DEFINE	Body					octets

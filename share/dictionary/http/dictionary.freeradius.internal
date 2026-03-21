@@ -1,0 +1,37 @@
+# -*- text -*-
+# Copyright (C) 2026 The FreeRADIUS Server project and contributors
+# This work is licensed under CC-BY version 4.0 https://creativecommons.org/licenses/by/4.0
+# Version $Id$
+##############################################################################
+#
+# Internal FreeRADIUS HTTP dictionary.
+#
+##############################################################################
+
+#
+#  HTTP packet types are derived from the request method for incoming
+#  packets, and are method-specific response types for outgoing packets.
+#
+FLAGS	internal
+
+DEFINE	Packet-Type				uint32
+
+VALUE	Packet-Type		GET			1
+VALUE	Packet-Type		POST			2
+VALUE	Packet-Type		PUT			3
+VALUE	Packet-Type		DELETE			4
+VALUE	Packet-Type		PATCH			5
+VALUE	Packet-Type		HEAD			6
+VALUE	Packet-Type		OPTIONS			7
+VALUE	Packet-Type		CONNECT			8
+VALUE	Packet-Type		TRACE			9
+
+VALUE	Packet-Type		GET-Response		17
+VALUE	Packet-Type		POST-Response		18
+VALUE	Packet-Type		PUT-Response		19
+VALUE	Packet-Type		DELETE-Response		20
+VALUE	Packet-Type		PATCH-Response		21
+VALUE	Packet-Type		HEAD-Response		22
+VALUE	Packet-Type		OPTIONS-Response	23
+
+VALUE	Packet-Type		Do-Not-Respond		256

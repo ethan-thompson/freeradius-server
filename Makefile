@@ -105,6 +105,7 @@ PROTOCOLS    := \
 	eap/aka-sim \
 	ethernet \
 	freeradius \
+	http \
 	ldap \
 	radius \
 	snmp \
