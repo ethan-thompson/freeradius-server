@@ -972,6 +972,7 @@ fi
 %{_libdir}/freeradius/process_dhcpv4.so
 %{_libdir}/freeradius/process_dhcpv6.so
 %{_libdir}/freeradius/process_dns.so
+%{_libdir}/freeradius/process_http.so
 %{_libdir}/freeradius/process_eap_aka.so
 %{_libdir}/freeradius/process_eap_aka_prime.so
 %{_libdir}/freeradius/process_eap_sim.so
@@ -998,6 +999,8 @@ fi
 %{_libdir}/freeradius/proto_dhcpv6_udp.so
 %{_libdir}/freeradius/proto_dns.so
 %{_libdir}/freeradius/proto_dns_udp.so
+%{_libdir}/freeradius/proto_http.so
+%{_libdir}/freeradius/proto_http_tcp.so
 %{_libdir}/freeradius/proto_load.so
 %{_libdir}/freeradius/proto_load_step.so
 %{_libdir}/freeradius/proto_radius.so
@@ -1083,6 +1086,7 @@ fi
 %{_libdir}/freeradius/libfreeradius-eap-aka-sim.so
 %{_libdir}/freeradius/libfreeradius-eap.so
 %{_libdir}/freeradius/libfreeradius-ethernet.so
+%{_libdir}/freeradius/libfreeradius-http.so
 %{_libdir}/freeradius/libfreeradius-internal.so
 %{_libdir}/freeradius/libfreeradius-radius.so
 %{_libdir}/freeradius/libfreeradius-radius-bio.so
