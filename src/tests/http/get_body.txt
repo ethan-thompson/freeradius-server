@@ -1,0 +1,7 @@
+#
+#  Response includes a 5-byte body ("hello", 0x68656c6c6f).
+#  Body is captured to stdout followed by the HTTP status code,
+#  so the .out file contains both concatenated.
+#
+#  ARGV: -s -w %{http_code} http://localhost:PORT/body
+#
