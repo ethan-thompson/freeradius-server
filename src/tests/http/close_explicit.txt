@@ -1,0 +1,8 @@
+#
+#  A client explicitly asking to close (RFC 9110 §7.6.1) gets that
+#  request honoured even on HTTP/1.1, which otherwise defaults to
+#  keeping the connection open.
+#
+#  ARGV: -s -i -H "Connection: close" http://localhost:PORT/healthz
+#
+

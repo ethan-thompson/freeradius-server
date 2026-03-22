@@ -1,0 +1,11 @@
+#
+#  HTTP/1.0 requests default to close-after-response (RFC 9112 §9.3)
+#  unless the client explicitly asks to keep the connection alive.
+#  Confirm the server emits "Connection: close" for a bare HTTP/1.0
+#  request, and that it actually closes the socket rather than leaving
+#  the client waiting on the idle timeout (curl would hang here if it
+#  didn't - this is a regression test for that bug).
+#
+#  ARGV: -s --http1.0 -i http://localhost:PORT/healthz
+#
+

@@ -1,0 +1,6 @@
+#
+#  Operator sets Status-Code := 410 then returns notfound.
+#  The auto-status (404) must not overwrite the operator's explicit value.
+#
+#  ARGV: -s -o /dev/null -w %{http_code} http://localhost:PORT/custom-error
+#

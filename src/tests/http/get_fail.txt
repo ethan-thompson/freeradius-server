@@ -1,0 +1,3 @@
+#
+#  ARGV: -s -o /dev/null -w %{http_code} http://localhost:PORT/fail
+#

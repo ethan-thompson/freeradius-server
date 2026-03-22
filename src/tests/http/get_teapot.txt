@@ -1,0 +1,8 @@
+#
+#  GET /teapot sets Status-Code := 418 without providing a Reason-Phrase.
+#  The encoder must not hard-fail; it should send the response with an
+#  empty reason phrase: "HTTP/1.1 418 \r\n" (RFC 9112 §4: reason-phrase
+#  is optional).
+#
+#  ARGV: -s -o /dev/null -w %{http_code} --max-time 5 http://localhost:PORT/teapot
+#

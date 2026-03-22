@@ -1,0 +1,11 @@
+#
+#  RFC 9110 §9.3.2: a HEAD response MUST NOT include a message body,
+#  even when the server policy sets a Body pair (as it would for GET).
+#  The encoder must suppress body bytes when the request method is HEAD.
+#
+#  Before the fix the encoder writes "hello" to the wire, so the
+#  output is "hello200".  After the fix only the status code appears.
+#
+#  ARGV: -s -w %{http_code} -X HEAD http://localhost:PORT/body
+#
+
