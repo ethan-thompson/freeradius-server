@@ -1,0 +1,8 @@
+#
+#  Regression guard: a plain HTTP/1.1 request with no explicit
+#  Connection header must NOT get "Connection: close" - HTTP/1.1
+#  defaults to keeping the connection open.
+#
+#  ARGV: -s -i http://localhost:PORT/healthz
+#
+

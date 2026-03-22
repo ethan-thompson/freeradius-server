@@ -1,0 +1,3 @@
+#
+#  ARGV: -s -o /dev/null -w %{http_code} -X PATCH -d "" http://localhost:PORT/resource
+#

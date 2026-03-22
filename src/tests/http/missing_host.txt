@@ -1,0 +1,19 @@
+#
+#  RFC 9112 §3.2: "A server MUST respond with a 400 (Bad Request) status
+#  code to any HTTP/1.1 request message that lacks a Host header field
+#  and to any request message that contains more than one Host header
+#  field line or a Host header field with an invalid field value."
+#
+#  This is caught by fr_http_length() in the TCP transport, before the
+#  message is ever handed to a worker, so the connection gets a real
+#  "400 Bad Request" response rather than being silently dropped.
+#
+#  Request (raw bytes):
+#    GET / HTTP/1.1\r\n
+#    \r\n
+#    (no Host header at all)
+#
+#  Expected: 400
+#
+#  CMD: bash -c "exec 3<>/dev/tcp/127.0.0.1/PORT; printf '\x47\x45\x54\x20\x2f\x20\x48\x54\x54\x50\x2f\x31\x2e\x31\x0d\x0a\x0d\x0a' >&3; head -1 <&3; exec 3>&-" | cut -d' ' -f2 | tr -d '\r\n'
+#

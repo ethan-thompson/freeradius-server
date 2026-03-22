@@ -1,0 +1,21 @@
+#
+#  RFC 9112 §5.1: "No whitespace is allowed between the field name and
+#  colon.  In the past, differences in the handling of such whitespace have
+#  led to security vulnerabilities in request routing and response
+#  handling.  A server MUST reject, with a response status code of 400
+#  (Bad Request), any received request message that contains whitespace
+#  between a header field name and colon."
+#
+#  This is caught by fr_http_length() in the TCP transport, before the
+#  message is ever handed to a worker, so the connection gets a real
+#  "400 Bad Request" response rather than being silently dropped.
+#
+#  Request (raw bytes):
+#    GET / HTTP/1.1\r\n
+#    X-Foo : bar\r\n
+#    \r\n
+#
+#  Expected: 400
+#
+#  CMD: bash -c "exec 3<>/dev/tcp/127.0.0.1/PORT; printf '\x47\x45\x54\x20\x2f\x20\x48\x54\x54\x50\x2f\x31\x2e\x31\x0d\x0a\x58\x2d\x46\x6f\x6f\x20\x3a\x20\x62\x61\x72\x0d\x0a\x0d\x0a' >&3; head -1 <&3; exec 3>&-" | cut -d' ' -f2 | tr -d '\r\n'
+#

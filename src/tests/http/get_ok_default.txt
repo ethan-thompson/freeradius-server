@@ -1,0 +1,6 @@
+#
+#  GET /ok-default returns ok without any explicit Status-Code set.
+#  The process layer should auto-default to 200 OK.
+#
+#  ARGV: -s -o /dev/null -w %{http_code} http://localhost:PORT/ok-default
+#
