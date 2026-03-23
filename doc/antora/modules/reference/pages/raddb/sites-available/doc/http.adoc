@@ -1,0 +1,11 @@
+= HTTP
+
+Hypertext Transfer Protocol (HTTP) is the foundation of data
+communication on the Web.  FreeRADIUS implements an HTTP/1.1 server,
+allowing it to accept and respond to HTTP requests over TCP.
+
+This is intended as a building block for protocols layered on HTTP,
+such as ACME (RFC 8555) or custom REST APIs for network management.
+
+// Copyright (C) 2026 Network RADIUS SAS.  Licenced under CC-by-NC 4.0.
+// This documentation was developed by Network RADIUS SAS.

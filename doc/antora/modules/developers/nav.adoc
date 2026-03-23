@@ -29,6 +29,7 @@
 *** xref:rfc/dhcpv4.adoc[DHCPv4]
 *** xref:rfc/dhcpv6.adoc[DHCPv6]
 *** xref:rfc/dns.adoc[DNS]
+*** xref:rfc/http.adoc[HTTP]
 *** xref:rfc/tacacs.adoc[TACACS+]
 ** xref:guidelines.adoc[Documentation Guidelines]
 

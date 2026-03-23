@@ -260,6 +260,8 @@
 **** xref:raddb/sites-available/dhcpv6.adoc[Virtual Server]
 *** xref:raddb/sites-available/doc/dns.adoc[DNS]
 **** xref:raddb/sites-available/dns.adoc[Virtual Server]
+*** xref:raddb/sites-available/doc/http.adoc[HTTP]
+**** xref:raddb/sites-available/http.adoc[Virtual Server]
 *** xref:raddb/sites-available/ldap_sync.adoc[LDAP Sync]
 *** xref:raddb/sites-available/doc/radius.adoc[RADIUS]
 **** xref:raddb/sites-available/default.adoc[Default]
