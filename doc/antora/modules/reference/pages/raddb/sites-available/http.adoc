@@ -1,0 +1,288 @@
+= The HTTP Virtual Server
+
+The `http` virtual server implements an HTTP/1.1 server, allowing
+FreeRADIUS to accept and respond to HTTP requests over TCP.
+
+This is intended as a building block for protocols layered on HTTP,
+such as ACME (RFC 8555) or custom REST APIs for network management.
+
+== Processing flow
+
+For each incoming request the server runs:
+
+1. A `recv <METHOD> { ... }` section that matches the HTTP method.
+   This is where routing and response formulation happen.
+
+2. A `send <METHOD>-Response { ... }` section that runs just before
+   the response is serialised to the wire.  This is a good place to
+   inject headers that should appear on every response of that type.
+
+== Automatic rcode-to-status mapping
+
+When a `recv` section returns without explicitly setting
+`&reply.HTTP.Response.Status-Code`, the process layer automatically
+derives a status code from the rlm_rcode:
+
+[options=header,cols="30,~",autowidth]
+|====
+|rcode            |HTTP status
+|ok / noop / updated  |200 OK
+|reject / disallow    |403 Forbidden
+|fail                 |500 Internal Server Error
+|notfound             |404 Not Found
+|invalid              |400 Bad Request
+|timeout              |503 Service Unavailable
+|handled              |(none — operator must set `Status-Code` explicitly)
+|====
+
+To override any of these, set `&reply.HTTP.Response.Status-Code`
+before returning from the section.
+
+== Response body
+
+Set `&reply.HTTP.Body` to include a response body.  The
+`Content-Length` header is injected automatically by the encoder;
+do not set it manually.
+
+== The Virtual Server
+
+```
+server http {
+```
+
+namespace:: Must be `http` for HTTP/1.1 functionality.
+
+```
+	namespace = http
+
+	listen {
+```
+
+type:: Which HTTP methods this listener accepts.
+
+Requests for methods not listed here are silently ignored by the
+listener.  List only the methods your server needs to handle.
+
+```
+		type = GET
+		type = POST
+		type = PUT
+		type = DELETE
+		type = PATCH
+		type = HEAD
+		type = OPTIONS
+
+```
+
+transport:: The underlying transport.  Only `tcp` is supported at this time.
+
+```
+		transport = tcp
+
+		tcp {
+```
+
+ipaddr:: IP address to listen on.  Use `*` to accept connections on all interfaces.
+
+```
+			ipaddr = *
+
+```
+
+port:: TCP port to listen on.
+
+The IANA-assigned well-known port for HTTP is 80.  Ports below 1024
+require elevated privileges on most operating systems.  For
+development and testing, consider using port 8080 or another
+unprivileged port.
+
+```
+			port = 80
+		}
+	}
+
+```
+
+=== recv GET
+
+Process incoming GET requests.
+
+Route by path using `&HTTP.Request.Path`.  Set `&reply.HTTP.Body`
+to include a response body.  The encoder automatically adds a
+`Content-Length` header.
+
+Returning `ok` without setting a status code produces `200 OK`.
+Returning `notfound` produces `404 Not Found`.
+
+```
+recv GET {
+	if (&HTTP.Request.Path == '/healthz') {
+		ok
+	}
+	elsif (&HTTP.Request.Path =~ /^\/api\//) {
+		&reply.HTTP.Body := '{"status":"ok"}'
+		ok
+	}
+	else {
+		notfound
+	}
+}
+
+```
+
+=== send GET-Response
+
+Runs immediately before the GET response is serialised to the wire.
+
+Use this section to add headers that should appear on every GET
+response (e.g. cache control, CORS headers).
+
+```
+send GET-Response {
+}
+
+```
+
+=== recv POST
+
+Process incoming POST requests.
+
+The request body (if any) is available as `&HTTP.Body` (type
+octets).  Request headers are available as `&HTTP.Header` struct
+pairs with `Name` and `Value` members.
+
+By convention, successful resource creation should return `201
+Created`.  Set the status code explicitly — there is no automatic
+mapping for 201.
+
+```
+recv POST {
+	&reply.HTTP.Response.Status-Code := 201
+	&reply.HTTP.Response.Reason-Phrase := "Created"
+	ok
+}
+
+send POST-Response {
+}
+
+```
+
+=== recv PUT
+
+Process incoming PUT requests (full resource replacement).
+
+Returning `ok` auto-maps to `200 OK`.  Return `notfound` if the
+target resource does not exist.
+
+```
+recv PUT {
+	ok
+}
+
+send PUT-Response {
+}
+
+```
+
+=== recv DELETE
+
+Process incoming DELETE requests.
+
+RFC 9110 recommends `204 No Content` when the deletion succeeds
+and there is no response body to return.  The encoder suppresses
+any Body pair for 204 responses automatically.
+
+```
+recv DELETE {
+	&reply.HTTP.Response.Status-Code := 204
+	&reply.HTTP.Response.Reason-Phrase := "No Content"
+	ok
+}
+
+send DELETE-Response {
+}
+
+```
+
+=== recv PATCH
+
+Process incoming PATCH requests (partial resource update).
+
+```
+recv PATCH {
+	ok
+}
+
+send PATCH-Response {
+}
+
+```
+
+=== recv HEAD
+
+Process incoming HEAD requests.
+
+HEAD is semantically identical to GET, but the encoder automatically
+suppresses the response body — only the headers are sent.  Your
+routing logic here should mirror your `recv GET` section so that the
+status code and headers are consistent.
+
+```
+recv HEAD {
+	if (&HTTP.Request.Path == '/healthz') {
+		ok
+	}
+	else {
+		notfound
+	}
+}
+
+send HEAD-Response {
+}
+
+```
+
+=== recv OPTIONS
+
+Process incoming OPTIONS requests.
+
+OPTIONS is used for CORS pre-flight requests and for capability
+discovery.  A minimal implementation returns `200 OK`.  Set
+`Allow` and CORS headers in the corresponding `send` section.
+
+```
+recv OPTIONS {
+	ok
+}
+
+send OPTIONS-Response {
+}
+
+```
+
+=== send Do-Not-Respond
+
+This section runs when no response is sent to the client.
+
+This happens when:
+
+* `&reply.Packet-Type := Do-Not-Respond` is set explicitly, or
+* CONNECT or TRACE requests are received (no response type is
+  defined for those methods yet).
+
+No data is written to the wire.  Use this section for logging
+or accounting only.
+
+```
+send Do-Not-Respond {
+}
+}
+```
+
+== Default Configuration
+
+```
+```
+
+// Copyright (C) 2026 Network RADIUS SAS.  Licenced under CC-by-NC 4.0.
+// This documentation was developed by Network RADIUS SAS.
