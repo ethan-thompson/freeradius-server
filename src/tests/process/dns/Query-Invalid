@@ -1,0 +1,15 @@
+subrequest @DNS::Query {
+	#
+	#  ID=5 routes to invalid, which must map to Format-Error.
+	#
+	Header = {
+		ID = 5
+		Opcode = ::Query
+	}
+
+	call dns {
+		if (reply.Header.Rcode != ::Format-Error) {
+			test_fail
+		}
+	}
+}

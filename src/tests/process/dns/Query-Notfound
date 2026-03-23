@@ -1,0 +1,15 @@
+subrequest @DNS::Query {
+	#
+	#  ID=2 routes to notfound, which must map to Name-Error.
+	#
+	Header = {
+		ID = 2
+		Opcode = ::Query
+	}
+
+	call dns {
+		if (reply.Header.Rcode != ::Name-Error) {
+			test_fail
+		}
+	}
+}

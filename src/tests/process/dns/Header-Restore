@@ -1,0 +1,35 @@
+subrequest @DNS::Query {
+	#
+	#  Verify that the process layer copies ID and Opcode from the
+	#  request into the reply, and sets the QR and Authoritative bits.
+	#
+	#  ID=9999 is deliberately unusual to confirm the copy, not a
+	#  coincidental default value.
+	#
+	Header = {
+		ID = 9999
+		Opcode = ::Query
+	}
+
+	call dns {
+		#  ID must be the request's ID, not some default.
+		if (reply.Header.ID != 9999) {
+			test_fail
+		}
+
+		#  QR bit must be flipped to Response by dns_fields_restore().
+		if (reply.Header.Query != ::Response) {
+			test_fail
+		}
+
+		#  Opcode must be echoed back from the request.
+		if (reply.Header.Opcode != ::Query) {
+			test_fail
+		}
+
+		#  Authoritative must default to yes when not set by the user.
+		if (reply.Header.Authoritative != yes) {
+			test_fail
+		}
+	}
+}

@@ -1,0 +1,15 @@
+subrequest @DNS::Query {
+	#
+	#  ID=4 routes to fail, which must map to Server-Failure.
+	#
+	Header = {
+		ID = 4
+		Opcode = ::Query
+	}
+
+	call dns {
+		if (reply.Header.Rcode != ::Server-Failure) {
+			test_fail
+		}
+	}
+}

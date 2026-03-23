@@ -1,0 +1,15 @@
+subrequest @DNS::Query {
+	#
+	#  ID=3 routes to reject, which must map to Refused.
+	#
+	Header = {
+		ID = 3
+		Opcode = ::Query
+	}
+
+	call dns {
+		if (reply.Header.Rcode != ::Refused) {
+			test_fail
+		}
+	}
+}

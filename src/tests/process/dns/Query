@@ -1,0 +1,26 @@
+subrequest @DNS::Query {
+	#
+	#  Minimal DNS query: ID=1 routes to ok -> No-Error.
+	#
+	Header = {
+		ID = 1
+		Opcode = ::Query
+	}
+
+	call dns {
+		#  rcode must be No-Error for an ok return.
+		if (reply.Header.Rcode != ::No-Error) {
+			test_fail
+		}
+
+		#  QR bit must be flipped to Response.
+		if (reply.Header.Query != ::Response) {
+			test_fail
+		}
+
+		#  ID must be echoed back from the request.
+		if (reply.Header.ID != 1) {
+			test_fail
+		}
+	}
+}
