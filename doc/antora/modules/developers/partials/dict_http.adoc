@@ -1,0 +1,10 @@
+[options=header,cols="20,~",autowidth]
+|====
+
+|RFC    |Description
+
+|https://datatracker.ietf.org/doc/html/rfc9110[RFC 9110] | HTTP Semantics
+
+|https://datatracker.ietf.org/doc/html/rfc9112[RFC 9112] | HTTP/1.1
+
+|====
