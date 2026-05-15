@@ -805,11 +805,17 @@ static ssize_t fr_der_decode_sequence(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_d
 
 					/*
 					 *	Save the option and class, so that we can encode it later.
+					 *
+					 *	Infer der_type from the constructed bit: constructed tags
+					 *	are decoded as sequences, primitive tags as octet strings.
 					 */
 					child_flags = fr_dict_attr_ext(child, FR_DICT_ATTR_EXT_PROTOCOL_SPECIFIC);
 					child_flags->is_option = true;
 					child_flags->option = current_tag;
 					child_flags->class = tag_byte & DER_TAG_CLASS_MASK;
+					child_flags->der_type = (tag_byte & DER_TAG_CONSTRUCTED_MASK)
+								? FR_DER_TAG_SEQUENCE
+								: FR_DER_TAG_OCTETSTRING;
 				}
 
 			} else if (unlikely(current_tag != flags->sequence_of)) {
@@ -1944,8 +1950,14 @@ static ssize_t fr_der_decode_hdr(fr_dict_attr_t const *parent, fr_dbuff_t *in, u
 				return -1;
 			}
 		}
-		fr_assert(flags->der_type != FR_DER_TAG_INVALID);
-		fr_assert(flags->der_type < NUM_ELEMENTS(tag_funcs));
+		if (unlikely(flags->der_type == FR_DER_TAG_INVALID)) {
+			fr_strerror_printf_push("No DER type defined for attribute %s", parent->name);
+			return -1;
+		}
+		if (unlikely(flags->der_type >= NUM_ELEMENTS(tag_funcs))) {
+			fr_strerror_printf_push("DER type %u out of range for attribute %s", flags->der_type, parent->name);
+			return -1;
+		}
 		break;
 	}
 
@@ -2688,10 +2700,11 @@ static ssize_t fr_der_decode_proto(TALLOC_CTX *ctx, fr_pair_list_t *out, uint8_t
 				   void *proto_ctx)
 {
 	fr_dbuff_t our_in = FR_DBUFF_TMP(data, data_len);
+	fr_der_decode_ctx_t *decode_ctx = proto_ctx;
 
-	fr_dict_attr_t const *parent = fr_dict_root(dict_der);
+	fr_dict_attr_t const *parent = (decode_ctx && decode_ctx->root_da) ? decode_ctx->root_da : fr_dict_root(dict_der);
 
-	if (unlikely(parent == fr_dict_root(dict_der))) {
+	if (unlikely(parent == NULL)) {
 		fr_strerror_printf_push("Invalid dictionary. DER decoding requires a specific dictionary.");
 		return -1;
 	}
@@ -2727,7 +2740,7 @@ static ssize_t decode_pair(TALLOC_CTX *ctx, fr_pair_list_t *out, fr_dict_attr_t 
  *	Test points
  */
 static int decode_test_ctx(void **out, TALLOC_CTX *ctx, UNUSED fr_dict_t const *dict,
-			   UNUSED fr_dict_attr_t const *root_da)
+			fr_dict_attr_t const *root_da)
 {
 	fr_der_decode_ctx_t *test_ctx;
 
@@ -2735,6 +2748,7 @@ static int decode_test_ctx(void **out, TALLOC_CTX *ctx, UNUSED fr_dict_t const *
 	if (!test_ctx) return -1;
 
 	test_ctx->tmp_ctx	  = talloc_new(test_ctx);
+	test_ctx->root_da	  = root_da ? root_da : fr_dict_attr_by_name(NULL, fr_dict_root(dict_der), "Certificate");
 
 	*out = test_ctx;
 
